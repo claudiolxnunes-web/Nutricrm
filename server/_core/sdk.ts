@@ -32,8 +32,8 @@ class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
     console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
     if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
+      console.warn(
+        "[OAuth] WARNING: OAUTH_SERVER_URL is not configured. Running in standalone mode."
       );
     }
   }
@@ -235,6 +235,17 @@ class SDKServer {
   async getUserInfoWithJwt(
     jwtToken: string
   ): Promise<GetUserInfoWithJwtResponse> {
+    if (!ENV.oAuthServerUrl) {
+      // Standalone mode: verify JWT locally
+      try {
+        const secretKey = new TextEncoder().encode(ENV.cookieSecret);
+        const { payload } = await import("jose").then(m => m.jwtVerify(jwtToken, secretKey));
+        return { openId: payload.openId as string, name: payload.name as string, email: null, loginMethod: "email", platform: "email" } as any;
+      } catch {
+        throw new Error("Invalid token");
+      }
+    }
+
     const payload: GetUserInfoWithJwtRequest = {
       jwtToken,
       projectId: ENV.appId,

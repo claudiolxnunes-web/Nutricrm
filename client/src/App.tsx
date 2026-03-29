@@ -12,10 +12,12 @@ import Products from "./pages/Products";
 import Quotes from "./pages/Quotes";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
+import Login from "@/pages/Login";
 
 function Router() {
   return (
     <Switch>
+      <Route path={"/login"} component={Login} />
       <Route path={"/"} component={Home} />
       <Route path={"/dashboard"}>
         {() => (
