@@ -1,5 +1,5 @@
 ﻿import { eq, and, like, desc, asc, gte, lte, inArray, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
 import {
   InsertUser,
   users,

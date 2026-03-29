@@ -1,29 +1,28 @@
 import {
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  pgTable,
   text,
   timestamp,
   varchar,
   decimal,
   boolean,
-  datetime,
   index,
-} from "drizzle-orm/mysql-core";
+  serial,
+} from "drizzle-orm/pg-core";
 
 /**
  * Core user table backing auth flow.
  * Extended with role-based access control for CRM.
  */
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "vendedor"]).default("vendedor").notNull(),
+  role: text("role").default("vendedor").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
@@ -33,27 +32,27 @@ export type InsertUser = typeof users.$inferInsert;
 /**
  * Clientes - Produtores rurais, revendedores, distribuidores e outros
  */
-export const clients = mysqlTable(
+export const clients = pgTable(
   "clients",
   {
-    id: int("id").autoincrement().primaryKey(),
+    id: serial("id").primaryKey(),
     clientType: varchar("clientType", { length: 50 }).default("fazenda").notNull(),
     farmName: varchar("farmName", { length: 255 }).notNull(),
     producerName: varchar("producerName", { length: 255 }).notNull(),
     email: varchar("email", { length: 320 }),
     phone: varchar("phone", { length: 20 }),
     whatsapp: varchar("whatsapp", { length: 20 }),
-    animalType: mysqlEnum("animalType", ["bovinos", "suinos", "aves", "equinos", "outros"]).notNull(),
-    animalQuantity: int("animalQuantity").default(0),
+    animalType: text("animalType").notNull(),
+    animalQuantity: integer("animalQuantity").default(0),
     address: text("address"),
     city: varchar("city", { length: 100 }),
     state: varchar("state", { length: 2 }),
     zipCode: varchar("zipCode", { length: 10 }),
     notes: text("notes"),
-    status: mysqlEnum("status", ["ativo", "inativo", "prospect"]).default("prospect").notNull(),
-    createdBy: int("createdBy").notNull(),
+    status: text("status").default("prospect").notNull(),
+    createdBy: integer("createdBy").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (table) => ({
     createdByIdx: index("createdByIdx").on(table.createdBy),
@@ -69,19 +68,19 @@ export type InsertClient = typeof clients.$inferInsert;
 /**
  * Produtos de Nutrição Animal
  */
-export const products = mysqlTable(
+export const products = pgTable(
   "products",
   {
-    id: int("id").autoincrement().primaryKey(),
+    id: serial("id").primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     category: varchar("category", { length: 100 }).notNull(),
     description: text("description"),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-    stock: int("stock").default(0),
+    stock: integer("stock").default(0),
     unit: varchar("unit", { length: 50 }).default("kg"),
     active: boolean("active").default(true),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (table) => ({
     categoryIdx: index("categoryIdx").on(table.category),
@@ -95,30 +94,23 @@ export type InsertProduct = typeof products.$inferInsert;
 /**
  * Oportunidades de Vendas (Funil Kanban)
  */
-export const opportunities = mysqlTable(
+export const opportunities = pgTable(
   "opportunities",
   {
-    id: int("id").autoincrement().primaryKey(),
-    clientId: int("clientId").notNull(),
+    id: serial("id").primaryKey(),
+    clientId: integer("clientId").notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
-    stage: mysqlEnum("stage", [
-      "prospeccao",
-      "visita_tecnica",
-      "orcamento_enviado",
-      "negociacao",
-      "venda_concluida",
-      "perdida",
-    ])
+    stage: text("stage")
       .default("prospeccao")
       .notNull(),
     value: decimal("value", { precision: 12, scale: 2 }),
-    probability: int("probability").default(0), // 0-100
-    expectedCloseDate: datetime("expectedCloseDate"),
-    closedDate: datetime("closedDate"),
-    assignedTo: int("assignedTo").notNull(),
+    probability: integer("probability").default(0), // 0-100
+    expectedCloseDate: timestamp("expectedCloseDate"),
+    closedDate: timestamp("closedDate"),
+    assignedTo: integer("assignedTo").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (table) => ({
     clientIdIdx: index("clientIdIdx").on(table.clientId),
@@ -133,23 +125,23 @@ export type InsertOpportunity = typeof opportunities.$inferInsert;
 /**
  * Orçamentos
  */
-export const quotes = mysqlTable(
+export const quotes = pgTable(
   "quotes",
   {
-    id: int("id").autoincrement().primaryKey(),
-    opportunityId: int("opportunityId"),
-    clientId: int("clientId").notNull(),
+    id: serial("id").primaryKey(),
+    opportunityId: integer("opportunityId"),
+    clientId: integer("clientId").notNull(),
     quoteNumber: varchar("quoteNumber", { length: 50 }).notNull().unique(),
-    status: mysqlEnum("status", ["rascunho", "enviado", "aceito", "rejeitado", "expirado"]).default("rascunho").notNull(),
+    status: text("status").default("rascunho").notNull(),
     totalValue: decimal("totalValue", { precision: 12, scale: 2 }).default("0"),
     discount: decimal("discount", { precision: 10, scale: 2 }).default("0"),
     finalValue: decimal("finalValue", { precision: 12, scale: 2 }).default("0"),
-    validityDays: int("validityDays").default(30),
+    validityDays: integer("validityDays").default(30),
     notes: text("notes"),
-    createdBy: int("createdBy").notNull(),
-    sentAt: datetime("sentAt"),
+    createdBy: integer("createdBy").notNull(),
+    sentAt: timestamp("sentAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (table) => ({
     clientIdIdx: index("clientIdIdx").on(table.clientId),
@@ -164,12 +156,12 @@ export type InsertQuote = typeof quotes.$inferInsert;
 /**
  * Itens de Orçamento
  */
-export const quoteItems = mysqlTable(
+export const quoteItems = pgTable(
   "quoteItems",
   {
-    id: int("id").autoincrement().primaryKey(),
-    quoteId: int("quoteId").notNull(),
-    productId: int("productId").notNull(),
+    id: serial("id").primaryKey(),
+    quoteId: integer("quoteId").notNull(),
+    productId: integer("productId").notNull(),
     quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
     unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }).notNull(),
     totalPrice: decimal("totalPrice", { precision: 12, scale: 2 }).notNull(),
@@ -187,20 +179,20 @@ export type InsertQuoteItem = typeof quoteItems.$inferInsert;
 /**
  * Interações com Clientes (Visitas, Ligações, E-mails, Notas)
  */
-export const interactions = mysqlTable(
+export const interactions = pgTable(
   "interactions",
   {
-    id: int("id").autoincrement().primaryKey(),
-    clientId: int("clientId").notNull(),
-    opportunityId: int("opportunityId"),
-    type: mysqlEnum("type", ["visita", "ligacao", "email", "nota", "reuniao"]).notNull(),
+    id: serial("id").primaryKey(),
+    clientId: integer("clientId").notNull(),
+    opportunityId: integer("opportunityId"),
+    type: text("type").notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
-    date: datetime("date").notNull(),
-    duration: int("duration"), // em minutos
+    date: timestamp("date").notNull(),
+    duration: integer("duration"), // em minutos
     result: text("result") as any,
     nextAction: text("nextAction") as any,
-    createdBy: int("createdBy").notNull(),
+    createdBy: integer("createdBy").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   (table) => ({
@@ -217,22 +209,22 @@ export type InsertInteraction = typeof interactions.$inferInsert;
 /**
  * Vendas Concluídas
  */
-export const sales = mysqlTable(
+export const sales = pgTable(
   "sales",
   {
-    id: int("id").autoincrement().primaryKey(),
-    opportunityId: int("opportunityId"),
-    clientId: int("clientId").notNull(),
-    quoteId: int("quoteId"),
+    id: serial("id").primaryKey(),
+    opportunityId: integer("opportunityId"),
+    clientId: integer("clientId").notNull(),
+    quoteId: integer("quoteId"),
     saleNumber: varchar("saleNumber", { length: 50 }).notNull().unique(),
     totalValue: decimal("totalValue", { precision: 12, scale: 2 }).notNull(),
-    paymentStatus: mysqlEnum("paymentStatus", ["pendente", "parcial", "pago"]).default("pendente").notNull(),
-    saleDate: datetime("saleDate").notNull(),
-    deliveryDate: datetime("deliveryDate"),
+    paymentStatus: text("paymentStatus").default("pendente").notNull(),
+    saleDate: timestamp("saleDate").notNull(),
+    deliveryDate: timestamp("deliveryDate"),
     notes: text("notes"),
-    createdBy: int("createdBy").notNull(),
+    createdBy: integer("createdBy").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (table) => ({
     clientIdIdx: index("clientIdIdx").on(table.clientId),
