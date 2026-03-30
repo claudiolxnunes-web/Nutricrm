@@ -39,10 +39,12 @@ export function getSessionCookieOptions(
   //       ? hostname
   //       : undefined;
 
+  const prod = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    sameSite: prod ? "none" : "lax",
+    secure: prod ? true : isSecureRequest(req),
   };
 }
+
