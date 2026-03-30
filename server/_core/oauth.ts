@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+﻿import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
@@ -53,7 +53,11 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
       const passwordHash = hashPassword(password);
+      // First user registered becomes admin
+      const allUsers = await db.listUsers();
+      const isFirstUser = allUsers.length === 0;
       const user = await db.createUserWithPassword({ name, email, passwordHash });
+      if (isFirstUser) await db.updateUserRole(user.id, "admin");
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name || "",
         expiresInMs: ONE_YEAR_MS,
@@ -67,3 +71,4 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 }
+
