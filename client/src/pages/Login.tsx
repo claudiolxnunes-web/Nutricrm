@@ -22,7 +22,7 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      window.location.href = "/";
+      window.location.href = "/dashboard";
     } catch (err: any) {
       toast.error(err.message || "Erro ao fazer login");
     } finally {
@@ -41,7 +41,7 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      window.location.href = "/";
+      window.location.href = "/dashboard";
     } catch (err: any) {
       toast.error(err.message || "Erro ao criar conta");
     } finally {
@@ -106,3 +106,4 @@ export default function Login() {
     </div>
   );
 }
+
