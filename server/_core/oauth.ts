@@ -13,18 +13,18 @@ export function registerOAuthRoutes(app: Express) {
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     const { email, password } = req.body;
     if (!email || !password) {
-      res.status(400).json({ error: "Email e senha são obrigatórios" });
+      res.status(400).json({ error: "Email e senha sao obrigatorios" });
       return;
     }
     try {
       const user = await db.getUserByEmail(email);
       if (!user || !user.passwordHash) {
-        res.status(401).json({ error: "Email ou senha inválidos" });
+        res.status(401).json({ error: "Email ou senha invalidos" });
         return;
       }
       const hash = hashPassword(password);
       if (hash !== user.passwordHash) {
-        res.status(401).json({ error: "Email ou senha inválidos" });
+        res.status(401).json({ error: "Email ou senha invalidos" });
         return;
       }
       const sessionToken = await sdk.createSessionToken(user.openId, {
@@ -43,13 +43,13 @@ export function registerOAuthRoutes(app: Express) {
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
-      res.status(400).json({ error: "Nome, email e senha são obrigatórios" });
+      res.status(400).json({ error: "Nome, email e senha sao obrigatorios" });
       return;
     }
     try {
       const existing = await db.getUserByEmail(email);
       if (existing) {
-        res.status(409).json({ error: "Email já cadastrado" });
+        res.status(409).json({ error: "Email ja cadastrado" });
         return;
       }
       const passwordHash = hashPassword(password);
