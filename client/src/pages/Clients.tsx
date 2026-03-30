@@ -1,18 +1,12 @@
-import { useState, useRef } from "react";
+﻿import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Phone, Mail, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -23,8 +17,8 @@ const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
   fazenda: "Fazenda / Produtor Rural",
   revendedor: "Revendedor",
   distribuidor: "Distribuidor",
-  agroindustria: "Agroindústria",
-  fabrica_racoes: "Fábrica de Rações",
+  agroindustria: "Agroindustria",
+  fabrica_racoes: "Fabrica de Racoes",
 };
 
 const CLIENT_TYPE_COLORS: Record<ClientType, string> = {
@@ -35,8 +29,58 @@ const CLIENT_TYPE_COLORS: Record<ClientType, string> = {
   fabrica_racoes: "bg-amber-100 text-amber-800",
 };
 
+const ACTIVITY_CATEGORIES: Record<string, { label: string; subtypes: Record<string, string> }> = {
+  aves: {
+    label: "Avicultura",
+    subtypes: {
+      granja_aves_corte: "Granja de Aves de Corte",
+      granja_aves_postura: "Granja de Aves de Postura",
+    },
+  },
+  suinocultura: {
+    label: "Suinocultura",
+    subtypes: {
+      suinocultura_ciclo_completo: "Ciclo Completo",
+      suinocultura_leitoes: "Produtor de Leitoes",
+      suinocultura_terminacao: "Terminacao",
+    },
+  },
+  gado_corte: {
+    label: "Gado de Corte",
+    subtypes: {
+      gado_corte_ciclo_completo: "Ciclo Completo",
+      gado_corte_cria: "Cria",
+      gado_corte_recria: "Recria",
+    },
+  },
+  gado_leite: {
+    label: "Gado de Leite",
+    subtypes: {
+      gado_leite_intensivo: "Intensivo",
+      gado_leite_semi_intensivo: "Semi-intensivo",
+      gado_leite_extensivo: "Extensivo",
+    },
+  },
+};
+
+function getCategoryFromActivityType(activityType: string): string {
+  for (const [cat, data] of Object.entries(ACTIVITY_CATEGORIES)) {
+    if (Object.keys(data.subtypes).includes(activityType)) return cat;
+  }
+  return "";
+}
+
+function getActivityLabel(activityType: string): string {
+  for (const data of Object.values(ACTIVITY_CATEGORIES)) {
+    if (data.subtypes[activityType]) return `${data.label} - ${data.subtypes[activityType]}`;
+  }
+  return "";
+}
+
 const emptyForm = {
   clientType: "fazenda" as ClientType,
+  activityType: "",
+  activityCategory: "",
   farmName: "",
   producerName: "",
   email: "",
@@ -80,16 +124,20 @@ export default function Clients() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.farmName || !formData.producerName) { toast.error("Preencha os campos obrigatorios"); return; }
+    const { activityCategory, ...rest } = formData;
     if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, ...formData });
+      updateMutation.mutate({ id: editingId, ...rest });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(rest);
     }
   };
 
   const handleEdit = (client: any) => {
+    const activityCategory = getCategoryFromActivityType(client.activityType || "");
     setFormData({
       clientType: client.clientType || "fazenda",
+      activityType: client.activityType || "",
+      activityCategory,
       farmName: client.farmName || "",
       producerName: client.producerName || "",
       email: client.email || "",
@@ -124,7 +172,6 @@ export default function Clients() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows: any[] = XLSX.utils.sheet_to_json(ws);
         if (rows.length === 0) { toast.error("Planilha vazia"); return; }
-
         let ok = 0, fail = 0;
         for (const row of rows) {
           try {
@@ -136,6 +183,7 @@ export default function Clients() {
             const clientType = (validTypes.includes(clientTypeRaw) ? clientTypeRaw : "fazenda") as ClientType;
             await createMutation.mutateAsync({
               clientType,
+              activityType: row["Atividade"] || row["activityType"] || undefined,
               farmName: row["Nome da Fazenda"] || row["farmName"] || "Sem nome",
               producerName: row["Nome do Responsavel"] || row["Nome do Produtor"] || row["producerName"] || "Sem nome",
               animalType,
@@ -151,9 +199,7 @@ export default function Clients() {
         }
         toast.success(`${ok} clientes importados${fail > 0 ? `, ${fail} com erro` : ""}!`);
         refetch();
-      } catch {
-        toast.error("Erro ao ler planilha");
-      }
+      } catch { toast.error("Erro ao ler planilha"); }
     };
     reader.readAsBinaryString(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -161,11 +207,15 @@ export default function Clients() {
 
   const responsavelLabel = CLIENT_TYPE_LABELS[formData.clientType] === "Fazenda / Produtor Rural"
     ? "Nome do Produtor *"
-    : "Nome do Responsável *";
+    : "Nome do Responsavel *";
 
   const filteredClients = filterClientType
     ? (clients ?? []).filter((c: any) => (c.clientType || "fazenda") === filterClientType)
     : (clients ?? []);
+
+  const currentSubtypes = formData.activityCategory
+    ? ACTIVITY_CATEGORIES[formData.activityCategory]?.subtypes ?? {}
+    : {};
 
   const ClientForm = (
     <Card>
@@ -177,16 +227,43 @@ export default function Clients() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-medium">Tipo de Cliente *</label>
-            <select
-              value={formData.clientType}
-              onChange={(e) => setFormData({ ...formData, clientType: e.target.value as ClientType })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md"
-            >
+            <select value={formData.clientType} onChange={(e) => setFormData({ ...formData, clientType: e.target.value as ClientType })} className="w-full px-3 py-2 border border-slate-300 rounded-md">
               {(Object.entries(CLIENT_TYPE_LABELS) as [ClientType, string][]).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Atividade de Criacao</label>
+              <select
+                value={formData.activityCategory}
+                onChange={(e) => setFormData({ ...formData, activityCategory: e.target.value, activityType: "" })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
+              >
+                <option value="">Selecione a atividade</option>
+                {Object.entries(ACTIVITY_CATEGORIES).map(([key, data]) => (
+                  <option key={key} value={key}>{data.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Sistema de Producao</label>
+              <select
+                value={formData.activityType}
+                onChange={(e) => setFormData({ ...formData, activityType: e.target.value })}
+                disabled={!formData.activityCategory}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md disabled:opacity-50"
+              >
+                <option value="">Selecione o sistema</option>
+                {Object.entries(currentSubtypes).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Nome da Fazenda / Empresa *</label>
@@ -287,11 +364,7 @@ export default function Clients() {
           <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
           <Input placeholder="Buscar clientes por nome ou fazenda..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
-        <select
-          value={filterClientType}
-          onChange={(e) => setFilterClientType(e.target.value as ClientType | "")}
-          className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[200px]"
-        >
+        <select value={filterClientType} onChange={(e) => setFilterClientType(e.target.value as ClientType | "")} className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[200px]">
           <option value="">Todos os tipos</option>
           {(Object.entries(CLIENT_TYPE_LABELS) as [ClientType, string][]).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
@@ -307,7 +380,8 @@ export default function Clients() {
         <div className="grid gap-4">
           {filteredClients.map((client: any) => {
             const ct: ClientType = client.clientType || "fazenda";
-            const responsavelCardLabel = ct === "fazenda" ? "Produtor" : "Responsável";
+            const responsavelCardLabel = ct === "fazenda" ? "Produtor" : "Responsavel";
+            const activityLabel = getActivityLabel(client.activityType || "");
             return (
               <Card key={client.id} className="hover:shadow-md transition">
                 <CardContent className="pt-6">
@@ -318,6 +392,11 @@ export default function Clients() {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CLIENT_TYPE_COLORS[ct]}`}>
                           {CLIENT_TYPE_LABELS[ct]}
                         </span>
+                        {activityLabel && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                            {activityLabel}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-slate-600">{responsavelCardLabel}: {client.producerName}</p>
                       <div className="flex gap-4 mt-2 text-sm text-slate-600">

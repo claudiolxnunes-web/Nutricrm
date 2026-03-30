@@ -1,4 +1,4 @@
-﻿import {
+import {
   integer,
   pgTable,
   text,
@@ -28,6 +28,7 @@ export type InsertUser = typeof users.$inferInsert;
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   clientType: varchar("clientType", { length: 50 }).default("fazenda").notNull(),
+  activityType: varchar("activityType", { length: 80 }),
   farmName: varchar("farmName", { length: 255 }).notNull(),
   producerName: varchar("producerName", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }),
@@ -145,3 +146,4 @@ export const sales = pgTable("sales", {
 }, (t) => ({ salClientIdIdx: index("salClientIdIdx").on(t.clientId), salPaymentStatusIdx: index("salPaymentStatusIdx").on(t.paymentStatus) }));
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = typeof sales.$inferInsert;
+

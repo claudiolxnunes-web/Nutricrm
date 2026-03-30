@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -51,7 +51,8 @@ export const appRouter = router({
     create: protectedProcedure
       .input(
         z.object({
-          clientType: z.enum(["fazenda", "revendedor", "distribuidor", "agroindustria", "fabrica_racoes"]).optional().default("fazenda"),
+          clientType: z.enum(["fazenda","revendedor","distribuidor","agroindustria","fabrica_racoes"]).optional().default("fazenda"),
+          activityType: z.enum(["granja_aves_corte","granja_aves_postura","suinocultura_ciclo_completo","suinocultura_leitoes","suinocultura_terminacao","gado_corte_ciclo_completo","gado_corte_cria","gado_corte_recria","gado_leite_intensivo","gado_leite_semi_intensivo","gado_leite_extensivo"]).optional(),
           farmName: z.string().min(1),
           producerName: z.string().min(1),
           email: z.string().email().optional(),
@@ -98,7 +99,8 @@ export const appRouter = router({
       .input(
         z.object({
           id: z.number(),
-          clientType: z.enum(["fazenda", "revendedor", "distribuidor", "agroindustria", "fabrica_racoes"]).optional(),
+          clientType: z.enum(["fazenda","revendedor","distribuidor","agroindustria","fabrica_racoes"]).optional(),
+          activityType: z.enum(["granja_aves_corte","granja_aves_postura","suinocultura_ciclo_completo","suinocultura_leitoes","suinocultura_terminacao","gado_corte_ciclo_completo","gado_corte_cria","gado_corte_recria","gado_leite_intensivo","gado_leite_semi_intensivo","gado_leite_extensivo"]).optional(),
           farmName: z.string().optional(),
           producerName: z.string().optional(),
           email: z.string().email().optional(),
@@ -428,6 +430,7 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
 
 
 

@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ADD COLUMN "activityType" varchar(80);
