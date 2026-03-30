@@ -1,4 +1,4 @@
-import { eq, and, like, desc, asc, gte, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, like, desc, asc, gte, lte, inArray, sql, or, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   InsertUser,
@@ -129,6 +129,48 @@ export async function createUserWithPassword(data: { name: string; email: string
   return result[0];
 }
 
+export async function listUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: users.id,
+    openId: users.openId,
+    name: users.name,
+    email: users.email,
+    role: users.role,
+    createdAt: users.createdAt,
+  }).from(users).orderBy(users.createdAt);
+}
+
+export async function updateUserRole(id: number, role: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, id));
+}
+
+export async function deleteUser(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(users).where(eq(users.id, id));
+}
+
+export async function assignClientsToUser(clientIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(clients).set({ assignedTo: userId, updatedAt: new Date() })
+    .where(inArray(clients.id, clientIds));
+  return { assigned: clientIds.length };
+}
+
+export async function getClientCountByUser() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    assignedTo: clients.assignedTo,
+    count: sql<number>`count(*)::int`,
+  }).from(clients).where(isNotNull(clients.assignedTo)).groupBy(clients.assignedTo);
+}
+
 // ========== CLIENTS ==========
 
 export async function createClient(data: {
@@ -150,7 +192,7 @@ export async function createClient(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const result = await db.insert(clients).values(data);
+  const result = await db.insert(clients).values({ ...data, assignedTo: data.createdBy });
   return result;
 }
 
@@ -160,6 +202,8 @@ export async function getClients(filters?: {
   status?: string;
   limit?: number;
   offset?: number;
+  userId?: number;
+  role?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -180,6 +224,15 @@ export async function getClients(filters?: {
 
   if (filters?.status) {
     conditions.push(eq(clients.status, filters.status as any));
+  }
+
+  if (filters?.role === "vendedor" && filters?.userId) {
+    conditions.push(
+      or(
+        eq(clients.assignedTo, filters.userId),
+        eq(clients.createdBy, filters.userId)
+      )
+    );
   }
 
   if (conditions.length > 0) {

@@ -1,0 +1,99 @@
+import { useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Users as UsersIcon, Shield, User, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+export default function Users() {
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const { data: users, isLoading, refetch } = trpc.users.list.useQuery();
+  const { data: me } = trpc.auth.me.useQuery();
+
+  const updateRoleMutation = trpc.users.updateRole.useMutation({
+    onSuccess: () => { toast.success("Role atualizado!"); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteMutation = trpc.users.delete.useMutation({
+    onSuccess: () => { toast.success("Usuario removido!"); setDeleteId(null); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (me?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-slate-500">Acesso restrito a administradores.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Usuarios</h1>
+        <p className="text-slate-600">Gerencie os representantes e administradores do sistema</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {(users ?? []).map((user: any) => (
+            <Card key={user.id}>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${user.role === "admin" ? "bg-purple-100" : "bg-blue-100"}`}>
+                      {user.role === "admin" ? <Shield className="w-5 h-5 text-purple-600" /> : <User className="w-5 h-5 text-blue-600" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold">{user.name || "Sem nome"}</p>
+                      <p className="text-sm text-slate-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-500">{user.clientCount} clientes atribuidos</span>
+                    <select
+                      value={user.role}
+                      disabled={user.id === me?.id}
+                      onChange={(e) => updateRoleMutation.mutate({ id: user.id, role: e.target.value as "admin" | "vendedor" })}
+                      className="px-3 py-1.5 border border-slate-300 rounded-md text-sm disabled:opacity-50"
+                    >
+                      <option value="admin">Administrador</option>
+                      <option value="vendedor">Representante</option>
+                    </select>
+                    <Button
+                      variant="ghost" size="sm"
+                      disabled={user.id === me?.id}
+                      onClick={() => setDeleteId(user.id)}
+                      className="text-red-500 hover:text-red-700 disabled:opacity-30"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuario?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acao nao pode ser desfeita. Os clientes atribuidos a este usuario nao serao removidos.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate({ id: deleteId })} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

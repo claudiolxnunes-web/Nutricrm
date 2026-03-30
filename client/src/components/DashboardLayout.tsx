@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp, Shield } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -202,6 +202,21 @@ function DashboardLayoutContent({
                   </SidebarMenuItem>
                 );
               })}
+              {user?.role === "admin" && (
+                <SidebarMenuItem key="/users">
+                  <SidebarMenuButton
+                    isActive={location === "/users"}
+                    onClick={() => setLocation("/users")}
+                    tooltip="Usuarios"
+                    className={`h-10 transition-all font-normal`}
+                  >
+                    <Shield
+                      className={`h-4 w-4 ${location === "/users" ? "text-primary" : ""}`}
+                    />
+                    <span>Usuarios</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarContent>
 

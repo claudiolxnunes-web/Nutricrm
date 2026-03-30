@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Phone, Mail, Pencil, Trash2, Upload } from "lucide-react";
+import { Plus, Search, Phone, Mail, Pencil, Trash2, Upload, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 type ClientType = "fazenda" | "revendedor" | "distribuidor" | "agroindustria" | "fabrica_racoes";
@@ -102,9 +102,13 @@ export default function Clients() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkUserId, setBulkUserId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { data: me } = trpc.auth.me.useQuery();
   const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({ search, limit: 50 });
+  const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: me?.role === "admin" });
 
   const createMutation = trpc.clients.create.useMutation({
     onSuccess: () => { toast.success("Cliente criado!"); setShowForm(false); setFormData({ ...emptyForm }); refetch(); },
@@ -119,6 +123,16 @@ export default function Clients() {
   const deleteMutation = trpc.clients.delete.useMutation({
     onSuccess: () => { toast.success("Cliente excluido!"); setDeleteId(null); refetch(); },
     onError: () => toast.error("Erro ao excluir cliente"),
+  });
+
+  const assignMutation = trpc.clients.assign.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.assigned} cliente(s) atribuido(s)!`);
+      setSelectedIds([]);
+      setBulkUserId("");
+      refetch();
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -246,6 +260,21 @@ export default function Clients() {
     };
     reader.readAsBinaryString(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleBulkAssign = () => {
+    if (!bulkUserId || selectedIds.length === 0) { toast.error("Selecione clientes e um representante"); return; }
+    assignMutation.mutate({ clientIds: selectedIds, userId: Number(bulkUserId) });
+  };
+
+  const getUserName = (userId: number | null | undefined) => {
+    if (!userId || !allUsers) return null;
+    const u = (allUsers as any[]).find((u: any) => u.id === userId);
+    return u ? (u.name || u.email || `#${u.id}`) : null;
   };
 
   const responsavelLabel = CLIENT_TYPE_LABELS[formData.clientType] === "Fazenda / Produtor Rural"
@@ -402,6 +431,27 @@ export default function Clients() {
 
       {showForm && ClientForm}
 
+      {me?.role === "admin" && selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <span className="text-sm font-medium text-blue-800">{selectedIds.length} cliente(s) selecionado(s)</span>
+          <select
+            value={bulkUserId}
+            onChange={(e) => setBulkUserId(e.target.value)}
+            className="px-3 py-1.5 border border-slate-300 rounded-md text-sm"
+          >
+            <option value="">Selecione representante</option>
+            {(allUsers ?? []).map((u: any) => (
+              <option key={u.id} value={u.id}>{u.name || u.email}</option>
+            ))}
+          </select>
+          <Button size="sm" onClick={handleBulkAssign} disabled={assignMutation.isPending} className="gap-2">
+            <UserCheck className="w-4 h-4" />
+            Atribuir selecionados
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>Cancelar</Button>
+        </div>
+      )}
+
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
@@ -425,37 +475,74 @@ export default function Clients() {
             const ct: ClientType = client.clientType || "fazenda";
             const responsavelCardLabel = ct === "fazenda" ? "Produtor" : "Responsavel";
             const activityLabel = getActivityLabel(client.activityType || "");
+            const assignedName = getUserName(client.assignedTo);
+            const isSelected = selectedIds.includes(client.id);
             return (
-              <Card key={client.id} className="hover:shadow-md transition">
+              <Card key={client.id} className={`hover:shadow-md transition ${isSelected ? "ring-2 ring-blue-400" : ""}`}>
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg">{client.farmName}</h3>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CLIENT_TYPE_COLORS[ct]}`}>
-                          {CLIENT_TYPE_LABELS[ct]}
-                        </span>
-                        {activityLabel && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                            {activityLabel}
+                    <div className="flex items-start gap-3 flex-1">
+                      {me?.role === "admin" && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(client.id)}
+                          className="mt-1.5 w-4 h-4 cursor-pointer"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-lg">{client.farmName}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CLIENT_TYPE_COLORS[ct]}`}>
+                            {CLIENT_TYPE_LABELS[ct]}
                           </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-600">{responsavelCardLabel}: {client.producerName}</p>
-                      <div className="flex gap-4 mt-2 text-sm text-slate-600">
-                        <span>{client.animalType} &mdash; {client.animalQuantity} animais</span>
-                        {client.city && <span>{client.city}, {client.state}</span>}
-                      </div>
-                      <div className="flex gap-4 mt-3">
-                        {client.email && (
-                          <a href={`mailto:${client.email}`} className="flex items-center gap-1 text-blue-600 hover:underline">
-                            <Mail className="w-4 h-4" />{client.email}
-                          </a>
-                        )}
-                        {client.phone && (
-                          <a href={`tel:${client.phone}`} className="flex items-center gap-1 text-blue-600 hover:underline">
-                            <Phone className="w-4 h-4" />{client.phone}
-                          </a>
+                          {activityLabel && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                              {activityLabel}
+                            </span>
+                          )}
+                          {assignedName && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 flex items-center gap-1">
+                              <UserCheck className="w-3 h-3" />
+                              {assignedName}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-600">{responsavelCardLabel}: {client.producerName}</p>
+                        <div className="flex gap-4 mt-2 text-sm text-slate-600">
+                          <span>{client.animalType} &mdash; {client.animalQuantity} animais</span>
+                          {client.city && <span>{client.city}, {client.state}</span>}
+                        </div>
+                        <div className="flex gap-4 mt-3">
+                          {client.email && (
+                            <a href={`mailto:${client.email}`} className="flex items-center gap-1 text-blue-600 hover:underline">
+                              <Mail className="w-4 h-4" />{client.email}
+                            </a>
+                          )}
+                          {client.phone && (
+                            <a href={`tel:${client.phone}`} className="flex items-center gap-1 text-blue-600 hover:underline">
+                              <Phone className="w-4 h-4" />{client.phone}
+                            </a>
+                          )}
+                        </div>
+                        {me?.role === "admin" && allUsers && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <label className="text-xs text-slate-500">Atribuir a:</label>
+                            <select
+                              value={client.assignedTo ?? ""}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  assignMutation.mutate({ clientIds: [client.id], userId: Number(e.target.value) });
+                                }
+                              }}
+                              className="px-2 py-1 border border-slate-300 rounded text-xs"
+                            >
+                              <option value="">Selecione...</option>
+                              {(allUsers as any[]).map((u: any) => (
+                                <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                              ))}
+                            </select>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -503,4 +590,3 @@ export default function Clients() {
     </div>
   );
 }
-

@@ -43,6 +43,7 @@ export const clients = pgTable("clients", {
   notes: text("notes"),
   status: text("status").default("prospect").notNull(),
   createdBy: integer("createdBy").notNull(),
+  assignedTo: integer("assignedTo"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 }, (t) => ({ cliCreatedByIdx: index("cliCreatedByIdx").on(t.createdBy), cliStatusIdx: index("cliStatusIdx").on(t.status) }));

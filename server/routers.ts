@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -31,6 +32,11 @@ import {
   createSale,
   getSales,
   getDashboardMetrics,
+  listUsers,
+  updateUserRole,
+  deleteUser,
+  assignClientsToUser,
+  getClientCountByUser,
 } from "./db";
 
 export const appRouter = router({
@@ -84,8 +90,12 @@ export const appRouter = router({
           offset: z.number().optional().default(0),
         })
       )
-      .query(async ({ input }) => {
-        const results = await getClients(input);
+      .query(async ({ input, ctx }) => {
+        const results = await getClients({
+          ...input,
+          userId: ctx.user.id,
+          role: ctx.user.role,
+        });
         return results;
       }),
 
@@ -125,6 +135,16 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         return deleteClient(input.id);
+      }),
+
+    assign: protectedProcedure
+      .input(z.object({
+        clientIds: z.array(z.number()),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem atribuir clientes" });
+        return assignClientsToUser(input.clientIds, input.userId);
       }),
   }),
 
@@ -426,6 +446,33 @@ export const appRouter = router({
     metrics: protectedProcedure.query(async ({ ctx }) => {
       return getDashboardMetrics(ctx.user.id);
     }),
+  }),
+
+  // ========== USERS ==========
+  users: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+      const userList = await listUsers();
+      const counts = await getClientCountByUser();
+      const countMap = Object.fromEntries(counts.map((c: any) => [c.assignedTo, c.count]));
+      return userList.map((u: any) => ({ ...u, clientCount: countMap[u.id] || 0 }));
+    }),
+    updateRole: protectedProcedure
+      .input(z.object({ id: z.number(), role: z.enum(["admin", "vendedor"]) }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        if (input.id === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Nao pode alterar seu proprio role" });
+        await updateUserRole(input.id, input.role);
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        if (input.id === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Nao pode excluir a si mesmo" });
+        await deleteUser(input.id);
+        return { success: true };
+      }),
   }),
 });
 

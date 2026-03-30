@@ -13,6 +13,7 @@ import Quotes from "./pages/Quotes";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import Login from "@/pages/Login";
+import Users from "@/pages/Users";
 
 function Router() {
   return (
@@ -58,6 +59,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <Reports />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/users"}>
+        {() => (
+          <DashboardLayout>
+            <Users />
           </DashboardLayout>
         )}
       </Route>
