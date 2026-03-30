@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -61,7 +61,7 @@ export const appRouter = router({
           activityType: z.enum(["granja_aves_corte","granja_aves_postura","suinocultura_ciclo_completo","suinocultura_leitoes","suinocultura_terminacao","gado_corte_ciclo_completo","gado_corte_cria","gado_corte_recria","gado_leite_intensivo","gado_leite_semi_intensivo","gado_leite_extensivo"]).optional(),
           farmName: z.string().min(1),
           producerName: z.string().min(1),
-          email: z.string().email().optional(),
+          email: z.string().optional().transform(v => (v && v.includes("@") ? v : undefined)),
           phone: z.string().optional(),
           whatsapp: z.string().optional(),
           animalType: z.enum(["bovinos", "suinos", "aves", "equinos", "outros"]),
@@ -113,7 +113,7 @@ export const appRouter = router({
           activityType: z.enum(["granja_aves_corte","granja_aves_postura","suinocultura_ciclo_completo","suinocultura_leitoes","suinocultura_terminacao","gado_corte_ciclo_completo","gado_corte_cria","gado_corte_recria","gado_leite_intensivo","gado_leite_semi_intensivo","gado_leite_extensivo"]).optional(),
           farmName: z.string().optional(),
           producerName: z.string().optional(),
-          email: z.string().email().optional(),
+          email: z.string().optional().transform(v => (v && v.includes("@") ? v : undefined)),
           phone: z.string().optional(),
           whatsapp: z.string().optional(),
           animalType: z.enum(["bovinos", "suinos", "aves", "equinos", "outros"]).optional(),
@@ -477,6 +477,9 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
+
+
 
 
 

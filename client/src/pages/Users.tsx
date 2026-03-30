@@ -1,13 +1,16 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Users as UsersIcon, Shield, User, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Shield, User, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Users() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "vendedor" as "admin" | "vendedor" });
   const { data: users, isLoading, refetch } = trpc.users.list.useQuery();
   const { data: me } = trpc.auth.me.useQuery();
 
@@ -21,6 +24,16 @@ export default function Users() {
     onError: (e) => toast.error(e.message),
   });
 
+  const createMutation = trpc.users.create.useMutation({
+    onSuccess: () => {
+      toast.success("Usuario criado com sucesso!");
+      setShowCreate(false);
+      setForm({ name: "", email: "", password: "", role: "vendedor" });
+      refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   if (me?.role !== "admin") {
     return (
       <div className="flex items-center justify-center h-64">
@@ -31,9 +44,15 @@ export default function Users() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Usuarios</h1>
-        <p className="text-slate-600">Gerencie os representantes e administradores do sistema</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Usuarios</h1>
+          <p className="text-slate-600">Gerencie representantes e administradores do sistema</p>
+        </div>
+        <Button onClick={() => setShowCreate(true)} className="gap-2">
+          <UserPlus className="w-4 h-4" />
+          Novo Representante
+        </Button>
       </div>
 
       {isLoading ? (
@@ -45,7 +64,7 @@ export default function Users() {
           {(users ?? []).map((user: any) => (
             <Card key={user.id}>
               <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-full ${user.role === "admin" ? "bg-purple-100" : "bg-blue-100"}`}>
                       {user.role === "admin" ? <Shield className="w-5 h-5 text-purple-600" /> : <User className="w-5 h-5 text-blue-600" />}
@@ -55,8 +74,8 @@ export default function Users() {
                       <p className="text-sm text-slate-500">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500">{user.clientCount} clientes atribuidos</span>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">{user.clientCount} clientes</span>
                     <select
                       value={user.role}
                       disabled={user.id === me?.id}
@@ -79,9 +98,74 @@ export default function Users() {
               </CardContent>
             </Card>
           ))}
+          {(users ?? []).length === 0 && (
+            <p className="text-center text-slate-400 py-8">Nenhum usuario cadastrado ainda.</p>
+          )}
         </div>
       )}
 
+      {/* Dialog: criar usuario */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Representante</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="block text-sm font-medium mb-1">Nome</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Nome completo"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="email@empresa.com"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Senha inicial</label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Minimo 6 caracteres"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Perfil</label>
+              <select
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "vendedor" })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="vendedor">Representante (vê só seus clientes)</option>
+                <option value="admin">Administrador (vê tudo)</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
+            <Button
+              onClick={() => createMutation.mutate(form)}
+              disabled={!form.name || !form.email || form.password.length < 6 || createMutation.isPending}
+            >
+              {createMutation.isPending ? "Criando..." : "Criar Usuario"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: confirmar exclusao */}
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
