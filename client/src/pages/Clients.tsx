@@ -165,6 +165,7 @@ export default function Clients() {
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const isInativo = file.name.toLowerCase().includes("inativ");
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -172,34 +173,76 @@ export default function Clients() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows: any[] = XLSX.utils.sheet_to_json(ws);
         if (rows.length === 0) { toast.error("Planilha vazia"); return; }
+
+        // Column mapping helper
+        const col = (row: any, ...keys: string[]) => {
+          for (const k of keys) if (row[k] !== undefined && row[k] !== null && row[k] !== "") return String(row[k]).trim();
+          return undefined;
+        };
+
+        // Detect animal type from "Linha" column
+        const mapLinha = (linha: string): any => {
+          const l = (linha || "").toUpperCase();
+          if (l.includes("SUINO")) return "suinos";
+          if (l.includes("AVE") || l.includes("AVES")) return "aves";
+          if (l.includes("EQUINO")) return "equinos";
+          if (l.includes("RUMINANTE") || l.includes("BOVINO")) return "bovinos";
+          return "outros";
+        };
+
+        // Detect client type from name
+        const mapClientType = (nome: string): ClientType => {
+          const n = (nome || "").toUpperCase();
+          if (n.includes("LTDA") || n.includes("S.A") || n.includes("INDUSTRIA") || n.includes("IND.") || n.includes("COM.")) return "revendedor";
+          if (n.includes("COOPERATIVA") || n.includes("COOP")) return "distribuidor";
+          return "fazenda";
+        };
+
         let ok = 0, fail = 0;
+        toast.info(`Importando ${rows.length} registros...`);
+
         for (const row of rows) {
           try {
-            const animalRaw = (row["Tipo de Animal"] || row["animalType"] || "outros").toLowerCase();
-            const animalMap: Record<string, string> = { "suinos": "suinos", "bovinos": "bovinos", "aves": "aves", "equinos": "equinos" };
-            const animalType = (animalMap[animalRaw] || "outros") as any;
-            const clientTypeRaw = (row["Tipo de Cliente"] || row["clientType"] || "fazenda").toLowerCase();
-            const validTypes = ["fazenda", "revendedor", "distribuidor", "agroindustria", "fabrica_racoes"];
-            const clientType = (validTypes.includes(clientTypeRaw) ? clientTypeRaw : "fazenda") as ClientType;
+            const nome = col(row, "Cliente") || "Sem nome";
+            const ddd = col(row, "DDD") ? String(col(row, "DDD")).replace(".0","").trim() : "";
+            const tel = col(row, "Telefone") || "";
+            const phone = ddd && tel ? `(${ddd}) ${tel}` : tel || undefined;
+            const linha = col(row, "Linha") || "";
+            const segmento = col(row, "Segmento") || "";
+            const fat = col(row, "Faturamento Realizado Ano") || "";
+            const ultimaCompra = col(row, "Última compra") || "";
+            const erc = col(row, "ERC") || "";
+            const codCliente = col(row, "Cod. Cliente") || "";
+
+            const notesParts = [
+              codCliente ? `Cod: ${codCliente}` : "",
+              segmento ? `Segmento: ${segmento}` : "",
+              fat ? `Fat. Ano: R$ ${parseFloat(fat).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "",
+              ultimaCompra ? `Ultima compra: ${ultimaCompra}` : "",
+              erc ? `ERC: ${erc}` : "",
+            ].filter(Boolean).join(" | ");
+
             await createMutation.mutateAsync({
-              clientType,
-              activityType: row["Atividade"] || row["activityType"] || undefined,
-              farmName: row["Nome da Fazenda"] || row["farmName"] || "Sem nome",
-              producerName: row["Nome do Responsavel"] || row["Nome do Produtor"] || row["producerName"] || "Sem nome",
-              animalType,
-              animalQuantity: parseInt(row["Quantidade"] || row["animalQuantity"] || "0") || 0,
-              email: row["Email"] || row["email"] || undefined,
-              phone: row["Telefone"] || row["phone"] || undefined,
-              whatsapp: row["WhatsApp"] || row["whatsapp"] || undefined,
-              city: row["Cidade"] || row["city"] || undefined,
-              state: row["Estado"] || row["state"] || undefined,
+              clientType: mapClientType(nome),
+              farmName: nome,
+              producerName: nome,
+              animalType: mapLinha(linha),
+              animalQuantity: 0,
+              email: col(row, "E-mail", "Email"),
+              phone,
+              city: col(row, "Municipio", "Município", "Cidade"),
+              state: col(row, "Estado"),
+              notes: notesParts || undefined,
             });
             ok++;
           } catch { fail++; }
         }
         toast.success(`${ok} clientes importados${fail > 0 ? `, ${fail} com erro` : ""}!`);
         refetch();
-      } catch { toast.error("Erro ao ler planilha"); }
+      } catch (err) {
+        console.error(err);
+        toast.error("Erro ao ler planilha");
+      }
     };
     reader.readAsBinaryString(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -460,3 +503,4 @@ export default function Clients() {
     </div>
   );
 }
+
