@@ -554,10 +554,13 @@ export default function Clients() {
                         client.status === "inativo" ? "bg-red-100 text-red-800" :
                         "bg-yellow-100 text-yellow-800"
                       }`}>{client.status}</span>
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(client)} title="Editar">
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailClient(client); }} title="Ver detalhes" className="text-blue-500 hover:text-blue-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(client); }} title="Editar">
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(client.id)} title="Excluir" className="text-red-500 hover:text-red-700">
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDeleteId(client.id); }} title="Excluir" className="text-red-500 hover:text-red-700">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -589,9 +592,18 @@ export default function Clients() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ClientDetail
+        client={detailClient}
+        open={!!detailClient}
+        onClose={() => setDetailClient(null)}
+        onRefresh={refetch}
+      />
     </div>
   );
 }
+
+
+
 
 
 
