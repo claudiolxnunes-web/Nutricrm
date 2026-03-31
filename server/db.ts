@@ -1,4 +1,4 @@
-import { eq, and, like, desc, asc, gte, lte, inArray, sql, or, isNotNull } from "drizzle-orm";
+﻿import { eq, and, like, desc, asc, gte, lte, inArray, sql, or, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   InsertUser,
@@ -853,7 +853,19 @@ export async function getDashboardMetrics(userId: number, companyId?: number) {
     opportunitiesByStage,
   };
 }
-
-
-
-
+// ========== AI FORECAST DATA ==========
+export async function getAiForecastData(companyId?: number) {
+  const db = await getDb();
+  if (!db) return { opportunities: [], products: [], clients: [], sales: [] };
+  const opps = await db.select().from(opportunities)
+    .where(companyId ? eq(opportunities.companyId, companyId) : undefined)
+    .orderBy(desc(opportunities.createdAt));
+  const prods = await db.select().from(products)
+    .where(companyId ? eq(products.companyId, companyId) : undefined);
+  const clientList = await db.select().from(clients)
+    .where(companyId ? eq(clients.companyId, companyId) : undefined);
+  const salesList = await db.select().from(sales)
+    .where(companyId ? eq(sales.companyId, companyId) : undefined)
+    .orderBy(desc(sales.createdAt));
+  return { opportunities: opps, products: prods, clients: clientList, sales: salesList };
+}

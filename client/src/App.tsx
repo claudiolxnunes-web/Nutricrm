@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/sonner";
+﻿import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
@@ -15,6 +15,7 @@ import Reports from "./pages/Reports";
 import Login from "@/pages/Login";
 import Users from "@/pages/Users";
 import TrialExpired from "@/pages/TrialExpired";
+import AiForecast from "@/pages/AiForecast";
 
 function Router() {
   return (
@@ -64,6 +65,13 @@ function Router() {
           </DashboardLayout>
         )}
       </Route>
+      <Route path={"/ai-forecast"}>
+        {() => (
+          <DashboardLayout>
+            <AiForecast />
+          </DashboardLayout>
+        )}
+      </Route>
       <Route path={"/users"}>
         {() => (
           <DashboardLayout>
@@ -91,3 +99,4 @@ function App() {
 }
 
 export default App;
+

@@ -45,6 +45,7 @@ import {
   createUserWithPassword,
   createCompany,
   listCompanies,
+  getAiForecastData,
 } from "./db";
 
 export const appRouter = router({
@@ -553,9 +554,19 @@ export const appRouter = router({
       return listCompanies();
     }),
   }),
+
+  // ========== AI FORECAST ==========
+  ai: router({
+    forecast: protectedProcedure.query(async ({ ctx }) => {
+      const companyId = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;
+      return getAiForecastData(companyId);
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
+
+
 
 
 

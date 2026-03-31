@@ -1,4 +1,4 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+﻿import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp, Shield } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp, Shield, BrainCircuit } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: Package, label: "Produtos", path: "/products" },
   { icon: FileText, label: "Orcamentos", path: "/quotes" },
   { icon: BarChart3, label: "Relatorios", path: "/reports" },
+  { icon: BrainCircuit, label: "Previsao IA", path: "/ai-forecast" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -281,3 +282,4 @@ function DashboardLayoutContent({
     </>
   );
 }
+
