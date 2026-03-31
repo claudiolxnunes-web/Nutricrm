@@ -15,6 +15,14 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (typeof window === "undefined") return;
 
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
+  const isTrialExpired = error.message === "TRIAL_EXPIRED";
+
+  if (isTrialExpired) {
+    if (window.location.pathname !== "/trial-expired") {
+      window.location.href = "/trial-expired";
+    }
+    return;
+  }
 
   if (!isUnauthorized) return;
 

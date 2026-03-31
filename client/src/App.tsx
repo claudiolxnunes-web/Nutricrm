@@ -14,11 +14,13 @@ import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import Login from "@/pages/Login";
 import Users from "@/pages/Users";
+import TrialExpired from "@/pages/TrialExpired";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/login"} component={Login} />
+      <Route path={"/trial-expired"} component={TrialExpired} />
       <Route path={"/"} component={Home} />
       <Route path={"/dashboard"}>
         {() => (

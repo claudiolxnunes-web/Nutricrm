@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,24 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Shield, User, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+
+function getStatus(user: any) {
+  const now = new Date();
+  if (user.paidUntil && new Date(user.paidUntil) > now) {
+    return { label: `Ativo até ${new Date(user.paidUntil).toLocaleDateString("pt-BR")}`, color: "green" };
+  }
+  if (user.trialEndsAt && new Date(user.trialEndsAt) > now) {
+    const days = Math.ceil((new Date(user.trialEndsAt).getTime() - now.getTime()) / 86400000);
+    return { label: `Trial: ${days} dias`, color: "yellow" };
+  }
+  return { label: "Expirado", color: "red" };
+}
+
+const statusBadgeClass: Record<string, string> = {
+  green: "bg-green-100 text-green-700",
+  yellow: "bg-yellow-100 text-yellow-700",
+  red: "bg-red-100 text-red-600",
+};
 
 export default function Users() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -29,6 +47,14 @@ export default function Users() {
       toast.success("Usuario criado com sucesso!");
       setShowCreate(false);
       setForm({ name: "", email: "", password: "", role: "vendedor" });
+      refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const activateMutation = trpc.users.activate.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Acesso ativado até ${new Date(data.paidUntil).toLocaleDateString("pt-BR")}!`);
       refetch();
     },
     onError: (e) => toast.error(e.message),
@@ -61,43 +87,58 @@ export default function Users() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {(users ?? []).map((user: any) => (
-            <Card key={user.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${user.role === "admin" ? "bg-purple-100" : "bg-blue-100"}`}>
-                      {user.role === "admin" ? <Shield className="w-5 h-5 text-purple-600" /> : <User className="w-5 h-5 text-blue-600" />}
+          {(users ?? []).map((user: any) => {
+            const status = getStatus(user);
+            return (
+              <Card key={user.id}>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${user.role === "admin" ? "bg-purple-100" : "bg-blue-100"}`}>
+                        {user.role === "admin" ? <Shield className="w-5 h-5 text-purple-600" /> : <User className="w-5 h-5 text-blue-600" />}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{user.name || "Sem nome"}</p>
+                        <p className="text-sm text-slate-500">{user.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold">{user.name || "Sem nome"}</p>
-                      <p className="text-sm text-slate-500">{user.email}</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusBadgeClass[status.color]}`}>
+                        {status.label}
+                      </span>
+                      <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">{user.clientCount} clientes</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={activateMutation.isPending}
+                        onClick={() => activateMutation.mutate({ id: user.id, days: 30 })}
+                        className="text-green-700 border-green-300 hover:bg-green-50"
+                      >
+                        Ativar 30 dias
+                      </Button>
+                      <select
+                        value={user.role}
+                        disabled={user.id === me?.id}
+                        onChange={(e) => updateRoleMutation.mutate({ id: user.id, role: e.target.value as "admin" | "vendedor" })}
+                        className="px-3 py-1.5 border border-slate-300 rounded-md text-sm disabled:opacity-50"
+                      >
+                        <option value="admin">Administrador</option>
+                        <option value="vendedor">Representante</option>
+                      </select>
+                      <Button
+                        variant="ghost" size="sm"
+                        disabled={user.id === me?.id}
+                        onClick={() => setDeleteId(user.id)}
+                        className="text-red-500 hover:text-red-700 disabled:opacity-30"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">{user.clientCount} clientes</span>
-                    <select
-                      value={user.role}
-                      disabled={user.id === me?.id}
-                      onChange={(e) => updateRoleMutation.mutate({ id: user.id, role: e.target.value as "admin" | "vendedor" })}
-                      className="px-3 py-1.5 border border-slate-300 rounded-md text-sm disabled:opacity-50"
-                    >
-                      <option value="admin">Administrador</option>
-                      <option value="vendedor">Representante</option>
-                    </select>
-                    <Button
-                      variant="ghost" size="sm"
-                      disabled={user.id === me?.id}
-                      onClick={() => setDeleteId(user.id)}
-                      className="text-red-500 hover:text-red-700 disabled:opacity-30"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
           {(users ?? []).length === 0 && (
             <p className="text-center text-slate-400 py-8">Nenhum usuario cadastrado ainda.</p>
           )}

@@ -38,6 +38,7 @@ import {
   deleteUser,
   assignClientsToUser,
   getClientCountByUser,
+  activateUser,
 } from "./db";
 
 export const appRouter = router({
@@ -473,6 +474,22 @@ export const appRouter = router({
         if (input.id === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Nao pode excluir a si mesmo" });
         await deleteUser(input.id);
         return { success: true };
+      }),
+    activate: protectedProcedure
+      .input(z.object({ id: z.number(), days: z.number().default(30) }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        return activateUser(input.id, input.days);
+      }),
+  }),
+
+  // ========== PAYMENTS ==========
+  payments: router({
+    createCheckout: publicProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        const checkoutUrl = process.env.MERCADOPAGO_CHECKOUT_URL || "#";
+        return { url: `${checkoutUrl}?external_reference=${input.userId}` };
       }),
   }),
 });

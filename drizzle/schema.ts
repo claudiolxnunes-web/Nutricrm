@@ -18,6 +18,8 @@ export const users = pgTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   passwordHash: text("passwordHash"),
   role: text("role").default("vendedor").notNull(),
+  trialEndsAt: timestamp("trialEndsAt"),
+  paidUntil: timestamp("paidUntil"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

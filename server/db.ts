@@ -118,6 +118,7 @@ export async function createUserWithPassword(data: { name: string; email: string
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const openId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const result = await db.insert(users).values({
     openId,
     name: data.name,
@@ -125,6 +126,7 @@ export async function createUserWithPassword(data: { name: string; email: string
     passwordHash: data.passwordHash,
     loginMethod: "email",
     lastSignedIn: new Date(),
+    trialEndsAt,
   }).returning();
   return result[0];
 }
@@ -138,6 +140,8 @@ export async function listUsers() {
     name: users.name,
     email: users.email,
     role: users.role,
+    trialEndsAt: users.trialEndsAt,
+    paidUntil: users.paidUntil,
     createdAt: users.createdAt,
   }).from(users).orderBy(users.createdAt);
 }
@@ -169,6 +173,26 @@ export async function getClientCountByUser() {
     assignedTo: clients.assignedTo,
     count: sql<number>`count(*)::int`,
   }).from(clients).where(isNotNull(clients.assignedTo)).groupBy(clients.assignedTo);
+}
+
+export async function activateUser(userId: number, days: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const paidUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  await db.update(users).set({ paidUntil, updatedAt: new Date() }).where(eq(users.id, userId));
+  return { paidUntil };
+}
+
+export function getUserAccessStatus(user: { trialEndsAt?: Date | null; paidUntil?: Date | null }) {
+  const now = new Date();
+  if (user.paidUntil && user.paidUntil > now) {
+    return { active: true, reason: "paid", paidUntil: user.paidUntil, daysLeft: null };
+  }
+  if (user.trialEndsAt && user.trialEndsAt > now) {
+    const daysLeft = Math.ceil((user.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return { active: true, reason: "trial", trialEndsAt: user.trialEndsAt, daysLeft };
+  }
+  return { active: false, reason: "expired", trialEndsAt: user.trialEndsAt, daysLeft: 0 };
 }
 
 // ========== CLIENTS ==========
