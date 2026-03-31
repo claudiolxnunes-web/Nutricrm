@@ -1,4 +1,5 @@
-﻿import { useState } from "react";
+import { useState } from "react";
+import * as XLSX from "xlsx";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Package, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Package, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const emptyForm = {
@@ -73,6 +74,14 @@ export default function Products() {
     },
   });
 
+  const importMutation = trpc.products.import.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.imported} produtos importados, ${data.skipped} ignorados`);
+      refetch();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.category || !formData.price) {
@@ -106,6 +115,31 @@ export default function Products() {
     setFormData({ ...emptyForm });
   };
 
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = evt.target?.result;
+      const workbook = XLSX.read(data, { type: "binary" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const raw: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+      const rows = raw.map((r) => ({
+        productCode: String(r["Codigo"] || r["Código"] || r["codigo"] || r["A"] || "").trim() || undefined,
+        name: String(r["Nome"] || r["Produto"] || r["produto"] || r["nome"] || r["B"] || "").trim(),
+        packaging: String(r["Embalagem"] || r["embalagem"] || r["Tipo"] || r["C"] || "saco").toLowerCase().includes("granel") ? "granel" : "saco",
+        bagWeight: String(r["Peso"] || r["Peso do Saco"] || r["peso"] || r["D"] || "").trim() || undefined,
+        indication: String(r["Indicacao"] || r["Indicação"] || r["indicacao"] || r["E"] || "").trim() || undefined,
+        species: String(r["Especie"] || r["Espécie"] || r["especie"] || r["Especie e Fase"] || r["F"] || "").trim() || undefined,
+        phase: String(r["Fase"] || r["fase"] || r["G"] || "").trim() || undefined,
+        usageMode: String(r["Modo de Uso"] || r["Modo Usar"] || r["modo_uso"] || r["H"] || "").trim() || undefined,
+      })).filter((r) => r.name);
+      importMutation.mutate({ rows });
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -113,10 +147,21 @@ export default function Products() {
           <h1 className="text-3xl font-bold">Produtos</h1>
           <p className="text-slate-600">Catalogo de nutricao animal</p>
         </div>
-        <Button onClick={() => { setEditingId(null); setFormData({ ...emptyForm }); setShowForm(!showForm); }} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Novo Produto
-        </Button>
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer">
+            <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportExcel} />
+            <Button variant="outline" className="gap-2" asChild>
+              <span>
+                <Upload className="w-4 h-4" />
+                Importar Excel
+              </span>
+            </Button>
+          </label>
+          <Button onClick={() => { setEditingId(null); setFormData({ ...emptyForm }); setShowForm(!showForm); }} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Novo Produto
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -227,13 +272,34 @@ export default function Products() {
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   <Package className="w-8 h-8 text-emerald-600 flex-shrink-0 mt-1" />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold">{product.name}</h3>
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold">{product.name}</h3>
+                          {product.productCode && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-mono">
+                              {product.productCode}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-slate-600">{product.category}</p>
+                        {(product.species || product.phase) && (
+                          <p className="text-sm text-slate-500 mt-0.5">
+                            {[product.species, product.phase].filter(Boolean).join(" — ")}
+                          </p>
+                        )}
+                        {(product.packaging || product.bagWeight) && (
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {product.packaging === "granel" ? "Granel" : "Saco"}
+                            {product.bagWeight ? ` · ${product.bagWeight}` : ""}
+                          </p>
+                        )}
+                        {product.indication && (
+                          <p className="text-xs text-slate-500 mt-1 italic">{product.indication}</p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 ml-2">
+                      <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                         <Button variant="ghost" size="sm" onClick={() => handleEdit(product)} title="Editar">
                           <Pencil className="w-4 h-4" />
                         </Button>

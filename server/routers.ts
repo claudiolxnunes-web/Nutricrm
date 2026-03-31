@@ -17,6 +17,7 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
+  importProducts,
   createOpportunity,
   getOpportunities,
   getOpportunityById,
@@ -217,6 +218,25 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         return deleteProduct(input.id);
+      }),
+
+    import: protectedProcedure
+      .input(z.object({
+        rows: z.array(z.object({
+          productCode: z.string().optional(),
+          name: z.string(),
+          packaging: z.string().optional(),
+          bagWeight: z.string().optional(),
+          species: z.string().optional(),
+          phase: z.string().optional(),
+          indication: z.string().optional(),
+          usageMode: z.string().optional(),
+          price: z.string().optional(),
+          category: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        return importProducts(input.rows, ctx.user.companyId, ctx.user.id);
       }),
   }),
 

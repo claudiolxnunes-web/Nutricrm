@@ -331,11 +331,60 @@ export async function createProduct(data: {
   unit?: string;
   active?: boolean;
   companyId?: number;
+  productCode?: string;
+  packaging?: string;
+  bagWeight?: string;
+  species?: string;
+  phase?: string;
+  indication?: string;
+  usageMode?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   return db.insert(products).values({ ...data, companyId: data.companyId ?? 1 });
+}
+
+export async function importProducts(rows: any[], companyId: number, createdBy: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  let imported = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    if (!row.name) { skipped++; continue; }
+    // Check duplicate by productCode or name within company
+    const existing = await db.select({ id: products.id })
+      .from(products)
+      .where(
+        and(
+          eq(products.companyId, companyId),
+          row.productCode
+            ? eq(products.productCode, row.productCode)
+            : eq(products.name, row.name)
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) { skipped++; continue; }
+    await db.insert(products).values({
+      companyId,
+      name: row.name,
+      category: row.category || "Racao",
+      description: row.description || "",
+      price: row.price || "0",
+      stock: row.stock || 0,
+      unit: row.unit || "kg",
+      active: true,
+      productCode: row.productCode || null,
+      packaging: row.packaging || "saco",
+      bagWeight: row.bagWeight || null,
+      species: row.species || null,
+      phase: row.phase || null,
+      indication: row.indication || null,
+      usageMode: row.usageMode || null,
+    });
+    imported++;
+  }
+  return { imported, skipped };
 }
 
 export async function getProducts(filters?: {
