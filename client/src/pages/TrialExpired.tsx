@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { Lock, Check, Zap } from "lucide-react";
@@ -11,7 +11,7 @@ export default function TrialExpired() {
       if (data.url) window.location.href = data.url;
     },
     onError: (e) => {
-      alert("Erro ao criar sessão de pagamento: " + e.message);
+      alert("Erro ao criar sessÃ£o de pagamento: " + e.message);
       setLoading(null);
     },
   });
@@ -23,9 +23,9 @@ export default function TrialExpired() {
 
   const features = [
     "Clientes ilimitados",
-    "Múltiplos representantes",
+    "MÃºltiplos representantes",
     "Funil de oportunidades",
-    "Relatórios e métricas",
+    "RelatÃ³rios e mÃ©tricas",
     "Suporte via WhatsApp",
   ];
 
@@ -38,7 +38,7 @@ export default function TrialExpired() {
               <Lock className="w-10 h-10 text-orange-500" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-slate-800">Período de teste encerrado</h1>
+          <h1 className="text-3xl font-bold text-slate-800">PerÃ­odo de teste encerrado</h1>
           <p className="text-slate-500 max-w-md mx-auto">
             Seu trial gratuito de 7 dias encerrou. Escolha um plano para continuar usando o NutriCRM.
           </p>
@@ -46,7 +46,7 @@ export default function TrialExpired() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(plans ?? [
-            { id: "mensal", name: "Mensal", label: "R$ 97/mês", badge: null, description: "Acesso por 30 dias", days: 30 },
+            { id: "mensal", name: "Mensal", label: "R$ 97/mÃªs", badge: null, description: "Acesso por 30 dias", days: 30 },
             { id: "semestral", name: "Semestral", label: "R$ 497", badge: "14% off", description: "Acesso por 6 meses", days: 180 },
             { id: "anual", name: "Anual", label: "R$ 897", badge: "23% off", description: "Acesso por 12 meses", days: 365 },
           ]).map((plan: any, i: number) => (
@@ -90,8 +90,8 @@ export default function TrialExpired() {
         </div>
 
         <div className="text-center space-y-2">
-          <p className="text-xs text-slate-400">Pagamento seguro via Stripe — Cartão de crédito</p>
-          <p className="text-xs text-slate-400">Já pagou? Entre em contato para liberar seu acesso.</p>
+          <p className="text-xs text-slate-400">Pagamento seguro via Stripe — Pix, Boleto ou Cartao de credito
+          <p className="text-xs text-slate-400">JÃ¡ pagou? Entre em contato para liberar seu acesso.</p>
           <Button variant="ghost" size="sm" onClick={() => { window.location.href = "/login"; }} className="text-slate-400">
             Sair
           </Button>
@@ -100,3 +100,5 @@ export default function TrialExpired() {
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+﻿import Stripe from "stripe";
 import { ENV } from "./_core/env";
 
 export const stripe = new Stripe(ENV.stripeSecretKey || "sk_test_placeholder", {
@@ -12,7 +12,7 @@ export const PLANS = [
     description: "Acesso por 30 dias",
     price: 9700,
     days: 30,
-    label: "R$ 97/mês",
+    label: "R$ 97/mes",
     badge: null,
   },
   {
@@ -42,7 +42,7 @@ export async function createCheckoutSession(userId: number, userEmail: string, p
   if (!plan) throw new Error("Plano invalido");
 
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ["card"],
+    payment_method_types: ["card", "boleto", "pix"],
     line_items: [{
       price_data: {
         currency: "brl",
@@ -59,6 +59,9 @@ export async function createCheckoutSession(userId: number, userEmail: string, p
       userId: String(userId),
       planId: plan.id,
       days: String(plan.days),
+    },
+    payment_intent_data: {
+      description: `NutriCRM - ${plan.name}`,
     },
   });
 
