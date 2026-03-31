@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import * as XLSX from "xlsx";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -125,12 +125,12 @@ export default function Products() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const raw: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       const rows = raw.map((r) => ({
-        productCode: String(r["Codigo"] || r["Código"] || r["codigo"] || r["A"] || "").trim() || undefined,
+        productCode: String(r["Codigo"] || r["CÃ³digo"] || r["codigo"] || r["A"] || "").trim() || undefined,
         name: String(r["Nome"] || r["Produto"] || r["produto"] || r["nome"] || r["B"] || "").trim(),
         packaging: String(r["Embalagem"] || r["embalagem"] || r["Tipo"] || r["C"] || "saco").toLowerCase().includes("granel") ? "granel" : "saco",
         bagWeight: String(r["Peso"] || r["Peso do Saco"] || r["peso"] || r["D"] || "").trim() || undefined,
-        indication: String(r["Indicacao"] || r["Indicação"] || r["indicacao"] || r["E"] || "").trim() || undefined,
-        species: String(r["Especie"] || r["Espécie"] || r["especie"] || r["Especie e Fase"] || r["F"] || "").trim() || undefined,
+        indication: String(r["Indicacao"] || r["IndicaÃ§Ã£o"] || r["indicacao"] || r["E"] || "").trim() || undefined,
+        species: String(r["Especie"] || r["EspÃ©cie"] || r["especie"] || r["Especie e Fase"] || r["F"] || "").trim() || undefined,
         phase: String(r["Fase"] || r["fase"] || r["G"] || "").trim() || undefined,
         usageMode: String(r["Modo de Uso"] || r["Modo Usar"] || r["modo_uso"] || r["H"] || "").trim() || undefined,
       })).filter((r) => r.name);
@@ -286,13 +286,13 @@ export default function Products() {
                         <p className="text-sm text-slate-600">{product.category}</p>
                         {(product.species || product.phase) && (
                           <p className="text-sm text-slate-500 mt-0.5">
-                            {[product.species, product.phase].filter(Boolean).join(" — ")}
+                            {[product.species, product.phase].filter(Boolean).join(" â€” ")}
                           </p>
                         )}
                         {(product.packaging || product.bagWeight) && (
                           <p className="text-xs text-slate-400 mt-0.5">
                             {product.packaging === "granel" ? "Granel" : "Saco"}
-                            {product.bagWeight ? ` · ${product.bagWeight}` : ""}
+                            {product.bagWeight ? ` Â· ${product.bagWeight}` : ""}
                           </p>
                         )}
                         {product.indication && (
@@ -347,3 +347,5 @@ export default function Products() {
     </div>
   );
 }
+
+
