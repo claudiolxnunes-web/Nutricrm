@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { toast } from "sonner";
 function getStatus(user: any) {
   const now = new Date();
   if (user.paidUntil && new Date(user.paidUntil) > now) {
-    return { label: `Ativo até ${new Date(user.paidUntil).toLocaleDateString("pt-BR")}`, color: "green" };
+    return { label: `Ativo atÃ© ${new Date(user.paidUntil).toLocaleDateString("pt-BR")}`, color: "green" };
   }
   if (user.trialEndsAt && new Date(user.trialEndsAt) > now) {
     const days = Math.ceil((new Date(user.trialEndsAt).getTime() - now.getTime()) / 86400000);
@@ -34,12 +34,12 @@ export default function Users() {
 
   const updateRoleMutation = trpc.users.updateRole.useMutation({
     onSuccess: () => { toast.success("Role atualizado!"); refetch(); },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteMutation = trpc.users.delete.useMutation({
     onSuccess: () => { toast.success("Usuario removido!"); setDeleteId(null); refetch(); },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const createMutation = trpc.users.create.useMutation({
@@ -49,15 +49,15 @@ export default function Users() {
       setForm({ name: "", email: "", password: "", role: "vendedor" });
       refetch();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const activateMutation = trpc.users.activate.useMutation({
     onSuccess: (data) => {
-      toast.success(`Acesso ativado até ${new Date(data.paidUntil).toLocaleDateString("pt-BR")}!`);
+      toast.success(`Acesso ativado atÃ© ${new Date(data.paidUntil).toLocaleDateString("pt-BR")}!`);
       refetch();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   if (me?.role !== "admin") {
@@ -189,8 +189,8 @@ export default function Users() {
                 onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "vendedor" })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="vendedor">Representante (vê só seus clientes)</option>
-                <option value="admin">Administrador (vê tudo)</option>
+                <option value="vendedor">Representante (vÃª sÃ³ seus clientes)</option>
+                <option value="admin">Administrador (vÃª tudo)</option>
               </select>
             </div>
           </div>
@@ -222,3 +222,4 @@ export default function Users() {
     </div>
   );
 }
+

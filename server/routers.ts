@@ -40,6 +40,8 @@ import {
   assignClientsToUser,
   getClientCountByUser,
   activateUser,
+  getUserByEmail,
+  createUserWithPassword,
 } from "./db";
 
 export const appRouter = router({
@@ -482,6 +484,23 @@ export const appRouter = router({
         if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         return activateUser(input.id, input.days);
       }),
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+        password: z.string().min(6),
+        role: z.enum(["admin", "vendedor"]).default("vendedor"),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        const cryptoMod = await import("crypto");
+        const passwordHash = cryptoMod.createHash("sha256").update(input.password + "nutricrm-salt").digest("hex");
+        const existing = await getUserByEmail(input.email);
+        if (existing) throw new TRPCError({ code: "CONFLICT", message: "Email ja cadastrado" });
+        const user = await createUserWithPassword({ name: input.name, email: input.email, passwordHash });
+        if (input.role !== "vendedor") await updateUserRole(user.id, input.role);
+        return { success: true };
+      }),
   }),
 
   // ========== PAYMENTS ==========
@@ -498,6 +517,9 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
+
+
 
 
 

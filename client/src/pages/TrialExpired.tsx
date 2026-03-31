@@ -90,8 +90,8 @@ export default function TrialExpired() {
         </div>
 
         <div className="text-center space-y-2">
-          <p className="text-xs text-slate-400">Pagamento seguro via Stripe — Pix, Boleto ou Cartao de credito
-          <p className="text-xs text-slate-400">JÃ¡ pagou? Entre em contato para liberar seu acesso.</p>
+          <p className="text-xs text-slate-400">Pagamento seguro via Stripe — Pix, Boleto ou Cartao de credito</p>
+          <p className="text-xs text-slate-400">Ja pagou? Entre em contato para liberar seu acesso.</p>
           <Button variant="ghost" size="sm" onClick={() => { window.location.href = "/login"; }} className="text-slate-400">
             Sair
           </Button>
@@ -100,5 +100,6 @@ export default function TrialExpired() {
     </div>
   );
 }
+
 
 

@@ -92,7 +92,7 @@ export default function Opportunities() {
         description: formData.description,
         value: formData.value,
         probability: formData.probability,
-        stage: formData.stage,
+        stage: formData.stage as any,
       });
     } else {
       createMutation.mutate({
@@ -297,3 +297,5 @@ export default function Opportunities() {
     </div>
   );
 }
+
+

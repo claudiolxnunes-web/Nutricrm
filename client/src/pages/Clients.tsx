@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+﻿import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -140,9 +140,9 @@ export default function Clients() {
     if (!formData.farmName || !formData.producerName) { toast.error("Preencha os campos obrigatorios"); return; }
     const { activityCategory, ...rest } = formData;
     if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, ...rest });
+      updateMutation.mutate({ id: editingId, ...rest, activityType: rest.activityType as any });
     } else {
-      createMutation.mutate(rest);
+      createMutation.mutate({ ...rest, activityType: rest.activityType as any });
     }
   };
 
@@ -224,7 +224,7 @@ export default function Clients() {
             const linha = col(row, "Linha") || "";
             const segmento = col(row, "Segmento") || "";
             const fat = col(row, "Faturamento Realizado Ano") || "";
-            const ultimaCompra = col(row, "Última compra") || "";
+            const ultimaCompra = col(row, "Ãšltima compra") || "";
             const erc = col(row, "ERC") || "";
             const codCliente = col(row, "Cod. Cliente") || "";
 
@@ -244,7 +244,7 @@ export default function Clients() {
               animalQuantity: 0,
               email: col(row, "E-mail", "Email"),
               phone,
-              city: col(row, "Municipio", "Município", "Cidade"),
+              city: col(row, "Municipio", "MunicÃ­pio", "Cidade"),
               state: col(row, "Estado"),
               notes: notesParts || undefined,
             });
@@ -590,3 +590,4 @@ export default function Clients() {
     </div>
   );
 }
+

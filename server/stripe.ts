@@ -2,7 +2,7 @@
 import { ENV } from "./_core/env";
 
 export const stripe = new Stripe(ENV.stripeSecretKey || "sk_test_placeholder", {
-  apiVersion: "2024-12-18.acacia",
+  apiVersion: "2026-03-25.dahlia",
 });
 
 export const PLANS = [
@@ -67,3 +67,4 @@ export async function createCheckoutSession(userId: number, userEmail: string, p
 
   return { url: session.url, sessionId: session.id };
 }
+
