@@ -869,3 +869,28 @@ export async function getAiForecastData(companyId?: number) {
     .orderBy(desc(sales.createdAt));
   return { opportunities: opps, products: prods, clients: clientList, sales: salesList };
 }
+
+// ========== CLIENT SCORE ==========
+export async function updateClientScore(id: number, score: number) {
+  const db = await getDb();
+  if (!db) return;
+  return db.update(clients).set({ score, updatedAt: new Date() }).where(eq(clients.id, id));
+}
+
+export async function updateClientGeo(id: number, lat: string, lng: string) {
+  const db = await getDb();
+  if (!db) return;
+  return db.update(clients).set({ lat, lng, updatedAt: new Date() } as any).where(eq(clients.id, id));
+}
+
+export async function getVisits(filters?: { clientId?: number; companyId?: number; limit?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions: any[] = [eq(interactions.type, "visita")];
+  if (filters?.clientId) conditions.push(eq(interactions.clientId, filters.clientId));
+  if (filters?.companyId) conditions.push(eq(interactions.companyId, filters.companyId));
+  return db.select().from(interactions)
+    .where(and(...conditions))
+    .orderBy(desc(interactions.date))
+    .limit(filters?.limit ?? 50);
+}

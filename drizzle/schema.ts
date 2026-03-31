@@ -1,4 +1,4 @@
-import {
+﻿import {
   integer,
   pgTable,
   text,
@@ -56,6 +56,9 @@ export const clients = pgTable("clients", {
   zipCode: varchar("zipCode", { length: 10 }),
   notes: text("notes"),
   status: text("status").default("prospect").notNull(),
+  score: integer("score").default(0),
+  lat: decimal("lat", { precision: 10, scale: 6 }),
+  lng: decimal("lng", { precision: 10, scale: 6 }),
   createdBy: integer("createdBy").notNull(),
   assignedTo: integer("assignedTo"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -173,4 +176,6 @@ export const sales = pgTable("sales", {
 }, (t) => ({ salClientIdIdx: index("salClientIdIdx").on(t.clientId), salPaymentStatusIdx: index("salPaymentStatusIdx").on(t.paymentStatus) }));
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = typeof sales.$inferInsert;
+
+
 

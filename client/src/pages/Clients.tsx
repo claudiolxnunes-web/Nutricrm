@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Phone, Mail, Pencil, Trash2, Upload, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+import ClientDetail from "./ClientDetail";
 
 type ClientType = "fazenda" | "revendedor" | "distribuidor" | "agroindustria" | "fabrica_racoes";
 
@@ -101,6 +102,7 @@ export default function Clients() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [detailClient, setDetailClient] = useState<any | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkUserId, setBulkUserId] = useState<string>("");
@@ -478,7 +480,7 @@ export default function Clients() {
             const assignedName = getUserName(client.assignedTo);
             const isSelected = selectedIds.includes(client.id);
             return (
-              <Card key={client.id} className={`hover:shadow-md transition ${isSelected ? "ring-2 ring-blue-400" : ""}`}>
+              <Card key={client.id} className={`hover:shadow-md transition cursor-pointer ${isSelected ? "ring-2 ring-blue-400" : ""}`} onClick={() => setDetailClient(client)}>
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
@@ -590,4 +592,6 @@ export default function Clients() {
     </div>
   );
 }
+
+
 

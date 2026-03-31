@@ -32,6 +32,9 @@ import {
   deleteQuoteItem,
   createInteraction,
   getInteractions,
+  updateClientScore,
+  updateClientGeo,
+  getVisits,
   createSale,
   getSales,
   getDashboardMetrics,
@@ -157,6 +160,14 @@ export const appRouter = router({
         if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem atribuir clientes" });
         return assignClientsToUser(input.clientIds, input.userId);
       }),
+
+    updateScore: protectedProcedure
+      .input(z.object({ id: z.number(), score: z.number().min(0).max(100) }))
+      .mutation(async ({ input }) => { return updateClientScore(input.id, input.score); }),
+
+    updateGeo: protectedProcedure
+      .input(z.object({ id: z.number(), lat: z.string(), lng: z.string() }))
+      .mutation(async ({ input }) => { return updateClientGeo(input.id, input.lat, input.lng); }),
   }),
 
   // ========== PRODUCTS ==========
@@ -433,6 +444,12 @@ export const appRouter = router({
       .query(async ({ input, ctx }) => {
         return getInteractions({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
       }),
+
+    visits: protectedProcedure
+      .input(z.object({ clientId: z.number().optional(), limit: z.number().optional().default(50) }))
+      .query(async ({ input, ctx }) => {
+        return getVisits({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
+      }),
   }),
 
   // ========== SALES ==========
@@ -565,6 +582,15 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
+
+
+
+
+
+
+
+
 
 
 
