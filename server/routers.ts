@@ -4,7 +4,8 @@ import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, paymentProcedure, router } from "./_core/trpc";
+import { createCheckoutSession, PLANS } from "./stripe";
 import {
   createClient,
   getClients,
@@ -485,11 +486,13 @@ export const appRouter = router({
 
   // ========== PAYMENTS ==========
   payments: router({
-    createCheckout: publicProcedure
-      .input(z.object({ userId: z.number() }))
-      .mutation(async ({ input }) => {
-        const checkoutUrl = process.env.MERCADOPAGO_CHECKOUT_URL || "#";
-        return { url: `${checkoutUrl}?external_reference=${input.userId}` };
+    plans: publicProcedure.query(() => {
+      return PLANS.map(p => ({ id: p.id, name: p.name, label: p.label, badge: p.badge, description: p.description, days: p.days }));
+    }),
+    createCheckout: paymentProcedure
+      .input(z.object({ planId: z.enum(["mensal", "semestral", "anual"]) }))
+      .mutation(async ({ input, ctx }) => {
+        return createCheckoutSession(ctx.user.id, ctx.user.email || "", input.planId);
       }),
   }),
 });
