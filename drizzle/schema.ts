@@ -10,8 +10,19 @@ import {
   serial,
 } from "drizzle-orm/pg-core";
 
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = typeof companies.$inferInsert;
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -29,6 +40,7 @@ export type InsertUser = typeof users.$inferInsert;
 
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   clientType: varchar("clientType", { length: 50 }).default("fazenda").notNull(),
   activityType: varchar("activityType", { length: 80 }),
   farmName: varchar("farmName", { length: 255 }).notNull(),
@@ -54,6 +66,7 @@ export type InsertClient = typeof clients.$inferInsert;
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   name: varchar("name", { length: 255 }).notNull(),
   category: varchar("category", { length: 100 }).notNull(),
   description: text("description"),
@@ -69,6 +82,7 @@ export type InsertProduct = typeof products.$inferInsert;
 
 export const opportunities = pgTable("opportunities", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   clientId: integer("clientId").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
@@ -86,6 +100,7 @@ export type InsertOpportunity = typeof opportunities.$inferInsert;
 
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   opportunityId: integer("opportunityId"),
   clientId: integer("clientId").notNull(),
   quoteNumber: varchar("quoteNumber", { length: 50 }).notNull().unique(),
@@ -117,6 +132,7 @@ export type InsertQuoteItem = typeof quoteItems.$inferInsert;
 
 export const interactions = pgTable("interactions", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   clientId: integer("clientId").notNull(),
   opportunityId: integer("opportunityId"),
   type: text("type").notNull(),
@@ -134,6 +150,7 @@ export type InsertInteraction = typeof interactions.$inferInsert;
 
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
   opportunityId: integer("opportunityId"),
   clientId: integer("clientId").notNull(),
   quoteId: integer("quoteId"),

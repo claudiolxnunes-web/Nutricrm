@@ -9,7 +9,7 @@ import { toast } from "sonner";
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [registerForm, setRegisterForm] = useState({ name: "", email: "", password: "" });
+  const [registerForm, setRegisterForm] = useState({ name: "", email: "", password: "", companyName: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +82,10 @@ export default function Login() {
               </TabsContent>
               <TabsContent value="register">
                 <form onSubmit={handleRegister} className="space-y-4">
+                  <div>
+                    <Label htmlFor="reg-company">Nome da Empresa</Label>
+                    <Input id="reg-company" placeholder="Nome da sua empresa" value={registerForm.companyName} onChange={e => setRegisterForm(f => ({ ...f, companyName: e.target.value }))} required />
+                  </div>
                   <div>
                     <Label htmlFor="reg-name">Nome</Label>
                     <Input id="reg-name" placeholder="Seu nome" value={registerForm.name} onChange={e => setRegisterForm(f => ({ ...f, name: e.target.value }))} required />

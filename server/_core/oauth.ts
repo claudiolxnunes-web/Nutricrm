@@ -41,9 +41,13 @@ export function registerOAuthRoutes(app: Express) {
   });
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, companyName } = req.body;
     if (!name || !email || !password) {
       res.status(400).json({ error: "Nome, email e senha sao obrigatorios" });
+      return;
+    }
+    if (!companyName) {
+      res.status(400).json({ error: "Nome da empresa obrigatorio" });
       return;
     }
     try {
@@ -53,11 +57,9 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
       const passwordHash = hashPassword(password);
-      // First user registered becomes admin
-      const allUsers = await db.listUsers();
-      const isFirstUser = allUsers.length === 0;
-      const user = await db.createUserWithPassword({ name, email, passwordHash });
-      if (isFirstUser) await db.updateUserRole(user.id, "admin");
+      const company = await db.createCompany({ name: companyName, email });
+      const user = await db.createUserWithPassword({ name, email, passwordHash, companyId: company.id });
+      await db.updateUserRole(user.id, "admin");
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.name || "",
         expiresInMs: ONE_YEAR_MS,

@@ -42,6 +42,8 @@ import {
   activateUser,
   getUserByEmail,
   createUserWithPassword,
+  createCompany,
+  listCompanies,
 } from "./db";
 
 export const appRouter = router({
@@ -82,6 +84,7 @@ export const appRouter = router({
         return createClient({
           ...input,
           createdBy: ctx.user.id,
+          companyId: ctx.user.companyId,
         });
       }),
 
@@ -100,6 +103,7 @@ export const appRouter = router({
           ...input,
           userId: ctx.user.id,
           role: ctx.user.role,
+          companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId,
         });
         return results;
       }),
@@ -167,8 +171,8 @@ export const appRouter = router({
           active: z.boolean().optional().default(true),
         })
       )
-      .mutation(async ({ input }) => {
-        return createProduct(input);
+      .mutation(async ({ input, ctx }) => {
+        return createProduct({ ...input, companyId: ctx.user.companyId });
       }),
 
     list: protectedProcedure
@@ -181,8 +185,8 @@ export const appRouter = router({
           offset: z.number().optional().default(0),
         })
       )
-      .query(async ({ input }) => {
-        return getProducts(input);
+      .query(async ({ input, ctx }) => {
+        return getProducts({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
       }),
 
     getById: protectedProcedure
@@ -237,6 +241,7 @@ export const appRouter = router({
         return createOpportunity({
           ...input,
           assignedTo: ctx.user.id,
+          companyId: ctx.user.companyId,
         });
       }),
 
@@ -254,6 +259,7 @@ export const appRouter = router({
         return getOpportunities({
           ...input,
           assignedTo: input.assignedTo || ctx.user.id,
+          companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId,
         });
       }),
 
@@ -305,6 +311,7 @@ export const appRouter = router({
         return createQuote({
           ...input,
           createdBy: ctx.user.id,
+          companyId: ctx.user.companyId,
         });
       }),
 
@@ -317,8 +324,8 @@ export const appRouter = router({
           offset: z.number().optional().default(0),
         })
       )
-      .query(async ({ input }) => {
-        return getQuotes(input);
+      .query(async ({ input, ctx }) => {
+        return getQuotes({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
       }),
 
     getById: protectedProcedure
@@ -388,6 +395,7 @@ export const appRouter = router({
         return createInteraction({
           ...input,
           createdBy: ctx.user.id,
+          companyId: ctx.user.companyId,
         });
       }),
 
@@ -401,8 +409,8 @@ export const appRouter = router({
           offset: z.number().optional().default(0),
         })
       )
-      .query(async ({ input }) => {
-        return getInteractions(input);
+      .query(async ({ input, ctx }) => {
+        return getInteractions({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
       }),
   }),
 
@@ -425,6 +433,7 @@ export const appRouter = router({
         return createSale({
           ...input,
           createdBy: ctx.user.id,
+          companyId: ctx.user.companyId,
         });
       }),
 
@@ -442,6 +451,7 @@ export const appRouter = router({
       .query(async ({ input, ctx }) => {
         return getSales({
           ...input,
+          companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId,
         });
       }),
   }),
@@ -449,15 +459,16 @@ export const appRouter = router({
   // ========== DASHBOARD ==========
   dashboard: router({
     metrics: protectedProcedure.query(async ({ ctx }) => {
-      return getDashboardMetrics(ctx.user.id);
+      return getDashboardMetrics(ctx.user.id, ctx.user.role === "superadmin" ? undefined : ctx.user.companyId);
     }),
   }),
 
   // ========== USERS ==========
   users: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
-      const userList = await listUsers();
+      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+      const companyFilter = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;
+      const userList = await listUsers(companyFilter);
       const counts = await getClientCountByUser();
       const countMap = Object.fromEntries(counts.map((c: any) => [c.assignedTo, c.count]));
       return userList.map((u: any) => ({ ...u, clientCount: countMap[u.id] || 0 }));
@@ -492,12 +503,12 @@ export const appRouter = router({
         role: z.enum(["admin", "vendedor"]).default("vendedor"),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         const cryptoMod = await import("crypto");
         const passwordHash = cryptoMod.createHash("sha256").update(input.password + "nutricrm-salt").digest("hex");
         const existing = await getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Email ja cadastrado" });
-        const user = await createUserWithPassword({ name: input.name, email: input.email, passwordHash });
+        const user = await createUserWithPassword({ name: input.name, email: input.email, passwordHash, companyId: ctx.user.companyId });
         if (input.role !== "vendedor") await updateUserRole(user.id, input.role);
         return { success: true };
       }),
@@ -513,6 +524,14 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         return createCheckoutSession(ctx.user.id, ctx.user.email || "", input.planId);
       }),
+  }),
+
+  // ========== COMPANIES ==========
+  companies: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+      return listCompanies();
+    }),
   }),
 });
 

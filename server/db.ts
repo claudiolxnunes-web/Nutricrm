@@ -10,6 +10,7 @@ import {
   quoteItems,
   interactions,
   sales,
+  companies,
   type Client,
   type Product,
   type Opportunity,
@@ -32,6 +33,22 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function createCompany(data: { name: string; email?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [company] = await db.insert(companies).values({
+    name: data.name,
+    email: data.email,
+  }).returning();
+  return company;
+}
+
+export async function listCompanies() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(companies).orderBy(companies.createdAt);
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -114,7 +131,7 @@ export async function getUserByEmail(email: string) {
   return result[0] ?? null;
 }
 
-export async function createUserWithPassword(data: { name: string; email: string; passwordHash: string }) {
+export async function createUserWithPassword(data: { name: string; email: string; passwordHash: string; companyId?: number }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const openId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -127,23 +144,29 @@ export async function createUserWithPassword(data: { name: string; email: string
     loginMethod: "email",
     lastSignedIn: new Date(),
     trialEndsAt,
+    companyId: data.companyId ?? 1,
   }).returning();
   return result[0];
 }
 
-export async function listUsers() {
+export async function listUsers(companyId?: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({
+  const query = db.select({
     id: users.id,
     openId: users.openId,
     name: users.name,
     email: users.email,
     role: users.role,
+    companyId: users.companyId,
     trialEndsAt: users.trialEndsAt,
     paidUntil: users.paidUntil,
     createdAt: users.createdAt,
-  }).from(users).orderBy(users.createdAt);
+  }).from(users);
+  if (companyId) {
+    return query.where(eq(users.companyId, companyId)).orderBy(users.createdAt);
+  }
+  return query.orderBy(users.createdAt);
 }
 
 export async function updateUserRole(id: number, role: string) {
@@ -212,11 +235,12 @@ export async function createClient(data: {
   zipCode?: string;
   notes?: string;
   createdBy: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const result = await db.insert(clients).values({ ...data, assignedTo: data.createdBy });
+  const result = await db.insert(clients).values({ ...data, assignedTo: data.createdBy, companyId: data.companyId ?? 1 });
   return result;
 }
 
@@ -228,6 +252,7 @@ export async function getClients(filters?: {
   offset?: number;
   userId?: number;
   role?: string;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -257,6 +282,10 @@ export async function getClients(filters?: {
         eq(clients.createdBy, filters.userId)
       )
     );
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(clients.companyId, filters.companyId));
   }
 
   if (conditions.length > 0) {
@@ -301,11 +330,12 @@ export async function createProduct(data: {
   stock?: number;
   unit?: string;
   active?: boolean;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return db.insert(products).values(data);
+  return db.insert(products).values({ ...data, companyId: data.companyId ?? 1 });
 }
 
 export async function getProducts(filters?: {
@@ -314,6 +344,7 @@ export async function getProducts(filters?: {
   active?: boolean;
   limit?: number;
   offset?: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -332,6 +363,10 @@ export async function getProducts(filters?: {
 
   if (filters?.active !== undefined) {
     conditions.push(eq(products.active, filters.active as any));
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(products.companyId, filters.companyId));
   }
 
   if (conditions.length > 0) {
@@ -377,11 +412,12 @@ export async function createOpportunity(data: {
   probability?: number;
   expectedCloseDate?: Date;
   assignedTo: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return db.insert(opportunities).values(data);
+  return db.insert(opportunities).values({ ...data, companyId: data.companyId ?? 1 });
 }
 
 export async function getOpportunities(filters?: {
@@ -390,6 +426,7 @@ export async function getOpportunities(filters?: {
   assignedTo?: number;
   limit?: number;
   offset?: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -408,6 +445,10 @@ export async function getOpportunities(filters?: {
 
   if (filters?.assignedTo) {
     conditions.push(eq(opportunities.assignedTo, filters.assignedTo));
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(opportunities.companyId, filters.companyId));
   }
 
   if (conditions.length > 0) {
@@ -476,11 +517,12 @@ export async function createQuote(data: {
   validityDays?: number;
   notes?: string;
   createdBy: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return db.insert(quotes).values(data);
+  return db.insert(quotes).values({ ...data, companyId: data.companyId ?? 1 });
 }
 
 export async function getQuotes(filters?: {
@@ -488,6 +530,7 @@ export async function getQuotes(filters?: {
   status?: string;
   limit?: number;
   offset?: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -502,6 +545,10 @@ export async function getQuotes(filters?: {
 
   if (filters?.status) {
     conditions.push(eq(quotes.status, filters.status as any));
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(quotes.companyId, filters.companyId));
   }
 
   if (conditions.length > 0) {
@@ -578,11 +625,12 @@ export async function createInteraction(data: {
   result?: string;
   nextAction?: string;
   createdBy: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return db.insert(interactions).values(data);
+  return db.insert(interactions).values({ ...data, companyId: data.companyId ?? 1 });
 }
 
 export async function getInteractions(filters?: {
@@ -591,6 +639,7 @@ export async function getInteractions(filters?: {
   type?: string;
   limit?: number;
   offset?: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -609,6 +658,10 @@ export async function getInteractions(filters?: {
 
   if (filters?.type) {
     conditions.push(eq(interactions.type, filters.type as any));
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(interactions.companyId, filters.companyId));
   }
 
   if (conditions.length > 0) {
@@ -640,11 +693,12 @@ export async function createSale(data: {
   deliveryDate?: Date;
   notes?: string;
   createdBy: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return db.insert(sales).values(data);
+  return db.insert(sales).values({ ...data, companyId: data.companyId ?? 1 });
 }
 
 export async function getSales(filters?: {
@@ -654,6 +708,7 @@ export async function getSales(filters?: {
   endDate?: Date;
   limit?: number;
   offset?: number;
+  companyId?: number;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -678,6 +733,10 @@ export async function getSales(filters?: {
     conditions.push(lte(sales.saleDate, filters.endDate));
   }
 
+  if (filters?.companyId) {
+    conditions.push(eq(sales.companyId, filters.companyId));
+  }
+
   if (conditions.length > 0) {
     query = query.where(and(...conditions));
   }
@@ -697,7 +756,7 @@ export async function getSales(filters?: {
 
 // ========== DASHBOARD METRICS ==========
 
-export async function getDashboardMetrics(userId: number) {
+export async function getDashboardMetrics(userId: number, companyId?: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -707,6 +766,7 @@ export async function getDashboardMetrics(userId: number) {
       total: sql<string>`SUM(${sales.totalValue})`,
     })
     .from(sales)
+    .where(companyId ? eq(sales.companyId, companyId) : undefined)
     ;
 
   // Total opportunities
@@ -715,6 +775,7 @@ export async function getDashboardMetrics(userId: number) {
       count: sql<number>`COUNT(*)`,
     })
     .from(opportunities)
+    .where(companyId ? eq(opportunities.companyId, companyId) : undefined)
     ;
 
   // Opportunities by stage
@@ -724,7 +785,7 @@ export async function getDashboardMetrics(userId: number) {
       count: sql<number>`COUNT(*)`,
     })
     .from(opportunities)
-    
+    .where(companyId ? eq(opportunities.companyId, companyId) : undefined)
     .groupBy(opportunities.stage);
 
   // Total clients
@@ -733,6 +794,7 @@ export async function getDashboardMetrics(userId: number) {
       count: sql<number>`COUNT(*)`,
     })
     .from(clients)
+    .where(companyId ? eq(clients.companyId, companyId) : undefined)
     ;
 
   return {
