@@ -1032,3 +1032,41 @@ export async function scheduleNextVisit(interactionId: number, nextVisitDate: Da
   if (!db) throw new Error("Database not available");
   await db.update(interactions).set({ nextVisitDate, visitResult } as any).where(eq(interactions.id, interactionId));
 }
+// ========== SUPERADMIN ACCESS MANAGEMENT ==========
+export async function listAllUsers() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select({
+    id: users.id, name: users.name, email: users.email, role: users.role,
+    companyId: users.companyId, companyName: companies.name,
+    paidUntil: users.paidUntil, trialEndsAt: users.trialEndsAt,
+    createdAt: users.createdAt, lastSignedIn: users.lastSignedIn,
+  })
+  .from(users)
+  .leftJoin(companies, eq(users.companyId, companies.id))
+  .orderBy(desc(users.createdAt));
+}
+
+export async function grantAccess(userId: number, days: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const now = new Date();
+  const current = await db.select({ paidUntil: users.paidUntil }).from(users).where(eq(users.id, userId)).limit(1);
+  const base = current[0]?.paidUntil && current[0].paidUntil > now ? current[0].paidUntil : now;
+  const paidUntil = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+  await db.update(users).set({ paidUntil }).where(eq(users.id, userId));
+  return { paidUntil };
+}
+
+export async function revokeAccess(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await db.update(users).set({ paidUntil: yesterday }).where(eq(users.id, userId));
+}
+
+export async function setAccessUntil(userId: number, until: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ paidUntil: until }).where(eq(users.id, userId));
+}

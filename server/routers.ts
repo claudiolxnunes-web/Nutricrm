@@ -49,7 +49,7 @@ import {
   getUserByEmail,
   createUserWithPassword,
   createCompany,
-  listCompanies,
+  listCompanies, listAllUsers, grantAccess, revokeAccess, setAccessUntil,
   getAiForecastData,
   setMonthlyGoal,
   getMonthlyGoal,
@@ -636,7 +636,34 @@ export const appRouter = router({
       }),
   }),
 
-  // ========== AI FORECAST ==========
+
+  // ========== SUPERADMIN ==========
+  superadmin: router({
+    listUsers: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+      return listAllUsers();
+    }),
+    grantAccess: protectedProcedure
+      .input(z.object({ userId: z.number(), days: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        return grantAccess(input.userId, input.days);
+      }),
+    revokeAccess: protectedProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        await revokeAccess(input.userId);
+        return { success: true };
+      }),
+    setUntil: protectedProcedure
+      .input(z.object({ userId: z.number(), until: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        await setAccessUntil(input.userId, new Date(input.until));
+        return { success: true };
+      }),
+  }),  // ========== AI FORECAST ==========
   ai: router({
     forecast: protectedProcedure.query(async ({ ctx }) => {
       const companyId = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;

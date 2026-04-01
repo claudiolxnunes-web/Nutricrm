@@ -19,6 +19,7 @@ import AiForecast from "@/pages/AiForecast";
 import Tutorial from "@/pages/Tutorial";
 import Interactions from "@/pages/Interactions";
 import Planning from "@/pages/Planning";
+import SuperAdmin from "@/pages/SuperAdmin";
 
 function Router() {
   return (
@@ -79,6 +80,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <AiForecast />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/superadmin"}>
+        {() => (
+          <DashboardLayout>
+            <SuperAdmin />
           </DashboardLayout>
         )}
       </Route>
