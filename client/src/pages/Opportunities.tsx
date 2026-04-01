@@ -1,11 +1,11 @@
-﻿import { useState } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, TrendingUp } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, TrendingUp, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 const STAGES = [
@@ -36,6 +36,18 @@ export default function Opportunities() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const clientSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node))
+        setShowClientDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const { data: opportunities, isLoading, refetch } = trpc.opportunities.list.useQuery({ limit: 200 });
   const { data: clients } = trpc.clients.list.useQuery({ limit: 500 });
@@ -73,6 +85,8 @@ export default function Opportunities() {
   };
 
   const handleEdit = (opp: any) => {
+    const name = clientMap[opp.clientId] ?? "";
+    setClientSearch(name);
     setFormData({ clientId: opp.clientId || 0, title: opp.title || "", description: opp.description || "", value: opp.value || "", probability: opp.probability || 0, stage: opp.stage || "prospeccao" });
     setEditingId(opp.id);
     setShowForm(true);
@@ -97,7 +111,7 @@ export default function Opportunities() {
           <h1 className="text-3xl font-bold">Funil de Vendas</h1>
           <p className="text-slate-600">Acompanhe e gerencie suas oportunidades</p>
         </div>
-        <Button onClick={() => { setEditingId(null); setFormData({ ...emptyForm }); setShowForm(true); }} className="gap-2">
+        <Button onClick={() => { setEditingId(null); setFormData({ ...emptyForm }); setClientSearch(""); setShowClientDropdown(false); setShowForm(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Nova Oportunidade
         </Button>
       </div>
@@ -151,7 +165,7 @@ export default function Opportunities() {
       )}
 
       {/* Dialog: criar/editar */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) { setShowForm(false); setEditingId(null); setFormData({ ...emptyForm }); } }}>
+      <Dialog open={showForm} onOpenChange={(open) => { if (!open) { setShowForm(false); setEditingId(null); setFormData({ ...emptyForm }); setClientSearch(""); setShowClientDropdown(false); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar Oportunidade" : "Nova Oportunidade"}</DialogTitle>
@@ -159,12 +173,50 @@ export default function Opportunities() {
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             <div>
               <label className="text-sm font-medium">Cliente *</label>
-              <select value={formData.clientId} onChange={(e) => setFormData({ ...formData, clientId: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mt-1" disabled={!!editingId}>
-                <option value={0}>Selecione o cliente...</option>
-                {(clients?.data ?? []).map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.farmName} — {c.producerName}</option>
-                ))}
-              </select>
+              <div ref={clientSearchRef} className="relative mt-1">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(e) => { setClientSearch(e.target.value); setShowClientDropdown(true); if (!e.target.value) setFormData({ ...formData, clientId: 0 }); }}
+                    onFocus={() => setShowClientDropdown(true)}
+                    placeholder="Buscar cliente por nome ou fazenda..."
+                    className="w-full pl-8 pr-8 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    readOnly={!!editingId}
+                  />
+                  {clientSearch && !editingId && (
+                    <button type="button" className="absolute right-2 top-2 text-slate-400 hover:text-slate-600" onClick={() => { setClientSearch(""); setFormData({ ...formData, clientId: 0 }); setShowClientDropdown(false); }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {showClientDropdown && !editingId && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
+                    {(clients?.data ?? [])
+                      .filter((c: any) => {
+                        const q = clientSearch.toLowerCase();
+                        return !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q);
+                      })
+                      .slice(0, 30)
+                      .map((c: any) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex flex-col"
+                          onClick={() => { setFormData({ ...formData, clientId: c.id }); setClientSearch(`${c.farmName ?? ""} — ${c.producerName ?? ""}`); setShowClientDropdown(false); }}
+                        >
+                          <span className="font-medium">{c.farmName || c.producerName}</span>
+                          {c.farmName && c.producerName && <span className="text-slate-400 text-xs">{c.producerName}</span>}
+                        </button>
+                      ))}
+                    {(clients?.data ?? []).filter((c: any) => { const q = clientSearch.toLowerCase(); return !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q); }).length === 0 && (
+                      <p className="px-3 py-2 text-sm text-slate-400">Nenhum cliente encontrado</p>
+                    )}
+                  </div>
+                )}
+                {formData.clientId > 0 && <p className="text-xs text-green-600 mt-1">✓ Cliente selecionado (ID {formData.clientId})</p>}
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Titulo *</label>
@@ -191,7 +243,7 @@ export default function Opportunities() {
               <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Detalhes da oportunidade" className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mt-1" rows={3} />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setFormData({ ...emptyForm }); }}>Cancelar</Button>
+              <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setFormData({ ...emptyForm }); setClientSearch(""); setShowClientDropdown(false); }}>Cancelar</Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
                 {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Atualizar" : "Criar"}
               </Button>
