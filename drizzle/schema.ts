@@ -132,7 +132,9 @@ export type InsertQuote = typeof quotes.$inferInsert;
 export const quoteItems = pgTable("quoteItems", {
   id: serial("id").primaryKey(),
   quoteId: integer("quoteId").notNull(),
-  productId: integer("productId").notNull(),
+  productId: integer("productId"),
+  productName: varchar("productName", { length: 255 }),
+  unit: varchar("unit", { length: 50 }).default("saco"),
   quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
   unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("totalPrice", { precision: 12, scale: 2 }).notNull(),

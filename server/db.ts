@@ -578,6 +578,7 @@ export async function createQuote(data: {
 export async function getQuotes(filters?: {
   clientId?: number;
   status?: string;
+  search?: string;
   limit?: number;
   offset?: number;
   companyId?: number;
@@ -631,6 +632,86 @@ export async function updateQuote(id: number, data: Partial<Quote>) {
   if (!db) throw new Error("Database not available");
 
   return db.update(quotes).set(data).where(eq(quotes.id, id));
+}
+
+export async function updateQuoteStatus(id: number, status: "rascunho" | "enviado" | "aceito" | "rejeitado" | "expirado") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(quotes).set({ status, updatedAt: new Date() }).where(eq(quotes.id, id));
+}
+
+export async function deleteQuote(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(quoteItems).where(eq(quoteItems.quoteId, id));
+  return db.delete(quotes).where(eq(quotes.id, id));
+}
+
+export async function createQuoteWithItems(
+  quoteData: {
+    opportunityId?: number;
+    clientId: number;
+    quoteNumber: string;
+    validityDays?: number;
+    notes?: string;
+    createdBy: number;
+    companyId?: number;
+  },
+  items: Array<{
+    productId?: number;
+    productName?: string;
+    quantity: string;
+    unitPrice: string;
+    totalPrice: string;
+    unit?: string;
+  }>,
+  discountPct: number = 0,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const subtotal = items.reduce((s, it) => s + parseFloat(it.totalPrice || "0"), 0);
+  const discountAmt = subtotal * (discountPct / 100);
+  const finalValue = subtotal - discountAmt;
+
+  const [quote] = await db
+    .insert(quotes)
+    .values({
+      ...quoteData,
+      companyId: quoteData.companyId ?? 1,
+      totalValue: subtotal.toFixed(2),
+      discount: discountAmt.toFixed(2),
+      finalValue: finalValue.toFixed(2),
+    })
+    .returning();
+
+  if (items.length > 0) {
+    await db.insert(quoteItems).values(
+      items.map((it) => ({
+        quoteId: quote.id,
+        productId: it.productId ?? null,
+        productName: it.productName ?? null,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        totalPrice: it.totalPrice,
+        unit: it.unit ?? "un",
+      })),
+    );
+  }
+
+  return quote;
+}
+
+export async function getQuoteWithItems(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const quoteResult = await db.select().from(quotes).where(eq(quotes.id, id)).limit(1);
+  const quote = quoteResult.length > 0 ? quoteResult[0] : null;
+  if (!quote) return null;
+
+  const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, id));
+  return { ...quote, items };
 }
 
 // ========== QUOTE ITEMS ==========

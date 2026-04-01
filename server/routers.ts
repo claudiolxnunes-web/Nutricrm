@@ -23,10 +23,10 @@ import {
   getOpportunityById,
   updateOpportunity,
   deleteOpportunity,
-  createQuote,
+  createQuote, createQuoteWithItems, getQuoteWithItems,
   getQuotes,
   getQuoteById,
-  updateQuote,
+  updateQuote, updateQuoteStatus, deleteQuote,
   createQuoteItem,
   getQuoteItems,
   deleteQuoteItem,
@@ -336,32 +336,35 @@ export const appRouter = router({
   // ========== QUOTES ==========
   quotes: router({
     create: protectedProcedure
-      .input(
-        z.object({
-          opportunityId: z.number().optional(),
-          clientId: z.number(),
-          quoteNumber: z.string().min(1),
-          validityDays: z.number().optional().default(30),
-          notes: z.string().optional(),
-        })
-      )
+      .input(z.object({
+        opportunityId: z.number().optional(),
+        clientId: z.number(),
+        quoteNumber: z.string().min(1),
+        validityDays: z.number().optional().default(30),
+        notes: z.string().optional(),
+        discount: z.number().optional().default(0),
+        items: z.array(z.object({
+          productId: z.number().optional(),
+          productName: z.string().optional(),
+          quantity: z.string(),
+          unitPrice: z.string(),
+          totalPrice: z.string(),
+          unit: z.string().optional(),
+        })).optional().default([]),
+      }))
       .mutation(async ({ input, ctx }) => {
-        return createQuote({
-          ...input,
-          createdBy: ctx.user.id,
-          companyId: ctx.user.companyId,
-        });
+        const { items, discount, ...quoteData } = input;
+        return createQuoteWithItems({ ...quoteData, createdBy: ctx.user.id, companyId: ctx.user.companyId }, items ?? [], discount ?? 0);
       }),
 
     list: protectedProcedure
-      .input(
-        z.object({
-          clientId: z.number().optional(),
-          status: z.string().optional(),
-          limit: z.number().optional().default(20),
-          offset: z.number().optional().default(0),
-        })
-      )
+      .input(z.object({
+        clientId: z.number().optional(),
+        status: z.string().optional(),
+        search: z.string().optional(),
+        limit: z.number().optional().default(50),
+        offset: z.number().optional().default(0),
+      }))
       .query(async ({ input, ctx }) => {
         return getQuotes({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
       }),
@@ -372,30 +375,46 @@ export const appRouter = router({
         return getQuoteById(input.id);
       }),
 
+    getWithItems: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return getQuoteWithItems(input.id);
+      }),
+
     update: protectedProcedure
-      .input(
-        z.object({
-          id: z.number(),
-          status: z.enum(["rascunho", "enviado", "aceito", "rejeitado", "expirado"]).optional(),
-          discount: z.string().optional(),
-          notes: z.string().optional(),
-        })
-      )
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["rascunho", "enviado", "aceito", "rejeitado", "expirado"]).optional(),
+        discount: z.string().optional(),
+        notes: z.string().optional(),
+      }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
         return updateQuote(id, data as any);
       }),
 
+    updateStatus: protectedProcedure
+      .input(z.object({ id: z.number(), status: z.enum(["rascunho","enviado","aceito","rejeitado","expirado"]) }))
+      .mutation(async ({ input }) => {
+        await updateQuoteStatus(input.id, input.status);
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteQuote(input.id);
+        return { success: true };
+      }),
+
     addItem: protectedProcedure
-      .input(
-        z.object({
-          quoteId: z.number(),
-          productId: z.number(),
-          quantity: z.string().regex(/^\d+(\.\d{1,2})?$/),
-          unitPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
-          totalPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
-        })
-      )
+      .input(z.object({
+        quoteId: z.number(),
+        productId: z.number(),
+        quantity: z.string(),
+        unitPrice: z.string(),
+        totalPrice: z.string(),
+      }))
       .mutation(async ({ input }) => {
         return createQuoteItem(input);
       }),
