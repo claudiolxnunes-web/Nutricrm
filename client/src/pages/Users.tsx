@@ -60,7 +60,7 @@ export default function Users() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  if (me?.role !== "admin") {
+  if (me?.role !== "admin" && me?.role !== "superadmin") {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-slate-500">Acesso restrito a administradores.</p>
