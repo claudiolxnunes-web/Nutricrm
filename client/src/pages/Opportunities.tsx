@@ -50,7 +50,7 @@ export default function Opportunities() {
   }, []);
 
   const { data: opportunities, isLoading, refetch } = trpc.opportunities.list.useQuery({ limit: 200 });
-  const { data: clients } = trpc.clients.list.useQuery({ limit: 500 });
+  const { data: clients, isLoading: clientsLoading } = trpc.clients.list.useQuery({ limit: 500 });
 
   const createMutation = trpc.opportunities.create.useMutation({
     onSuccess: () => { toast.success("Oportunidade criada!"); setShowForm(false); setFormData({ ...emptyForm }); refetch(); },
@@ -193,32 +193,38 @@ export default function Opportunities() {
                     />
                   </div>
                   {!editingId && (
-                    <div className="border border-slate-200 rounded-md bg-white max-h-44 overflow-y-auto">
-                      {(clients?.data ?? [])
-                        .filter((c: any) => {
-                          const q = clientSearch.trim().toLowerCase();
-                          return !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q);
-                        })
-                        .slice(0, 25)
-                        .map((c: any) => (
+                    <div className="border border-slate-200 rounded-md bg-white max-h-48 overflow-y-auto">
+                      {clientsLoading ? (
+                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400 text-sm">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                          Carregando clientes...
+                        </div>
+                      ) : (() => {
+                        const q = clientSearch.trim().toLowerCase();
+                        const filtered = (clients?.data ?? []).filter((c: any) =>
+                          !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q)
+                        ).slice(0, 30);
+                        if (filtered.length === 0) return (
+                          <p className="px-3 py-4 text-sm text-slate-400 text-center">
+                            {q ? `Nenhum cliente encontrado para "${q}"` : "Nenhum cliente cadastrado"}
+                          </p>
+                        );
+                        return filtered.map((c: any) => (
                           <button
                             key={c.id}
                             type="button"
                             onMouseDown={(e) => {
                               e.preventDefault();
                               setFormData({ ...formData, clientId: c.id });
-                              setClientSearch(`${c.farmName || c.producerName}`);
+                              setClientSearch(c.farmName || c.producerName || "");
                             }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex justify-between items-center border-b border-slate-100 last:border-0"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 active:bg-blue-100 flex justify-between items-center border-b border-slate-100 last:border-0"
                           >
-                            <span className="font-medium">{c.farmName || c.producerName}</span>
-                            {c.farmName && c.producerName && <span className="text-slate-400 text-xs">{c.producerName}</span>}
+                            <span className="font-medium text-slate-800">{c.farmName || c.producerName}</span>
+                            {c.farmName && c.producerName && <span className="text-slate-400 text-xs ml-2 truncate max-w-[120px]">{c.producerName}</span>}
                           </button>
-                        ))}
-                      {(clients?.data ?? []).filter((c: any) => { const q = clientSearch.trim().toLowerCase(); return !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q); }).length === 0 && (
-                        <p className="px-3 py-3 text-sm text-slate-400 text-center">Nenhum cliente encontrado</p>
-                      )}
-                      {!clients?.data && <p className="px-3 py-3 text-sm text-slate-400 text-center">Carregando clientes...</p>}
+                        ));
+                      })()}
                     </div>
                   )}
                 </div>
