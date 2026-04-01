@@ -92,7 +92,7 @@ export default function Opportunities() {
     setShowForm(true);
   };
 
-  const clientMap = Object.fromEntries((clients?.data ?? []).map((c: any) => [c.id, c.farmName || c.producerName]));
+  const clientMap = Object.fromEntries((clients ?? []).map((c: any) => [c.id, c.farmName || c.producerName]));
 
   const opportunitiesByStage = STAGES.map(stage => ({
     ...stage,
@@ -201,7 +201,7 @@ export default function Opportunities() {
                         </div>
                       ) : (() => {
                         const q = clientSearch.trim().toLowerCase();
-                        const filtered = (clients?.data ?? []).filter((c: any) =>
+                        const filtered = (clients ?? []).filter((c: any) =>
                           !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q)
                         ).slice(0, 30);
                         if (filtered.length === 0) return (

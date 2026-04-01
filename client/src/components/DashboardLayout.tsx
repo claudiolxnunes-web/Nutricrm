@@ -216,21 +216,19 @@ function DashboardLayoutContent({
                   </SidebarMenuItem>
                 );
               })}
-              {user?.role === "admin" && (
-                <SidebarMenuItem key="/users">
-                  <SidebarMenuButton
-                    isActive={location === "/users"}
-                    onClick={() => setLocation("/users")}
-                    tooltip="Usuarios"
-                    className={`h-10 transition-all font-normal`}
-                  >
-                    <Shield
-                      className={`h-4 w-4 ${location === "/users" ? "text-primary" : ""}`}
-                    />
-                    <span>Usuarios</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+              <SidebarMenuItem key="/users">
+                <SidebarMenuButton
+                  isActive={location === "/users"}
+                  onClick={() => setLocation("/users")}
+                  tooltip="Usuarios"
+                  className={`h-10 transition-all font-normal`}
+                >
+                  <Shield
+                    className={`h-4 w-4 ${location === "/users" ? "text-primary" : ""}`}
+                  />
+                  <span>Usuarios</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
