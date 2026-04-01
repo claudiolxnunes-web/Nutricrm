@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Search, Trash2, Package, CheckCircle, XCircle, Send, Clock, AlertCircle, ChevronDown, X } from "lucide-react";
+import { Plus, FileText, Search, Trash2, Package, CheckCircle, XCircle, Send, Clock, AlertCircle, ChevronDown, X, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -122,6 +122,117 @@ export default function Quotes() {
     if (filterValidade === "vencidos") return daysUntil(q.createdAt, q.validityDays) <= 0;
     return true;
   });
+
+  const utils = trpc.useUtils();
+
+  function buildPdfHtml(q: any, itens: any[]): string {
+    const fmtR = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const fmtD = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+    const statusLabel: Record<string, string> = { rascunho: "Rascunho", enviado: "Enviado", aceito: "Aceito", rejeitado: "Rejeitado", expirado: "Expirado" };
+    const statusColor: Record<string, string> = { rascunho: "#64748b", enviado: "#2563eb", aceito: "#16a34a", rejeitado: "#dc2626", expirado: "#ea580c" };
+    const subtotalVal = itens.reduce((s, it) => s + (parseFloat(it.quantity)||0) * (parseFloat(it.unitPrice||"0")), 0);
+    const discountPct = parseFloat(q.discount || "0");
+    const totalVal = subtotalVal * (1 - discountPct / 100);
+    const expiryDate = q.createdAt ? new Date(new Date(q.createdAt).getTime() + (q.validityDays || 30) * 86400000).toLocaleDateString("pt-BR") : "—";
+    const rowsHtml = itens.map((it, i) => `
+      <tr style="background:${i % 2 === 0 ? "#f8fafc" : "#ffffff"}">
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${it.productName || `Produto #${it.productId}`}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${parseFloat(it.quantity).toLocaleString("pt-BR")}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${it.unit || "—"}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${fmtR(parseFloat(it.unitPrice||"0"))}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600">${fmtR(parseFloat(it.totalPrice||"0"))}</td>
+      </tr>`).join("");
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Orçamento ${q.quoteNumber}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;background:#fff;padding:32px}
+      @media print{body{padding:16px} .no-print{display:none} @page{margin:15mm}}
+    </style></head><body>
+    <!-- Cabeçalho -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:16px;margin-bottom:20px">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:#16a34a">NutriCRM</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">Nutrição Animal — Sistema de Gestão</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:700;color:#1e293b">${q.quoteNumber}</div>
+        <div style="margin-top:4px"><span style="background:${statusColor[q.status]||"#64748b"};color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">${statusLabel[q.status]||q.status}</span></div>
+      </div>
+    </div>
+    <!-- Dados do cliente -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px">
+        <div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Cliente</div>
+        <div style="font-size:15px;font-weight:700;color:#1e293b">${q.clientName || `Cliente #${q.clientId}`}</div>
+        ${q.clientStatus ? `<div style="margin-top:4px;font-size:11px;color:#64748b">Status: ${q.clientStatus}</div>` : ""}
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px">
+        <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Validade</div>
+        <div style="font-size:13px;color:#1e293b">Emitido em: <strong>${fmtD(q.createdAt)}</strong></div>
+        <div style="font-size:13px;color:#1e293b;margin-top:3px">Válido até: <strong>${expiryDate}</strong></div>
+        <div style="font-size:12px;color:#64748b;margin-top:3px">${q.validityDays || 30} dias de validade</div>
+      </div>
+    </div>
+    <!-- Tabela de produtos -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Produtos / Serviços</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <thead>
+          <tr style="background:#16a34a;color:#fff">
+            <th style="padding:10px;text-align:left;font-size:12px">Produto</th>
+            <th style="padding:10px;text-align:right;font-size:12px">Qtd</th>
+            <th style="padding:10px;text-align:center;font-size:12px">Und</th>
+            <th style="padding:10px;text-align:right;font-size:12px">Preço Unit.</th>
+            <th style="padding:10px;text-align:right;font-size:12px">Total</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml || '<tr><td colspan="5" style="padding:12px;text-align:center;color:#94a3b8">Nenhum item</td></tr>'}</tbody>
+      </table>
+    </div>
+    <!-- Totais -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
+      <div style="min-width:260px">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;color:#64748b;font-size:13px">
+          <span>Subtotal:</span><span>${fmtR(subtotalVal)}</span>
+        </div>
+        ${discountPct > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#dc2626;font-size:13px"><span>Desconto (${discountPct}%):</span><span>- ${fmtR(subtotalVal * discountPct / 100)}</span></div>` : ""}
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;background:#f0fdf4;border-radius:6px;border:2px solid #16a34a;margin-top:6px">
+          <span style="font-size:16px;font-weight:800;color:#16a34a">TOTAL FINAL</span>
+          <span style="font-size:16px;font-weight:800;color:#16a34a">${fmtR(totalVal)}</span>
+        </div>
+      </div>
+    </div>
+    ${q.notes ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px">Observações / Condições</div><div style="font-size:13px;color:#1e293b">${q.notes}</div></div>` : ""}
+    <!-- Rodapé -->
+    <div style="border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;color:#94a3b8;font-size:11px">
+      Este orçamento tem validade de ${q.validityDays || 30} dias a partir da data de emissão. · Gerado pelo NutriCRM
+    </div>
+    <div class="no-print" style="margin-top:24px;text-align:center">
+      <button onclick="window.print()" style="background:#16a34a;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">Imprimir / Salvar como PDF</button>
+    </div>
+    </body></html>`;
+  }
+
+  async function exportPdf(q: any) {
+    let itens: any[] = [];
+    if (expandedId === q.id && expandedQuote?.items) {
+      itens = expandedQuote.items;
+    } else {
+      try {
+        const data = await utils.quotes.getWithItems.fetch({ id: q.id });
+        itens = data?.items ?? [];
+      } catch {
+        itens = [];
+      }
+    }
+    const html = buildPdfHtml(q, itens);
+    const win = window.open("", "_blank", "width=850,height=950,scrollbars=yes");
+    if (!win) { toast.error("Permita popups no navegador para exportar PDF"); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
+  }
 
   const STEPS = ["Cliente", "Produtos", "Dados & Salvar"];
 
