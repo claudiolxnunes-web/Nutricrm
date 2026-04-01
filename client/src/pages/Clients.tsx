@@ -109,7 +109,9 @@ export default function Clients() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: me } = trpc.auth.me.useQuery();
-  const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({ search, limit: 50 });
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 100;
+  const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({ search, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
   const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: me?.role === "admin" });
 
   const createMutation = trpc.clients.create.useMutation({
@@ -178,6 +180,20 @@ export default function Clients() {
     setFormData({ ...emptyForm });
   };
 
+  const excelDateToStr = (val: any): string => {
+    if (!val) return "";
+    const n = Number(val);
+    if (!isNaN(n) && n > 40000 && n < 60000) {
+      // Excel serial: days since 1900-01-01 (with Lotus 1-2-3 bug offset)
+      const date = new Date((n - 25569) * 86400 * 1000);
+      return date.toLocaleDateString("pt-BR");
+    }
+    // Already a string date — try to parse
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");
+    return String(val);
+  };
+
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -234,7 +250,7 @@ export default function Clients() {
               codCliente ? `Cod: ${codCliente}` : "",
               segmento ? `Segmento: ${segmento}` : "",
               fat ? `Fat. Ano: R$ ${parseFloat(fat).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "",
-              ultimaCompra ? `Ultima compra: ${ultimaCompra}` : "",
+              ultimaCompra ? `Ultima compra: ${excelDateToStr(ultimaCompra)}` : "",
               erc ? `ERC: ${erc}` : "",
             ].filter(Boolean).join(" | ");
 
@@ -457,7 +473,7 @@ export default function Clients() {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-          <Input placeholder="Buscar clientes por nome ou fazenda..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder="Buscar clientes por nome ou fazenda..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
         </div>
         <select value={filterClientType} onChange={(e) => setFilterClientType(e.target.value as ClientType | "")} className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[200px]">
           <option value="">Todos os tipos</option>

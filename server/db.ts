@@ -264,7 +264,7 @@ export async function getClients(filters?: {
 
   if (filters?.search) {
     conditions.push(
-      sql`(${clients.farmName} LIKE ${`%${filters.search}%`} OR ${clients.producerName} LIKE ${`%${filters.search}%`})`
+      sql`(${clients.farmName} ILIKE ${`%${filters.search}%`} OR ${clients.producerName} ILIKE ${`%${filters.search}%`} OR ${clients.notes} ILIKE ${`%${filters.search}%`})`
     );
   }
 
@@ -1069,4 +1069,17 @@ export async function setAccessUntil(userId: number, until: Date) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(users).set({ paidUntil: until }).where(eq(users.id, userId));
+}
+export async function getClientsCount(filters?: { search?: string; animalType?: string; status?: string; userId?: number; role?: string; companyId?: number; }): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const conditions: any[] = [];
+  if (filters?.search) conditions.push(sql`(${clients.farmName} ILIKE ${`%${filters.search}%`} OR ${clients.producerName} ILIKE ${`%${filters.search}%`} OR ${clients.notes} ILIKE ${`%${filters.search}%`})`);
+  if (filters?.animalType) conditions.push(eq(clients.animalType, filters.animalType as any));
+  if (filters?.status) conditions.push(eq(clients.status, filters.status as any));
+  if (filters?.role === "vendedor" && filters?.userId) conditions.push(or(eq(clients.assignedTo, filters.userId), eq(clients.createdBy, filters.userId)));
+  if (filters?.companyId) conditions.push(eq(clients.companyId, filters.companyId));
+  const q = db.select({ count: sql<number>`count(*)::int` }).from(clients);
+  const result = await (conditions.length > 0 ? q.where(and(...conditions)) : q);
+  return result[0]?.count ?? 0;
 }

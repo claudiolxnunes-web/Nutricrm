@@ -8,7 +8,7 @@ import { publicProcedure, protectedProcedure, paymentProcedure, router } from ".
 import { createCheckoutSession, PLANS } from "./stripe";
 import {
   createClient,
-  getClients,
+  getClients, getClientsCount,
   getClientById,
   updateClient,
   deleteClient,
