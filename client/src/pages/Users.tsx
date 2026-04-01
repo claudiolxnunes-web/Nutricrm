@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Shield, User, Trash2, UserPlus } from "lucide-react";
+import { Shield, User, Trash2, UserPlus, TrendingUp, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 function getStatus(user: any) {
   const now = new Date();
   if (user.paidUntil && new Date(user.paidUntil) > now) {
-    return { label: `Ativo atÃ© ${new Date(user.paidUntil).toLocaleDateString("pt-BR")}`, color: "green" };
+    return { label: `Ativo ate ${new Date(user.paidUntil).toLocaleDateString("pt-BR")}`, color: "green" };
   }
   if (user.trialEndsAt && new Date(user.trialEndsAt) > now) {
     const days = Math.ceil((new Date(user.trialEndsAt).getTime() - now.getTime()) / 86400000);
@@ -54,7 +54,7 @@ export default function Users() {
 
   const activateMutation = trpc.users.activate.useMutation({
     onSuccess: (data) => {
-      toast.success(`Acesso ativado atÃ© ${new Date(data.paidUntil).toLocaleDateString("pt-BR")}!`);
+      toast.success(`Acesso ativado ate ${new Date(data.paidUntil).toLocaleDateString("pt-BR")}!`);
       refetch();
     },
     onError: (e: any) => toast.error(e.message),
@@ -189,8 +189,8 @@ export default function Users() {
                 onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "vendedor" })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="vendedor">Representante (vÃª sÃ³ seus clientes)</option>
-                <option value="admin">Administrador (vÃª tudo)</option>
+                <option value="vendedor">Representante (ve so seus clientes)</option>
+                <option value="admin">Administrador (ve tudo)</option>
               </select>
             </div>
           </div>

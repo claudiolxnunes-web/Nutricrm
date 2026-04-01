@@ -15,6 +15,7 @@ export const companies = pgTable("companies", {
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }),
   active: boolean("active").default(true).notNull(),
+  plan: varchar("plan", { length: 20 }).default("individual").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type Company = typeof companies.$inferSelect;

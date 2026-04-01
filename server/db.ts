@@ -965,3 +965,24 @@ export async function getABCData(companyId: number) {
     return { ...row, rank: i + 1, pct, accPct, cls };
   });
 }
+
+// ========== PLAN HELPERS ==========
+export async function countUsersByCompany(companyId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.companyId, companyId));
+  return result[0]?.count ?? 0;
+}
+
+export async function getCompanyPlan(companyId: number): Promise<string> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select({ plan: companies.plan }).from(companies).where(eq(companies.id, companyId)).limit(1);
+  return result[0]?.plan ?? "individual";
+}
+
+export async function setCompanyPlan(companyId: number, plan: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(companies).set({ plan } as any).where(eq(companies.id, companyId));
+}

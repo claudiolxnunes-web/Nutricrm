@@ -38,6 +38,8 @@ import {
   createSale,
   getSales,
   getDashboardMetrics,
+  countUsersByCompany,
+  getCompanyPlan,
   listUsers,
   updateUserRole,
   deleteUser,
@@ -58,7 +60,7 @@ import {
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+     me: publicProcedure.query(async (opts) => { if (!opts.ctx.user) return null; const plan = await getCompanyPlan(opts.ctx.user.companyId); return { ...opts.ctx.user, companyPlan: plan }; }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -546,6 +548,13 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        if (ctx.user.role !== "superadmin") {
+          const { PLAN_LIMITS } = await import("./stripe");
+          const plan = await getCompanyPlan(ctx.user.companyId);
+          const limit = PLAN_LIMITS[plan] ?? 1;
+          const current = await countUsersByCompany(ctx.user.companyId);
+          if (current >= limit) throw new TRPCError({ code: "FORBIDDEN", message: `Limite do plano ${plan} atingido (${limit} usuarios). Faca upgrade para adicionar mais representantes.` });
+        }
         const cryptoMod = await import("crypto");
         const passwordHash = cryptoMod.createHash("sha256").update(input.password + "nutricrm-salt").digest("hex");
         const existing = await getUserByEmail(input.email);
@@ -562,9 +571,9 @@ export const appRouter = router({
       return PLANS.map(p => ({ id: p.id, name: p.name, label: p.label, badge: p.badge, description: p.description, days: p.days }));
     }),
     createCheckout: paymentProcedure
-      .input(z.object({ planId: z.enum(["mensal", "semestral", "anual"]) }))
+      .input(z.object({ planId: z.enum(["individual_mensal","individual_semestral","individual_anual","equipe_mensal","equipe_semestral","equipe_anual","empresa_mensal","empresa_semestral","empresa_anual","mensal","semestral","anual"]) }))
       .mutation(async ({ input, ctx }) => {
-        return createCheckoutSession(ctx.user.id, ctx.user.email || "", input.planId);
+        return createCheckoutSession(ctx.user.id, ctx.user.email || "", input.planId as any);
       }),
   }),
 
