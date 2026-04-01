@@ -986,3 +986,49 @@ export async function setCompanyPlan(companyId: number, plan: string) {
   if (!db) throw new Error("Database not available");
   await db.update(companies).set({ plan } as any).where(eq(companies.id, companyId));
 }
+// ========== INTERACTIONS GLOBAL ==========
+export async function getAllInteractions(companyId: number, filters?: { type?: string; visitResult?: string; fromDate?: Date; toDate?: Date; limit?: number; }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const conditions: any[] = [eq(interactions.companyId, companyId)];
+  if (filters?.type) conditions.push(eq(interactions.type, filters.type));
+  if (filters?.visitResult) conditions.push(eq(interactions.visitResult as any, filters.visitResult));
+  if (filters?.fromDate) conditions.push(gte(interactions.date, filters.fromDate));
+  if (filters?.toDate) conditions.push(lte(interactions.date, filters.toDate));
+  const rows = await db
+    .select({
+      id: interactions.id, clientId: interactions.clientId,
+      clientName: sql<string>`COALESCE(${clients.farmName}, ${clients.producerName}, '#' || ${clients.id}::text)`,
+      opportunityId: interactions.opportunityId, type: interactions.type, title: interactions.title,
+      description: interactions.description, date: interactions.date, duration: interactions.duration,
+      result: interactions.result, nextAction: interactions.nextAction,
+      nextVisitDate: interactions.nextVisitDate, visitResult: interactions.visitResult,
+      createdBy: interactions.createdBy, createdAt: interactions.createdAt,
+    })
+    .from(interactions).leftJoin(clients, eq(interactions.clientId, clients.id))
+    .where(and(...conditions))
+    .orderBy(sql`CASE WHEN ${interactions.nextVisitDate} IS NULL THEN 1 ELSE 0 END`, interactions.nextVisitDate)
+    .limit(filters?.limit ?? 200);
+  return rows;
+}
+
+export async function getUpcomingVisits(companyId: number, fromDate: Date, toDate: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select({
+    id: interactions.id, clientId: interactions.clientId,
+    clientName: sql<string>`COALESCE(${clients.farmName}, ${clients.producerName}, '#' || ${clients.id}::text)`,
+    type: interactions.type, title: interactions.title,
+    nextVisitDate: interactions.nextVisitDate, visitResult: interactions.visitResult,
+    result: interactions.result, createdBy: interactions.createdBy,
+  })
+  .from(interactions).leftJoin(clients, eq(interactions.clientId, clients.id))
+  .where(and(eq(interactions.companyId, companyId), gte(interactions.nextVisitDate as any, fromDate), lte(interactions.nextVisitDate as any, toDate)))
+  .orderBy(interactions.nextVisitDate);
+}
+
+export async function scheduleNextVisit(interactionId: number, nextVisitDate: Date, visitResult: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(interactions).set({ nextVisitDate, visitResult } as any).where(eq(interactions.id, interactionId));
+}

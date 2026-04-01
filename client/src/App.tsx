@@ -17,6 +17,8 @@ import Users from "@/pages/Users";
 import TrialExpired from "@/pages/TrialExpired";
 import AiForecast from "@/pages/AiForecast";
 import Tutorial from "@/pages/Tutorial";
+import Interactions from "@/pages/Interactions";
+import Planning from "@/pages/Planning";
 
 function Router() {
   return (
@@ -77,6 +79,20 @@ function Router() {
         {() => (
           <DashboardLayout>
             <AiForecast />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/interactions"}>
+        {() => (
+          <DashboardLayout>
+            <Interactions />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/planning"}>
+        {() => (
+          <DashboardLayout>
+            <Planning />
           </DashboardLayout>
         )}
       </Route>

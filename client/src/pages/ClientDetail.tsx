@@ -53,7 +53,7 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
 }) {
   const [tab, setTab] = useState<Tab>("timeline");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ type: "visita", title: "", description: "", date: new Date().toISOString().slice(0, 16), duration: "", result: "", nextAction: "" });
+  const [form, setForm] = useState({ type: "visita", title: "", description: "", date: new Date().toISOString().slice(0, 16), duration: "", result: "", nextAction: "", nextVisitDate: "", visitResult: "" });
 
   const { data: interactions = [], refetch: refetchInt } = trpc.interactions.list.useQuery(
     { clientId: client?.id, limit: 100 },
@@ -66,7 +66,7 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
   );
 
   const createMutation = trpc.interactions.create.useMutation({
-    onSuccess: () => { toast.success("Registrado!"); setShowForm(false); setForm({ type: "visita", title: "", description: "", date: new Date().toISOString().slice(0, 16), duration: "", result: "", nextAction: "" }); refetchInt(); refetchVisits(); },
+    onSuccess: () => { toast.success("Registrado!"); setShowForm(false); setForm({ type: "visita", title: "", description: "", date: new Date().toISOString().slice(0, 16), duration: "", result: "", nextAction: "", nextVisitDate: "", visitResult: "" }); refetchInt(); refetchVisits(); },
     onError: (e: any) => toast.error(e.message),
   });
 

@@ -31,7 +31,7 @@ import {
   getQuoteItems,
   deleteQuoteItem,
   createInteraction,
-  getInteractions,
+  getInteractions, getAllInteractions, getUpcomingVisits, scheduleNextVisit,
   updateClientScore,
   updateClientGeo,
   getVisits,
@@ -427,16 +427,19 @@ export const appRouter = router({
           duration: z.number().optional(),
           result: z.string().optional(),
           nextAction: z.string().optional(),
+          nextVisitDate: z.string().optional(),
+          visitResult: z.string().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
         return createInteraction({
-          ...input,
+          ...(input as any),
+          nextVisitDate: input.nextVisitDate ? new Date(input.nextVisitDate) : undefined,
+          visitResult: input.visitResult || undefined,
           createdBy: ctx.user.id,
           companyId: ctx.user.companyId,
         });
       }),
-
     list: protectedProcedure
       .input(
         z.object({
@@ -455,6 +458,30 @@ export const appRouter = router({
       .input(z.object({ clientId: z.number().optional(), limit: z.number().optional().default(50) }))
       .query(async ({ input, ctx }) => {
         return getVisits({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
+      }),
+
+    all: protectedProcedure
+      .input(z.object({ type: z.string().optional(), visitResult: z.string().optional(), fromDate: z.string().optional(), toDate: z.string().optional() }))
+      .query(async ({ input, ctx }) => {
+        return getAllInteractions(ctx.user.companyId, {
+          type: input.type,
+          visitResult: input.visitResult,
+          fromDate: input.fromDate ? new Date(input.fromDate) : undefined,
+          toDate: input.toDate ? new Date(input.toDate) : undefined,
+        });
+      }),
+
+    upcoming: protectedProcedure
+      .input(z.object({ fromDate: z.string(), toDate: z.string() }))
+      .query(async ({ input, ctx }) => {
+        return getUpcomingVisits(ctx.user.companyId, new Date(input.fromDate), new Date(input.toDate));
+      }),
+
+    schedule: protectedProcedure
+      .input(z.object({ interactionId: z.number(), nextVisitDate: z.string(), visitResult: z.string() }))
+      .mutation(async ({ input }) => {
+        await scheduleNextVisit(input.interactionId, new Date(input.nextVisitDate), input.visitResult);
+        return { success: true };
       }),
   }),
 

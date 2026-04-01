@@ -4,301 +4,596 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, AlertTriangle, Package, DollarSign, Target, BarChart3, Lightbulb, Users, ShoppingBag, Trophy } from "lucide-react";
+import {
+  TrendingUp, AlertTriangle, Package, DollarSign, Target,
+  BarChart3, Lightbulb, Users, ShoppingBag, Trophy,
+  TrendingDown, Brain, CheckCircle, Clock, ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
 
 const STAGES = ["prospeccao","visita_tecnica","orcamento_enviado","negociacao","venda_concluida","perdida"];
-const STAGE_LABELS: Record<string,string> = { prospeccao:"Prospecção", visita_tecnica:"Visita Técnica", orcamento_enviado:"Orçamento Enviado", negociacao:"Negociação", venda_concluida:"Venda Concluída", perdida:"Perdida" };
-const STAGE_PROB: Record<string,number> = { prospeccao:10, visita_tecnica:25, orcamento_enviado:45, negociacao:70, venda_concluida:100, perdida:0 };
+const STAGE_LABELS: Record<string,string> = {
+  prospeccao:"Prospecção",
+  visita_tecnica:"Visita Técnica",
+  orcamento_enviado:"Orçamento Enviado",
+  negociacao:"Negociação",
+  venda_concluida:"Venda Concluída",
+  perdida:"Perdida",
+};
+const STAGE_PROB: Record<string,number> = {
+  prospeccao:10,
+  visita_tecnica:25,
+  orcamento_enviado:45,
+  negociacao:70,
+  venda_concluida:100,
+  perdida:0,
+};
 
-function fmt(v: number) { return v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
-function thisMonth() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
-function thisMonthLabel() { return new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"}); }
+function fmt(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function thisMonth() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
 
 function calcForecast(opps: any[]) {
-  const weighted = opps.filter(o=>o.stage!=="perdida").reduce((s,o)=>{ const p=o.probability>0?o.probability:(STAGE_PROB[o.stage]??10); return s+parseFloat(o.value||"0")*(p/100); },0);
-  const byStage = STAGES.map(id=>({ id, label:STAGE_LABELS[id], count:opps.filter(o=>o.stage===id).length, total:opps.filter(o=>o.stage===id).reduce((s,o)=>s+parseFloat(o.value||"0"),0) }));
-  const closed = opps.filter(o=>o.stage==="venda_concluida").length;
-  const convRate = opps.length>0?Math.round((closed/opps.length)*100):0;
-  return { weighted, byStage, convRate, closed, totalOpps:opps.length };
+  return opps
+    .filter((o) => o.stage !== "perdida" && o.stage !== "venda_concluida")
+    .reduce((acc, o) => acc + (Number(o.value) || 0) * (STAGE_PROB[o.stage] || 0) / 100, 0);
 }
 
-function generateInsights(data: any) {
-  const ins: {type:"success"|"warning"|"info"; text:string}[] = [];
-  const {opportunities:opps,products:prods,clients,sales} = data;
-  const fc = calcForecast(opps);
-  if(fc.convRate<20) ins.push({type:"warning",text:`Taxa de conversão baixa (${fc.convRate}%). Foque nas oportunidades em Negociação.`});
-  else if(fc.convRate>=40) ins.push({type:"success",text:`Excelente taxa de conversão: ${fc.convRate}%.`});
-  const negC=opps.filter((o:any)=>o.stage==="negociacao").length;
-  const negV=opps.filter((o:any)=>o.stage==="negociacao").reduce((s:number,o:any)=>s+parseFloat(o.value||"0"),0);
-  if(negC>0) ins.push({type:"info",text:`${negC} oportunidade(s) em Negociação totalizando ${fmt(negV)}.`});
-  const low=prods.filter((p:any)=>p.stock!==null&&p.stock<10&&p.active);
-  if(low.length>0) ins.push({type:"warning",text:`${low.length} produto(s) com estoque crítico: ${low.slice(0,3).map((p:any)=>p.name).join(", ")}.`});
-  const orc=opps.filter((o:any)=>o.stage==="orcamento_enviado").length;
-  if(orc>3) ins.push({type:"warning",text:`${orc} orçamentos sem resposta. Faça follow-up.`});
-  if(sales.length>0){ const l30=sales.filter((s:any)=>(Date.now()-new Date(s.createdAt).getTime())<30*86400000); const t=l30.reduce((s:number,v:any)=>s+parseFloat(v.totalValue||"0"),0); if(t>0) ins.push({type:"success",text:`Vendas nos últimos 30 dias: ${fmt(t)} (${l30.length} transações).`}); }
-  return ins;
+function generateAIInsights(data: { opportunities: any[]; sales: any[]; clients: any[] }) {
+  const insights: string[] = [];
+  const { opportunities, sales, clients } = data;
+
+  const pendingFollowUp = opportunities.filter((o) => {
+    if (o.stage !== "orcamento_enviado") return false;
+    const created = new Date(o.createdAt);
+    const diffDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays > 7;
+  });
+  if (pendingFollowUp.length > 0) {
+    insights.push(`${pendingFollowUp.length} orçamento(s) sem resposta precisam de follow-up urgente.`);
+  }
+
+  const topPipeline = [...(clients || [])]
+    .map((c) => {
+      const clientOpps = opportunities.filter((o) => o.clientId === c.id && o.stage !== "perdida");
+      const weighted = clientOpps.reduce((s, o) => s + (Number(o.value) || 0) * (STAGE_PROB[o.stage] || 0) / 100, 0);
+      return { name: c.name, weighted };
+    })
+    .sort((a, b) => b.weighted - a.weighted)
+    .slice(0, 3);
+
+  if (topPipeline.length > 0) {
+    insights.push(`Foque em ${topPipeline[0].name} — maior pipeline ponderado (${fmt(topPipeline[0].weighted)}).`);
+  }
+
+  const negotiation = opportunities.filter((o) => {
+    if (o.stage !== "negociacao") return false;
+    const created = new Date(o.createdAt);
+    const diffDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays > 15;
+  });
+  if (negotiation.length > 0) {
+    insights.push(`${negotiation.length} oportunidade(s) em negociação há mais de 15 dias — risco de perda.`);
+  }
+
+  if (insights.length === 0) {
+    insights.push("Pipeline saudável. Mantenha o ritmo de prospecção.");
+  }
+
+  return insights;
 }
 
-function byClient(opps: any[], clients: any[]) {
-  const cm: Record<number,string>={};
-  clients.forEach((c:any)=>{ cm[c.id]=c.farmName||c.producerName||`#${c.id}`; });
-  const map: Record<number,{name:string;count:number;total:number;weighted:number;stages:string[]}> = {};
-  opps.filter(o=>o.stage!=="perdida").forEach((o:any)=>{ if(!map[o.clientId]) map[o.clientId]={name:cm[o.clientId]??`#${o.clientId}`,count:0,total:0,weighted:0,stages:[]}; const p=o.probability>0?o.probability:(STAGE_PROB[o.stage]??10),v=parseFloat(o.value||"0"); map[o.clientId].count++;map[o.clientId].total+=v;map[o.clientId].weighted+=v*(p/100); if(!map[o.clientId].stages.includes(STAGE_LABELS[o.stage]??o.stage)) map[o.clientId].stages.push(STAGE_LABELS[o.stage]??o.stage); });
-  return Object.values(map).sort((a,b)=>b.weighted-a.weighted);
-}
-
-type Tab = "pipeline"|"clientes"|"produtos"|"historico"|"abc";
+type Tab = "overview" | "bycliente" | "abc";
 
 export default function AiForecast() {
-  const [tab, setTab] = useState<Tab>("pipeline");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [goalInput, setGoalInput] = useState("");
   const month = thisMonth();
 
-  const { data, isLoading } = trpc.ai.forecast.useQuery();
+  const { data: forecastData } = trpc.ai.forecast.useQuery();
   const { data: goalData, refetch: refetchGoal } = trpc.goals.get.useQuery({ month });
-  const { data: progress } = trpc.goals.progress.useQuery({ month });
+  const { data: progressData } = trpc.goals.progress.useQuery({ month });
   const { data: abcData = [] } = trpc.goals.abc.useQuery();
-
   const setGoalMutation = trpc.goals.set.useMutation({
-    onSuccess: () => { toast.success("Meta salva!"); refetchGoal(); },
-    onError: (e:any) => toast.error(e.message),
+    onSuccess: () => {
+      toast.success("Meta atualizada!");
+      refetchGoal();
+    },
+    onError: () => toast.error("Erro ao salvar meta."),
   });
 
-  if (isLoading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div></div>;
+  const opportunities: any[] = forecastData?.opportunities ?? [];
+  const sales: any[] = forecastData?.sales ?? [];
+  const clients: any[] = forecastData?.clients ?? [];
 
-  const { opportunities:opps=[], products:prods=[], clients=[], sales=[] } = data??{};
-  const forecast = calcForecast(opps);
-  const insights = generateInsights({ opportunities:opps, products:prods, clients, sales });
-  const clientForecast = byClient(opps, clients);
+  const goalValue = goalData?.goalValue ?? 0;
+  const realized = progressData?.realized ?? 0;
+  const pipeline = progressData?.pipeline ?? 0;
+  const projection = progressData?.projection ?? 0;
+  const goalValueNum = Number(goalValue) || 0;
+  const goalPct = goalValueNum > 0 ? Math.min(100, (Number(realized) / goalValueNum) * 100) : 0;
+  const projPct = goalValueNum > 0 ? Math.min(100, (Number(projection) / goalValueNum) * 100) : 0;
 
-  const goalValue = parseFloat(goalData?.goalValue ?? "0");
-  const realized = progress?.realized ?? 0;
-  const pipeline = progress?.pipeline ?? 0;
-  const projection = progress?.projection ?? 0;
-  const goalPct = goalValue > 0 ? Math.min((realized / goalValue) * 100, 100) : 0;
-  const goalColor = goalPct >= 80 ? "bg-green-500" : goalPct >= 50 ? "bg-yellow-500" : "bg-red-400";
-  const goalTextColor = goalPct >= 80 ? "text-green-600" : goalPct >= 50 ? "text-yellow-600" : "text-red-500";
+  // Diagnóstico do mês
+  const now = new Date();
+  const curMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
-  const salesByMonth: Record<string,number> = {};
-  sales.forEach((s:any)=>{ const m=new Date(s.createdAt).toLocaleDateString("pt-BR",{month:"short",year:"2-digit"}); salesByMonth[m]=(salesByMonth[m]??0)+parseFloat(s.totalValue||"0"); });
-  const salesEntries = Object.entries(salesByMonth).slice(-6);
+  const salesThisMonth = sales
+    .filter((s) => s.date && String(s.date).startsWith(curMonthStr))
+    .reduce((a, s) => a + (Number(s.value) || 0), 0);
+  const salesLastMonth = sales
+    .filter((s) => s.date && String(s.date).startsWith(prevMonthStr))
+    .reduce((a, s) => a + (Number(s.value) || 0), 0);
 
-  const abcSummary = { A: (abcData as any[]).filter(r=>r.cls==="A"), B: (abcData as any[]).filter(r=>r.cls==="B"), C: (abcData as any[]).filter(r=>r.cls==="C") };
+  const growthPct = salesLastMonth > 0
+    ? ((salesThisMonth - salesLastMonth) / salesLastMonth) * 100
+    : salesThisMonth > 0 ? 100 : 0;
 
-  const tabs = [
-    { id:"pipeline" as Tab, label:"Pipeline", icon:BarChart3 },
-    { id:"clientes" as Tab, label:"Por Cliente", icon:Users },
-    { id:"produtos" as Tab, label:"Por Produto", icon:ShoppingBag },
-    { id:"historico" as Tab, label:"Histórico", icon:DollarSign },
-    { id:"abc" as Tab, label:"Curva ABC", icon:Trophy },
+  // Projeção até fim do mês
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysRemaining = daysInMonth - dayOfMonth;
+  const last30Sales = sales
+    .filter((s) => {
+      if (!s.date) return false;
+      const d = new Date(s.date);
+      return (Date.now() - d.getTime()) <= 30 * 24 * 60 * 60 * 1000;
+    })
+    .reduce((a, s) => a + (Number(s.value) || 0), 0);
+  const dailyRate = dayOfMonth > 0 ? last30Sales / dayOfMonth : 0;
+  const endOfMonthProjection = salesThisMonth + dailyRate * daysRemaining;
+
+  // Alertas
+  const alertsLong = opportunities.filter((o) => {
+    if (o.stage === "venda_concluida" || o.stage === "perdida") return false;
+    const diffDays = (Date.now() - new Date(o.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays > 15;
+  });
+  const alertsOrcamento = opportunities.filter((o) => o.stage === "orcamento_enviado");
+  const clientsNoOpps = clients.filter((c) => {
+    return !opportunities.some((o) => o.clientId === c.id && o.stage !== "perdida" && o.stage !== "venda_concluida");
+  });
+
+  // Funil
+  const funnelData = STAGES.map((stage) => {
+    const stageOpps = opportunities.filter((o) => o.stage === stage);
+    const total = stageOpps.reduce((s, o) => s + (Number(o.value) || 0), 0);
+    return { stage, label: STAGE_LABELS[stage], count: stageOpps.length, total };
+  });
+  const maxFunnelTotal = Math.max(...funnelData.map((f) => f.total), 1);
+
+  // Top 5 oportunidades ponderadas
+  const top5Opps = [...opportunities]
+    .map((o) => ({
+      ...o,
+      weighted: (Number(o.value) || 0) * (STAGE_PROB[o.stage] || 0) / 100,
+    }))
+    .filter((o) => o.stage !== "perdida")
+    .sort((a, b) => b.weighted - a.weighted)
+    .slice(0, 5);
+
+  // Últimos 6 meses de vendas
+  const last6Months: { label: string; value: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = d.toLocaleString("pt-BR", { month: "short" });
+    const val = sales
+      .filter((s) => s.date && String(s.date).startsWith(key))
+      .reduce((a, s) => a + (Number(s.value) || 0), 0);
+    last6Months.push({ label, value: val });
+  }
+  const maxBarValue = Math.max(...last6Months.map((m) => m.value), 1);
+
+  // Por Cliente
+  const byClient = clients.map((c) => {
+    const clientOpps = opportunities.filter((o) => o.clientId === c.id && o.stage !== "perdida");
+    const gross = clientOpps.reduce((s, o) => s + (Number(o.value) || 0), 0);
+    const weighted = clientOpps.reduce((s, o) => s + (Number(o.value) || 0) * (STAGE_PROB[o.stage] || 0) / 100, 0);
+    const stages = Array.from(new Set(clientOpps.map((o: any) => STAGE_LABELS[o.stage] || o.stage))).join(", ");
+    return { id: c.id, name: c.name, count: clientOpps.length, gross, weighted, stages };
+  })
+    .filter((c) => c.count > 0)
+    .sort((a, b) => b.weighted - a.weighted);
+
+  // AI insights
+  const aiInsights = generateAIInsights({ opportunities, sales, clients });
+
+  const handleSetGoal = () => {
+    const val = parseFloat(goalInput.replace(",", "."));
+    if (isNaN(val) || val <= 0) { toast.error("Insira um valor válido."); return; }
+    setGoalMutation.mutate({ month, goalValue: String(val) });
+    setGoalInput("");
+  };
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "overview", label: "Visão Geral" },
+    { id: "bycliente", label: "Por Cliente" },
+    { id: "abc", label: "Curva ABC" },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Meta Mensal */}
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Lightbulb className="w-8 h-8 text-yellow-500" />Previsão de Vendas com IA</h1>
-        <p className="text-slate-600 mt-1">Pipeline, metas, curva ABC e tendências da carteira</p>
+        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <Brain className="h-6 w-6 text-purple-600" /> Forecast com IA
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">Análise inteligente do seu pipeline e previsão de vendas</p>
       </div>
 
-      {/* META MENSAL */}
-      <Card className="border-2 border-primary/20 bg-primary/5">
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg"><Target className="w-5 h-5 text-primary" />Meta de {thisMonthLabel()}</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Target className="h-4 w-4 text-purple-600" /> Meta Mensal —{" "}
+            {new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" })}
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-slate-500">Meta</p>
+              <p className="text-lg font-bold text-purple-700">{fmt(Number(goalValue) || 0)}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Realizado</p>
+              <p className="text-lg font-bold text-green-700">{fmt(Number(realized) || 0)}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Pipeline</p>
+              <p className="text-lg font-bold text-blue-700">{fmt(Number(pipeline) || 0)}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Projeção</p>
+              <p className="text-lg font-bold text-orange-700">{fmt(Number(projection) || 0)}</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Realizado {goalPct.toFixed(1)}%</span>
+              <span>Projetado {projPct.toFixed(1)}%</span>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-3 relative overflow-hidden">
+              <div
+                className="h-3 rounded-full bg-green-500 absolute"
+                style={{ width: `${goalPct}%` }}
+              />
+              <div
+                className="h-3 rounded-full bg-orange-400 absolute opacity-60"
+                style={{ width: `${projPct}%` }}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-2">
             <Input
-              type="number"
-              placeholder={goalValue > 0 ? goalValue.toString() : "Ex: 80000"}
+              placeholder="Nova meta (R$)"
               value={goalInput}
-              onChange={e => setGoalInput(e.target.value)}
+              onChange={(e) => setGoalInput(e.target.value)}
               className="max-w-xs"
             />
-            <Button onClick={() => { if(!goalInput){ toast.error("Digite um valor"); return; } setGoalMutation.mutate({ month, goalValue: goalInput }); setGoalInput(""); }} disabled={setGoalMutation.isPending}>
-              {setGoalMutation.isPending ? "Salvando..." : "Definir Meta"}
+            <Button size="sm" onClick={handleSetGoal} disabled={setGoalMutation.isPending}>
+              Definir Meta
             </Button>
           </div>
-
-          {goalValue > 0 ? (
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm font-medium">
-                <span>Realizado: <span className={goalTextColor}>{fmt(realized)}</span></span>
-                <span>Meta: {fmt(goalValue)}</span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-4">
-                <div className={`h-4 rounded-full transition-all ${goalColor}`} style={{ width: `${goalPct}%` }}></div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-white rounded-lg p-3 border">
-                  <p className="text-xs text-slate-500">Realizado</p>
-                  <p className={`font-bold ${goalTextColor}`}>{Math.round(goalPct)}%</p>
-                  <p className="text-xs text-slate-600">{fmt(realized)}</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border">
-                  <p className="text-xs text-slate-500">Em negociação</p>
-                  <p className="font-bold text-blue-600">+{fmt(pipeline)}</p>
-                  <p className="text-xs text-slate-400">pipeline ponderado</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border">
-                  <p className="text-xs text-slate-500">Projeção do mês</p>
-                  <p className={`font-bold ${projection >= goalValue ? "text-green-600" : "text-orange-600"}`}>{fmt(projection)}</p>
-                  <p className="text-xs text-slate-400">{projection >= goalValue ? "✅ Meta atingível" : "⚠️ Abaixo da meta"}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-slate-400 text-sm">Defina sua meta mensal acima para acompanhar o progresso.</p>
-          )}
         </CardContent>
       </Card>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-5"><p className="text-xs text-slate-500 uppercase tracking-wide">Pipeline Ponderado</p><p className="text-2xl font-bold text-blue-600 mt-1">{fmt(forecast.weighted)}</p><p className="text-xs text-slate-400 mt-1">Ajustado pela probabilidade</p></CardContent></Card>
-        <Card><CardContent className="pt-5"><p className="text-xs text-slate-500 uppercase tracking-wide">Oportunidades Ativas</p><p className="text-2xl font-bold mt-1">{forecast.totalOpps - forecast.totalOpps + (opps.filter((o:any)=>o.stage!=="perdida").length)}</p><p className="text-xs text-slate-400 mt-1">Excluindo perdidas</p></CardContent></Card>
-        <Card><CardContent className="pt-5"><p className="text-xs text-slate-500 uppercase tracking-wide">Taxa de Conversão</p><p className={`text-2xl font-bold mt-1 ${forecast.convRate>=30?"text-green-600":"text-orange-600"}`}>{forecast.convRate}%</p><p className="text-xs text-slate-400 mt-1">{forecast.closed} de {forecast.totalOpps}</p></CardContent></Card>
-        <Card><CardContent className="pt-5"><p className="text-xs text-slate-500 uppercase tracking-wide">Clientes Classe A</p><p className="text-2xl font-bold text-green-600 mt-1">{abcSummary.A.length}</p><p className="text-xs text-slate-400 mt-1">Top clientes por faturamento</p></CardContent></Card>
+      {/* Abas */}
+      <div className="flex gap-2 border-b border-slate-200 pb-0">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === t.id
+                ? "border-purple-600 text-purple-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Insights */}
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Lightbulb className="w-5 h-5 text-yellow-500" />Insights & Recomendações</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {insights.length===0 && <p className="text-slate-400 text-sm">Cadastre oportunidades e produtos para gerar insights.</p>}
-          {insights.map((ins,i)=>(
-            <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${ins.type==="success"?"bg-green-50 border-green-200":ins.type==="warning"?"bg-yellow-50 border-yellow-200":"bg-blue-50 border-blue-200"}`}>
-              {ins.type==="success"?<TrendingUp className="w-4 h-4 text-green-600 mt-0.5 shrink-0"/>:ins.type==="warning"?<AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0"/>:<Target className="w-4 h-4 text-blue-600 mt-0.5 shrink-0"/>}
-              <p className="text-sm">{ins.text}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {tabs.map(t=>(<Button key={t.id} variant={tab===t.id?"default":"outline"} size="sm" className="gap-1.5" onClick={()=>setTab(t.id)}><t.icon className="w-4 h-4"/>{t.label}</Button>))}
-      </div>
-
-      {/* PIPELINE */}
-      {tab==="pipeline" && (
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><BarChart3 className="w-5 h-5"/>Funil por Etapa</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {forecast.byStage.filter(s=>s.count>0).length===0 && <p className="text-slate-400 text-sm">Nenhuma oportunidade cadastrada.</p>}
-            {forecast.byStage.filter(s=>s.count>0).map(stage=>{
-              const prob=STAGE_PROB[stage.id]??10;
-              return (
-                <div key={stage.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2"><div><p className="font-semibold">{stage.label}</p><p className="text-xs text-slate-500">{stage.count} oportunidade(s) · {fmt(stage.total)}</p></div><Badge variant="outline" className="text-primary border-primary">{prob}%</Badge></div>
-                  <div className="w-full bg-slate-100 rounded-full h-3"><div className="bg-primary h-3 rounded-full" style={{width:`${prob}%`}}></div></div>
-                  <p className="text-xs text-slate-500 mt-1">Receita estimada: <span className="font-semibold text-slate-700">{fmt(stage.total*(prob/100))}</span></p>
+      {/* Aba Visão Geral */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Coluna Esquerda */}
+          <div className="space-y-4">
+            {/* Diagnóstico do Mês */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-blue-600" /> Diagnóstico do Mês
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Vendas este mês</span>
+                  <span className="font-bold">{fmt(salesThisMonth)}</span>
                 </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Vendas mês passado</span>
+                  <span className="font-bold">{fmt(salesLastMonth)}</span>
+                </div>
+                <div className="flex justify-between items-center border-t pt-2">
+                  <span className="text-slate-500">Variação</span>
+                  <span className={`font-bold flex items-center gap-1 ${growthPct >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {growthPct >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(1)}%
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* POR CLIENTE */}
-      {tab==="clientes" && (
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Users className="w-5 h-5"/>Previsão por Cliente</CardTitle></CardHeader>
-          <CardContent>
-            {clientForecast.length===0 && <p className="text-slate-400 text-sm">Nenhuma oportunidade ativa com cliente associado.</p>}
-            <div className="space-y-3">
-              {clientForecast.map((c,i)=>{
-                const max=clientForecast[0]?.weighted??1, pct=max>0?(c.weighted/max)*100:0;
-                return (
-                  <div key={i} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2"><div className="flex-1 min-w-0"><p className="font-semibold truncate">{c.name}</p><p className="text-xs text-slate-500">{c.count} oportunidade(s) · {c.stages.join(", ")}</p></div><div className="text-right ml-4 shrink-0"><p className="text-sm font-bold text-blue-600">{fmt(c.weighted)}</p><p className="text-xs text-slate-400">Pipeline: {fmt(c.total)}</p></div></div>
-                    <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-blue-500 h-2 rounded-full" style={{width:`${pct}%`}}></div></div>
+            {/* Projeção até fim do mês */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-orange-500" /> Projeção até Fim do Mês
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Dia atual</span>
+                  <span>{dayOfMonth}/{daysInMonth}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Taxa diária (30d)</span>
+                  <span>{fmt(dailyRate)}/dia</span>
+                </div>
+                <div className="flex justify-between border-t pt-2">
+                  <span className="text-slate-500 font-medium">Projeção fim do mês</span>
+                  <span className="font-bold text-orange-600">{fmt(endOfMonthProjection)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Alertas Críticos */}
+            <Card className="border-red-100">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-red-600">
+                  <AlertTriangle className="h-4 w-4" /> Alertas Críticos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {alertsLong.length > 0 && (
+                  <div className="flex items-start gap-2 text-red-700 bg-red-50 rounded p-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{alertsLong.length} oportunidade(s) em negociação há mais de 15 dias</span>
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                )}
+                {alertsOrcamento.length > 0 && (
+                  <div className="flex items-start gap-2 text-orange-700 bg-orange-50 rounded p-2">
+                    <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{alertsOrcamento.length} orçamento(s) enviado(s) aguardando resposta</span>
+                  </div>
+                )}
+                {clientsNoOpps.length > 0 && (
+                  <div className="flex items-start gap-2 text-slate-600 bg-slate-50 rounded p-2">
+                    <Users className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{clientsNoOpps.length} cliente(s) sem oportunidades ativas</span>
+                  </div>
+                )}
+                {alertsLong.length === 0 && alertsOrcamento.length === 0 && clientsNoOpps.length === 0 && (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Nenhum alerta crítico no momento</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-      {/* POR PRODUTO */}
-      {tab==="produtos" && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Package className="w-5 h-5"/>Controle de Estoque</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {prods.length===0 && <p className="text-slate-400 text-sm">Nenhum produto cadastrado.</p>}
-              {[...prods].sort((a:any,b:any)=>(a.stock??999)-(b.stock??999)).slice(0,10).map((p:any)=>(
-                <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border ${p.stock!==null&&p.stock<5?"bg-red-50 border-red-200":p.stock!==null&&p.stock<10?"bg-yellow-50 border-yellow-200":"bg-white border-slate-200"}`}>
-                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{p.name}</p><p className="text-xs text-slate-400">{p.category??"—"}</p></div>
-                  <div className="flex items-center gap-2 ml-3 shrink-0">{p.stock!==null?(<Badge variant={p.stock<5?"destructive":p.stock<10?"secondary":"outline"}>{p.stock} {p.unit??"un"}</Badge>):<Badge variant="outline">Sem controle</Badge>}{p.price&&<span className="text-xs text-slate-500">{fmt(parseFloat(p.price))}</span>}</div>
+            {/* Recomendações IA */}
+            <Card className="border-purple-100 bg-purple-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-purple-700">
+                  <Lightbulb className="h-4 w-4" /> Recomendações IA
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {aiInsights.map((insight, i) => (
+                  <div key={i} className="flex items-start gap-2 text-purple-800">
+                    <ArrowRight className="h-4 w-4 mt-0.5 flex-shrink-0 text-purple-500" />
+                    <span>{insight}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coluna Direita */}
+          <div className="space-y-4">
+            {/* Funil por Etapa */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Package className="h-4 w-4 text-blue-600" /> Funil de Vendas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {funnelData.map((f) => (
+                  <div key={f.stage} className="space-y-1">
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>{f.label}</span>
+                      <span>{f.count} · {fmt(f.total)}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${
+                          f.stage === "perdida" ? "bg-red-400" :
+                          f.stage === "venda_concluida" ? "bg-green-500" :
+                          "bg-blue-500"
+                        }`}
+                        style={{ width: `${(f.total / maxFunnelTotal) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Top 5 Oportunidades */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-yellow-500" /> Top 5 Oportunidades
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {top5Opps.map((o, i) => (
+                  <div key={o.id ?? i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-slate-400 text-xs w-4 flex-shrink-0">#{i + 1}</span>
+                      <span className="truncate text-slate-700">{o.title || o.name || "Sem título"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge variant="outline" className="text-xs">{STAGE_LABELS[o.stage] || o.stage}</Badge>
+                      <span className="font-medium text-blue-700">{fmt(o.weighted)}</span>
+                    </div>
+                  </div>
+                ))}
+                {top5Opps.length === 0 && (
+                  <p className="text-slate-400 text-xs">Nenhuma oportunidade ativa</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Mini Gráfico Últimos 6 Meses */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-green-600" /> Vendas — Últimos 6 Meses
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-2 h-24">
+                  {last6Months.map((m, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div
+                        className="w-full bg-blue-500 rounded-t"
+                        style={{ height: `${Math.max(4, (m.value / maxBarValue) * 80)}px` }}
+                        title={fmt(m.value)}
+                      />
+                      <span className="text-xs text-slate-500 capitalize">{m.label}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ShoppingBag className="w-5 h-5"/>Vendas por Produto</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {sales.length===0 && <p className="text-slate-400 text-sm">Nenhuma venda registrada ainda.</p>}
-              {(() => {
-                const map: Record<string,{count:number;total:number}>={};
-                sales.forEach((s:any)=>{ const k=s.title||"Venda direta"; if(!map[k]) map[k]={count:0,total:0}; map[k].count++;map[k].total+=parseFloat(s.totalValue||"0"); });
-                const arr=Object.entries(map).map(([name,v])=>({name,...v})).sort((a,b)=>b.total-a.total).slice(0,8);
-                const max=arr[0]?.total??1;
-                return arr.map((p,i)=>(
-                  <div key={i}><div className="flex justify-between text-sm mb-1"><span className="font-medium truncate flex-1">{p.name}</span><span className="text-slate-500 shrink-0 ml-2">{p.count}x · {fmt(p.total)}</span></div><div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-green-500 h-2 rounded-full" style={{width:`${(p.total/max)*100}%`}}></div></div></div>
-                ));
-              })()}
-            </CardContent>
-          </Card>
+                <div className="flex justify-between text-xs text-slate-400 mt-1">
+                  <span>0</span>
+                  <span>{fmt(maxBarValue)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
-      {/* HISTÓRICO */}
-      {tab==="historico" && (
+      {/* Aba Por Cliente */}
+      {activeTab === "bycliente" && (
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><DollarSign className="w-5 h-5"/>Histórico — Últimos 6 meses</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" /> Ranking por Cliente
+            </CardTitle>
+          </CardHeader>
           <CardContent>
-            {salesEntries.length===0 && <p className="text-slate-400 text-sm">Nenhuma venda registrada ainda.</p>}
-            <div className="space-y-3">
-              {salesEntries.map(([month,total])=>{ const max=Math.max(...salesEntries.map(([,v])=>v)); const pct=max>0?(total/max)*100:0; return (<div key={month} className="flex items-center gap-3"><span className="text-sm text-slate-600 w-20 shrink-0">{month}</span><div className="flex-1 bg-slate-100 rounded-full h-5 relative"><div className="bg-primary h-5 rounded-full transition-all" style={{width:`${pct}%`}}></div></div><span className="text-sm font-medium w-28 text-right shrink-0">{fmt(total)}</span></div>); })}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-slate-500 text-left">
+                    <th className="pb-2 pr-4">#</th>
+                    <th className="pb-2 pr-4">Cliente</th>
+                    <th className="pb-2 pr-4 text-center">Opps</th>
+                    <th className="pb-2 pr-4 text-right">Total Bruto</th>
+                    <th className="pb-2 pr-4 text-right">Ponderado</th>
+                    <th className="pb-2">Etapas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byClient.map((c, i) => (
+                    <tr key={c.id ?? i} className="border-b last:border-0 hover:bg-slate-50">
+                      <td className="py-2 pr-4 text-slate-400">#{i + 1}</td>
+                      <td className="py-2 pr-4 font-medium text-slate-800">{c.name}</td>
+                      <td className="py-2 pr-4 text-center">{c.count}</td>
+                      <td className="py-2 pr-4 text-right">{fmt(c.gross)}</td>
+                      <td className="py-2 pr-4 text-right font-semibold text-blue-700">{fmt(c.weighted)}</td>
+                      <td className="py-2 text-xs text-slate-500">{c.stages}</td>
+                    </tr>
+                  ))}
+                  {byClient.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        Nenhum cliente com oportunidades ativas
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* CURVA ABC */}
-      {tab==="abc" && (
+      {/* Aba Curva ABC */}
+      {activeTab === "abc" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="border-green-200 bg-green-50"><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-green-700">{abcSummary.A.length}</p><p className="font-semibold text-green-600">Classe A</p><p className="text-xs text-slate-500 mt-1">80% do faturamento</p><p className="text-xs font-medium text-green-600">{fmt(abcSummary.A.reduce((s,r:any)=>s+r.value,0))}</p></CardContent></Card>
-            <Card className="border-yellow-200 bg-yellow-50"><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-yellow-700">{abcSummary.B.length}</p><p className="font-semibold text-yellow-600">Classe B</p><p className="text-xs text-slate-500 mt-1">15% do faturamento</p><p className="text-xs font-medium text-yellow-600">{fmt(abcSummary.B.reduce((s,r:any)=>s+r.value,0))}</p></CardContent></Card>
-            <Card className="border-slate-200 bg-slate-50"><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-slate-700">{abcSummary.C.length}</p><p className="font-semibold text-slate-600">Classe C</p><p className="text-xs text-slate-500 mt-1">5% do faturamento</p><p className="text-xs font-medium text-slate-600">{fmt(abcSummary.C.reduce((s,r:any)=>s+r.value,0))}</p></CardContent></Card>
-          </div>
-
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Trophy className="w-5 h-5 text-yellow-500"/>Ranking de Clientes por Faturamento</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5 text-purple-600" /> Curva ABC de Produtos
+              </CardTitle>
+            </CardHeader>
             <CardContent>
-              {(abcData as any[]).length===0 && <p className="text-slate-400 text-sm text-center py-6">Nenhuma venda registrada ainda. Registre vendas para gerar a curva ABC.</p>}
-              <div className="space-y-2">
-                {(abcData as any[]).map((row:any)=>{
-                  const max=(abcData as any[])[0]?.value??1;
-                  return (
-                    <div key={row.clientId} className={`flex items-center gap-3 p-3 rounded-lg border ${row.cls==="A"?"border-green-200 bg-green-50":row.cls==="B"?"border-yellow-200 bg-yellow-50":"border-slate-200 bg-white"}`}>
-                      <span className="text-sm font-bold text-slate-400 w-6 shrink-0">#{row.rank}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{row.name}</p>
-                        <div className="w-full bg-white/60 rounded-full h-1.5 mt-1"><div className={`h-1.5 rounded-full ${row.cls==="A"?"bg-green-500":row.cls==="B"?"bg-yellow-500":"bg-slate-400"}`} style={{width:`${(row.value/max)*100}%`}}></div></div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold">{fmt(row.value)}</p>
-                        <p className="text-xs text-slate-400">{row.pct.toFixed(1)}% · acum. {row.accPct.toFixed(1)}%</p>
-                      </div>
-                      <Badge className={`shrink-0 ${row.cls==="A"?"bg-green-600":row.cls==="B"?"bg-yellow-500":"bg-slate-500"}`}>{row.cls}</Badge>
-                    </div>
-                  );
-                })}
-              </div>
+              {abcData.length === 0 ? (
+                <p className="text-slate-400 text-sm text-center py-8">Nenhum dado disponível</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-slate-500 text-left">
+                        <th className="pb-2 pr-4">Classe</th>
+                        <th className="pb-2 pr-4">Produto</th>
+                        <th className="pb-2 pr-4 text-right">Receita</th>
+                        <th className="pb-2 pr-4 text-right">% do Total</th>
+                        <th className="pb-2 text-right">% Acumulado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {abcData.map((item: any, i: number) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-slate-50">
+                          <td className="py-2 pr-4">
+                            <Badge
+                              className={
+                                item.class === "A"
+                                  ? "bg-green-100 text-green-700"
+                                  : item.class === "B"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                              }
+                            >
+                              {item.class}
+                            </Badge>
+                          </td>
+                          <td className="py-2 pr-4 font-medium">{item.name}</td>
+                          <td className="py-2 pr-4 text-right">{fmt(item.revenue ?? 0)}</td>
+                          <td className="py-2 pr-4 text-right">{(item.pct ?? 0).toFixed(1)}%</td>
+                          <td className="py-2 text-right">{(item.cumPct ?? 0).toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -153,6 +153,8 @@ export const interactions = pgTable("interactions", {
   duration: integer("duration"),
   result: text("result") as any,
   nextAction: text("nextAction") as any,
+  nextVisitDate: timestamp("nextVisitDate"),
+  visitResult: varchar("visitResult", { length: 50 }),
   createdBy: integer("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (t) => ({ intClientIdIdx: index("intClientIdIdx").on(t.clientId), intTypeIdx: index("intTypeIdx").on(t.type) }));
