@@ -10,6 +10,7 @@ import {
   quoteItems,
   interactions,
   sales,
+  monthlyGoals,
   companies,
   type Client,
   type Product,
@@ -893,4 +894,74 @@ export async function getVisits(filters?: { clientId?: number; companyId?: numbe
     .where(and(...conditions))
     .orderBy(desc(interactions.date))
     .limit(filters?.limit ?? 50);
+}
+
+
+// ========== MONTHLY GOALS ==========
+export async function setMonthlyGoal(companyId: number, month: string, goalValue: string) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select().from(monthlyGoals)
+    .where(and(eq(monthlyGoals.companyId, companyId), eq(monthlyGoals.month, month)))
+    .limit(1);
+  if (existing.length > 0) {
+    return db.update(monthlyGoals).set({ goalValue }).where(and(eq(monthlyGoals.companyId, companyId), eq(monthlyGoals.month, month)));
+  }
+  return db.insert(monthlyGoals).values({ companyId, month, goalValue });
+}
+
+export async function getMonthlyGoal(companyId: number, month: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(monthlyGoals)
+    .where(and(eq(monthlyGoals.companyId, companyId), eq(monthlyGoals.month, month)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getMonthlyProgress(companyId: number, month: string) {
+  const db = await getDb();
+  if (!db) return { realized: 0, pipeline: 0 };
+  const [year, m] = month.split("-").map(Number);
+  const startDate = new Date(year, m - 1, 1);
+  const endDate = new Date(year, m, 0, 23, 59, 59);
+  const salesRows = await db.select().from(sales)
+    .where(and(eq(sales.companyId, companyId), gte(sales.createdAt, startDate), lte(sales.createdAt, endDate)));
+  const realized = salesRows.reduce((s, r) => s + parseFloat(r.totalValue ?? "0"), 0);
+  const oppsRows = await db.select().from(opportunities)
+    .where(and(eq(opportunities.companyId, companyId), sql`stage != 'perdida'`));
+  const pipeline = oppsRows.reduce((s, o) => {
+    const prob = (o.probability ?? 0) > 0 ? o.probability! : 10;
+    return s + parseFloat(o.value ?? "0") * (prob / 100);
+  }, 0);
+  const dayOfMonth = new Date().getDate();
+  const daysInMonth = new Date(year, m, 0).getDate();
+  const projection = dayOfMonth > 0 ? (realized / dayOfMonth) * daysInMonth : 0;
+  return { realized, pipeline, projection };
+}
+
+export async function getABCData(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const salesRows = await db.select().from(sales).where(eq(sales.companyId, companyId));
+  const clientsRows = await db.select().from(clients).where(eq(clients.companyId, companyId));
+  const clientMap: Record<number, string> = {};
+  clientsRows.forEach(c => { clientMap[c.id] = c.farmName || c.producerName || `#${c.id}`; });
+  const byClient: Record<number, number> = {};
+  salesRows.forEach(s => {
+    if (!s.clientId) return;
+    byClient[s.clientId] = (byClient[s.clientId] ?? 0) + parseFloat(s.totalValue ?? "0");
+  });
+  const total = Object.values(byClient).reduce((a, b) => a + b, 0);
+  const sorted = Object.entries(byClient)
+    .map(([id, value]) => ({ clientId: Number(id), name: clientMap[Number(id)] ?? `#${id}`, value }))
+    .sort((a, b) => b.value - a.value);
+  let accumulated = 0;
+  return sorted.map((row, i) => {
+    accumulated += row.value;
+    const pct = total > 0 ? (row.value / total) * 100 : 0;
+    const accPct = total > 0 ? (accumulated / total) * 100 : 0;
+    const cls = accPct <= 80 ? "A" : accPct <= 95 ? "B" : "C";
+    return { ...row, rank: i + 1, pct, accPct, cls };
+  });
 }

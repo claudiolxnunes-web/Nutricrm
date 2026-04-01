@@ -49,6 +49,10 @@ import {
   createCompany,
   listCompanies,
   getAiForecastData,
+  setMonthlyGoal,
+  getMonthlyGoal,
+  getMonthlyProgress,
+  getABCData,
 } from "./db";
 
 export const appRouter = router({
@@ -572,6 +576,30 @@ export const appRouter = router({
     }),
   }),
 
+  // ========== MONTHLY GOALS ==========
+  goals: router({
+    set: protectedProcedure
+      .input(z.object({ month: z.string(), goalValue: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        return setMonthlyGoal(ctx.user.companyId ?? 1, input.month, input.goalValue);
+      }),
+    get: protectedProcedure
+      .input(z.object({ month: z.string() }))
+      .query(async ({ input, ctx }) => {
+        return getMonthlyGoal(ctx.user.companyId ?? 1, input.month);
+      }),
+    progress: protectedProcedure
+      .input(z.object({ month: z.string() }))
+      .query(async ({ input, ctx }) => {
+        return getMonthlyProgress(ctx.user.companyId ?? 1, input.month);
+      }),
+    abc: protectedProcedure
+      .query(async ({ ctx }) => {
+        const cid = ctx.user.role === "superadmin" ? 1 : (ctx.user.companyId ?? 1);
+        return getABCData(cid);
+      }),
+  }),
+
   // ========== AI FORECAST ==========
   ai: router({
     forecast: protectedProcedure.query(async ({ ctx }) => {
@@ -582,6 +610,7 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
 
 
 

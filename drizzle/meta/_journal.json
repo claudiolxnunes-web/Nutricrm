@@ -50,6 +50,13 @@
       "when": 1774986170339,
       "tag": "0006_daffy_swarm",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774992867831,
+      "tag": "0007_uneven_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

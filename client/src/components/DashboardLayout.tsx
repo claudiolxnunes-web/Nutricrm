@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp, Shield, BrainCircuit } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp, Shield, BrainCircuit, BookOpen } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -35,6 +35,7 @@ const menuItems = [
   { icon: FileText, label: "Orcamentos", path: "/quotes" },
   { icon: BarChart3, label: "Relatorios", path: "/reports" },
   { icon: BrainCircuit, label: "Previsao IA", path: "/ai-forecast" },
+  { icon: BookOpen, label: "Tutorial", path: "/tutorial" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -42,6 +43,18 @@ const DEFAULT_WIDTH = 280;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
 
+
+
+function HelpButton() {
+  const [, nav] = useLocation();
+  return (
+    <button
+      onClick={() => nav("/tutorial")}
+      className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center text-xl font-bold hover:bg-primary/90 transition-all hover:scale-110"
+      title="Tutorial"
+    >?</button>
+  );
+}
 export default function DashboardLayout({
   children,
 }: {
@@ -63,7 +76,7 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
@@ -278,9 +291,15 @@ function DashboardLayoutContent({
           </div>
         )}
         <main className="flex-1 p-4">{children}</main>
+      <HelpButton />
       </SidebarInset>
     </>
   );
 }
+
+
+
+
+
 
 

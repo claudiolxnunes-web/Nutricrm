@@ -176,6 +176,12 @@ export const sales = pgTable("sales", {
 }, (t) => ({ salClientIdIdx: index("salClientIdIdx").on(t.clientId), salPaymentStatusIdx: index("salPaymentStatusIdx").on(t.paymentStatus) }));
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = typeof sales.$inferInsert;
-
-
+export const monthlyGoals = pgTable("monthly_goals", {
+  id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
+  userId: integer("userId"),
+  month: varchar("month", { length: 7 }).notNull(),
+  goalValue: decimal("goalValue", { precision: 12, scale: 2 }).notNull().default("0"),
+  createdAt: timestamp("createdAt").defaultNow(),
+}, (t) => [index("monthly_goals_idx").on(t.companyId, t.month)]);
 

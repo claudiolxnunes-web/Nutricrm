@@ -16,6 +16,7 @@ import Login from "@/pages/Login";
 import Users from "@/pages/Users";
 import TrialExpired from "@/pages/TrialExpired";
 import AiForecast from "@/pages/AiForecast";
+import Tutorial from "@/pages/Tutorial";
 
 function Router() {
   return (
@@ -65,6 +66,13 @@ function Router() {
           </DashboardLayout>
         )}
       </Route>
+      <Route path={"/tutorial"}>
+        {() => (
+          <DashboardLayout>
+            <Tutorial />
+          </DashboardLayout>
+        )}
+      </Route>
       <Route path={"/ai-forecast"}>
         {() => (
           <DashboardLayout>
@@ -99,4 +107,5 @@ function App() {
 }
 
 export default App;
+
 
