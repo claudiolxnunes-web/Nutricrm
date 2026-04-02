@@ -87,7 +87,7 @@ function HelpButton() {
   );
 }
 
-function BottomNav() {
+function BottomNav({ userEmail, userRole }: { userEmail?: string; userRole?: string }) {
   const [location, setLocation] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -126,7 +126,12 @@ function BottomNav() {
             <SheetTitle className="text-sm font-semibold">Menu</SheetTitle>
           </SheetHeader>
           <div className="grid grid-cols-4 gap-3">
-            {bottomNavMore.map((item) => {
+            {bottomNavMore.filter(item => {
+              if (item.path === "/superadmin") {
+                return userRole === "superadmin" || userEmail === "claudiolx.nunes@gmail.com";
+              }
+              return true;
+            }).map((item) => {
               const isActive = location === item.path;
               return (
                 <button
@@ -305,7 +310,12 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0 px-3 py-2">
             <SidebarMenu className="gap-0.5">
-              {menuItems.map((item) => {
+              {menuItems.filter((item) => {
+                if (item.path === "/superadmin") {
+                  return user?.role === "superadmin" || user?.email === "claudiolx.nunes@gmail.com";
+                }
+                return true;
+              }).map((item) => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -426,7 +436,7 @@ function DashboardLayoutContent({
       </SidebarInset>
 
       {/* Bottom Navigation — so mobile */}
-      <BottomNav />
+      <BottomNav userEmail={user?.email} userRole={user?.role} />
     </>
   );
 }
