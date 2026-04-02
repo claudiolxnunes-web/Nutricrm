@@ -28,6 +28,27 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+const CICLO_ETAPAS = [
+  { id: "planejamento", label: "Planejamento", color: "bg-slate-100 text-slate-700", icon: "📋" },
+  { id: "conexao", label: "Conexão", color: "bg-blue-100 text-blue-700", icon: "🤝" },
+  { id: "necessidades", label: "Id. Necessidades", color: "bg-purple-100 text-purple-700", icon: "🔍" },
+  { id: "solucoes", label: "Soluções", color: "bg-amber-100 text-amber-700", icon: "💡" },
+  { id: "fechamento", label: "Fechamento", color: "bg-green-100 text-green-700", icon: "✅" },
+  { id: "posvenda", label: "Pós Venda", color: "bg-emerald-100 text-emerald-700", icon: "🔄" },
+] as const;
+
+function getCicloEtapa(description: string | null | undefined) {
+  if (!description) return null;
+  const match = description.match(/\[CICLO:(\w+)\]/);
+  if (!match) return null;
+  return CICLO_ETAPAS.find(e => e.id === match[1]) || null;
+}
+
+function getDescription(description: string | null | undefined) {
+  if (!description) return "";
+  return description.replace(/\[CICLO:\w+\]\s?/, "").replace(/\[PLANO\].*/s, "");
+}
+
 function formatDateBR(dateStr: string | null | undefined) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -118,6 +139,7 @@ export default function Interactions() {
     description: "",
     visitResult: "neutro" as "positivo" | "neutro" | "negativo" | "sem_resposta",
     nextVisitDate: "",
+    cicloEtapa: "conexao",
   });
 
   const { data: interactions = [], isLoading, refetch } = trpc.interactions.all.useQuery({
@@ -146,7 +168,7 @@ export default function Interactions() {
     onSuccess: () => {
       toast.success("Interação registrada!");
       setShowNewForm(false);
-      setNewForm({ clientId: "", clientSearch: "", type: "visita", title: "", description: "", visitResult: "neutro", nextVisitDate: "" });
+      setNewForm({ clientId: "", clientSearch: "", type: "visita", title: "", description: "", visitResult: "neutro", nextVisitDate: "", cicloEtapa: "conexao" });
       refetch();
     },
     onError: (e: any) => toast.error(e.message || "Erro ao criar interação"),
@@ -246,6 +268,25 @@ export default function Interactions() {
                 </div>
               </div>
               <div>
+                <label className="text-sm font-medium">Etapa do Ciclo de Atendimento</label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {CICLO_ETAPAS.map((etapa) => (
+                    <button
+                      key={etapa.id}
+                      type="button"
+                      onClick={() => setNewForm({ ...newForm, cicloEtapa: etapa.id })}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                        (newForm as any).cicloEtapa === etapa.id
+                          ? etapa.color + " border-current scale-105 shadow-sm"
+                          : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {etapa.icon} {etapa.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="text-sm font-medium">Título *</label>
                 <input value={newForm.title} onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
                   placeholder="Ex: Visita técnica para apresentação do produto X"
@@ -265,11 +306,13 @@ export default function Interactions() {
               <div className="flex gap-2 pt-1">
                 <Button onClick={() => {
                   if (!newForm.clientId || !newForm.title) { toast.error("Preencha cliente e título"); return; }
+                  const cicloInfo = `[CICLO:${(newForm as any).cicloEtapa}]`;
+                  const descBase = newForm.description || "";
                   createInteractionMutation.mutate({
                     clientId: Number(newForm.clientId),
                     type: newForm.type,
                     title: newForm.title,
-                    description: newForm.description || undefined,
+                    description: cicloInfo + (descBase ? " " + descBase : ""),
                     visitResult: newForm.visitResult,
                     nextVisitDate: newForm.nextVisitDate ? new Date(newForm.nextVisitDate) : undefined,
                   });
@@ -374,6 +417,14 @@ export default function Interactions() {
 
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <ResultBadge result={interaction.visitResult} />
+                      {(() => {
+                        const etapa = getCicloEtapa(interaction.description);
+                        return etapa ? (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${etapa.color}`}>
+                            {etapa.icon} {etapa.label}
+                          </span>
+                        ) : null;
+                      })()}
 
                       {nvd && diff !== null && (
                         <span

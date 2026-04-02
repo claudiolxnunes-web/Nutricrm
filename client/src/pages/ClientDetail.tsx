@@ -45,6 +45,22 @@ function calcAutoScore(client: any, interactions: any[]) {
 
 type Tab = "timeline" | "visitas" | "mapa" | "score";
 
+const CICLO_ETAPAS = [
+  { id: "planejamento", label: "Planejamento", color: "bg-slate-100 text-slate-700", icon: "📋" },
+  { id: "conexao", label: "Conexão", color: "bg-blue-100 text-blue-700", icon: "🤝" },
+  { id: "necessidades", label: "Id. Necessidades", color: "bg-purple-100 text-purple-700", icon: "🔍" },
+  { id: "solucoes", label: "Soluções", color: "bg-amber-100 text-amber-700", icon: "💡" },
+  { id: "fechamento", label: "Fechamento", color: "bg-green-100 text-green-700", icon: "✅" },
+  { id: "posvenda", label: "Pós Venda", color: "bg-emerald-100 text-emerald-700", icon: "🔄" },
+] as const;
+
+function getCicloEtapa(description: string | null | undefined) {
+  if (!description) return null;
+  const match = description.match(/\[CICLO:(\w+)\]/);
+  if (!match) return null;
+  return CICLO_ETAPAS.find(e => e.id === match[1]) || null;
+}
+
 export default function ClientDetail({ client, open, onClose, onRefresh }: {
   client: any;
   open: boolean;
@@ -151,6 +167,70 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
         {/* TIMELINE */}
         {tab === "timeline" && (
           <div className="space-y-3">
+            {/* Visão 360° */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              {/* Próxima visita */}
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1">📅 Próxima Visita</p>
+                {(() => {
+                  const upcoming = (interactions as any[])?.find((i: any) => i.nextVisitDate && new Date(i.nextVisitDate) >= new Date());
+                  if (!upcoming) return <p className="text-sm text-slate-400">Não agendada</p>;
+                  const diff = Math.ceil((new Date(upcoming.nextVisitDate).getTime() - Date.now()) / 86400000);
+                  return (
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{new Date(upcoming.nextVisitDate).toLocaleDateString("pt-BR")}</p>
+                      <p className="text-xs text-emerald-600">em {diff} dia(s)</p>
+                    </div>
+                  );
+                })()}
+              </div>
+              {/* Última interação */}
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1">🔄 Última Interação</p>
+                {(() => {
+                  const last = (interactions as any[])?.[0];
+                  if (!last) return <p className="text-sm text-slate-400">Nenhuma</p>;
+                  const etapa = getCicloEtapa(last.description);
+                  return (
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 truncate">{last.title}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-slate-400">{new Date(last.createdAt).toLocaleDateString("pt-BR")}</p>
+                        {etapa && <span className={`text-[10px] px-1.5 rounded-full ${etapa.color}`}>{etapa.icon} {etapa.label}</span>}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              {/* Ciclo atual */}
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase mb-2">🎯 Ciclo de Atendimento</p>
+                {(() => {
+                  const last = (interactions as any[])?.[0];
+                  const etapaAtual = last ? getCicloEtapa(last.description) : null;
+                  const etapas = ["planejamento","conexao","necessidades","solucoes","fechamento","posvenda"];
+                  const idx = etapaAtual ? etapas.indexOf(etapaAtual.id) : -1;
+                  return (
+                    <div className="flex gap-1">
+                      {etapas.map((e, i) => {
+                        const etapa = CICLO_ETAPAS.find(x => x.id === e)!;
+                        return (
+                          <div key={e} title={etapa.label}
+                            className={`flex-1 h-2 rounded-full transition-all ${
+                              i <= idx ? "bg-emerald-500" : "bg-slate-200"
+                            }`} />
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {(() => {
+                  const last = (interactions as any[])?.[0];
+                  const etapaAtual = last ? getCicloEtapa(last.description) : null;
+                  return <p className="text-xs text-slate-500 mt-1">{etapaAtual ? `${etapaAtual.icon} ${etapaAtual.label}` : "Não iniciado"}</p>;
+                })()}
+              </div>
+            </div>
             {(interactions as any[]).length === 0 && <p className="text-slate-400 text-sm text-center py-8">Nenhuma interação registrada ainda.</p>}
             {(interactions as any[]).map((int: any, i: number) => {
               const t = INTERACTION_TYPES.find(x => x.value === int.type) ?? INTERACTION_TYPES[4];

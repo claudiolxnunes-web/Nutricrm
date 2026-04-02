@@ -70,7 +70,17 @@ export default function Planning() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const [showNewVisit, setShowNewVisit] = useState(false);
-  const [newVisit, setNewVisit] = useState({ clientId: "", clientSearch: "", title: "", nextVisitDate: "" });
+  const [newVisit, setNewVisit] = useState({
+    clientId: "", clientSearch: "", title: "", nextVisitDate: "",
+    objetivo: "",
+    fatosDescobrir: "",
+    possivelInsatisfacao: "",
+    consequencias: "",
+    perguntasInsatisfacao: "",
+    perguntasConsequencias: "",
+    necessidadesPotenciais: "",
+    perguntasValor: "",
+  });
   const [clientSearchResults, setClientSearchResults] = useState<any[]>([]);
 
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -88,14 +98,7 @@ export default function Planning() {
     onSuccess: () => {
       toast.success("Visita agendada!");
       setShowNewVisit(false);
-      setNewVisit({
-        clientId: "",
-        clientSearch: "",
-        title: "",
-        nextVisitDate: selectedDay
-          ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
-          : "",
-      });
+      setNewVisit({ clientId: "", clientSearch: "", title: "", nextVisitDate: selectedDay ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` : "", objetivo: "", fatosDescobrir: "", possivelInsatisfacao: "", consequencias: "", perguntasInsatisfacao: "", perguntasConsequencias: "", necessidadesPotenciais: "", perguntasValor: "" });
       setClientSearchResults([]);
       refetch();
     },
@@ -388,9 +391,8 @@ export default function Planning() {
         </Card>
       )}
 
-      {/* Dialog: nova visita */}
       <Dialog open={showNewVisit} onOpenChange={setShowNewVisit}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Agendar Nova Visita</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="relative">
@@ -426,17 +428,85 @@ export default function Planning() {
               <input type="date" value={newVisit.nextVisitDate} onChange={(e) => setNewVisit({ ...newVisit, nextVisitDate: e.target.value })}
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none" />
             </div>
+            <div className="border-t pt-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Plano de Visita</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600">1. Objetivo da Visita</label>
+                  <p className="text-[11px] text-slate-400 mb-1">O que quero que o cliente se proponha a fazer ao fim da visita?</p>
+                  <textarea value={newVisit.objetivo} onChange={(e) => setNewVisit({ ...newVisit, objetivo: e.target.value })}
+                    rows={2} placeholder="Ex: Cliente se compromete a testar produto X em 30 dias"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">2. Fatos a Descobrir</label>
+                    <textarea value={newVisit.fatosDescobrir} onChange={(e) => setNewVisit({ ...newVisit, fatosDescobrir: e.target.value })}
+                      rows={2} placeholder="Ex: Qual ração usa atualmente? Quantos animais?" 
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">3. Possíveis Insatisfações</label>
+                    <textarea value={newVisit.possivelInsatisfacao} onChange={(e) => setNewVisit({ ...newVisit, possivelInsatisfacao: e.target.value })}
+                      rows={2} placeholder="Ex: Alto índice de conversão alimentar, baixo ganho de peso"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">4. Consequências dos Problemas</label>
+                    <textarea value={newVisit.consequencias} onChange={(e) => setNewVisit({ ...newVisit, consequencias: e.target.value })}
+                      rows={2} placeholder="Ex: Custo alto por quilo produzido, menor margem"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">5. Perguntas de Insatisfação</label>
+                    <textarea value={newVisit.perguntasInsatisfacao} onChange={(e) => setNewVisit({ ...newVisit, perguntasInsatisfacao: e.target.value })}
+                      rows={2} placeholder="Ex: Como está seu índice de conversão atualmente?"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">6. Perguntas de Consequências</label>
+                    <textarea value={newVisit.perguntasConsequencias} onChange={(e) => setNewVisit({ ...newVisit, perguntasConsequencias: e.target.value })}
+                      rows={2} placeholder="Ex: Quanto isso impacta no custo final do seu produto?"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">7. Necessidades Potenciais</label>
+                    <textarea value={newVisit.necessidadesPotenciais} onChange={(e) => setNewVisit({ ...newVisit, necessidadesPotenciais: e.target.value })}
+                      rows={2} placeholder="Ex: Ração com melhor conversão, suplemento mineral"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">8. Perguntas de Valor da Solução</label>
+                  <textarea value={newVisit.perguntasValor} onChange={(e) => setNewVisit({ ...newVisit, perguntasValor: e.target.value })}
+                    rows={2} placeholder="Ex: Se conseguíssemos reduzir sua conversão em 10%, quanto isso significaria em lucro?"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowNewVisit(false)}>Cancelar</Button>
             <Button onClick={() => {
               if (!newVisit.clientId || !newVisit.title || !newVisit.nextVisitDate) { toast.error("Preencha todos os campos obrigatórios"); return; }
+              const plano = {
+                objetivo: newVisit.objetivo,
+                fatosDescobrir: newVisit.fatosDescobrir,
+                possivelInsatisfacao: newVisit.possivelInsatisfacao,
+                consequencias: newVisit.consequencias,
+                perguntasInsatisfacao: newVisit.perguntasInsatisfacao,
+                perguntasConsequencias: newVisit.perguntasConsequencias,
+                necessidadesPotenciais: newVisit.necessidadesPotenciais,
+                perguntasValor: newVisit.perguntasValor,
+              };
+              const hasPlano = Object.values(plano).some(v => v.trim());
               createVisitMutation.mutate({
                 clientId: Number(newVisit.clientId),
                 type: "visita",
                 title: newVisit.title,
                 visitResult: "neutro",
                 nextVisitDate: new Date(newVisit.nextVisitDate),
+                description: hasPlano ? `[PLANO]${JSON.stringify(plano)}` : undefined,
               });
             }} disabled={createVisitMutation.isPending}>
               {createVisitMutation.isPending ? "Agendando..." : "Agendar"}
