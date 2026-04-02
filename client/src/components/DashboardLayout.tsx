@@ -43,6 +43,7 @@ import {
   CalendarDays,
   ShieldCheck,
   MoreHorizontal,
+  ShoppingCart,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -55,6 +56,7 @@ const menuItems = [
   { icon: TrendingUp, label: "Oportunidades", path: "/opportunities" },
   { icon: Package, label: "Produtos", path: "/products" },
   { icon: FileText, label: "Orcamentos", path: "/quotes" },
+  { icon: ShoppingCart, label: "Vendas", path: "/sales" },
   { icon: BarChart3, label: "Relatorios", path: "/reports" },
   { icon: BrainCircuit, label: "Previsao IA", path: "/ai-forecast" },
   { icon: BookOpen, label: "Tutorial", path: "/tutorial" },

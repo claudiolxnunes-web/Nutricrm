@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Search, Trash2, Package, CheckCircle, XCircle, Send, Clock, AlertCircle, ChevronDown, X, Download } from "lucide-react";
+import { Plus, FileText, Search, Trash2, Package, CheckCircle, XCircle, Send, Clock, AlertCircle, ChevronDown, X, Download, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -45,6 +45,7 @@ export default function Quotes() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [changingStatusId, setChangingStatusId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [editingQuote, setEditingQuote] = useState<any | null>(null);
 
   // Form state
   const [clientSearch, setClientSearch] = useState("");
@@ -76,6 +77,11 @@ export default function Quotes() {
 
   const statusMutation = trpc.quotes.updateStatus.useMutation({
     onSuccess: () => { toast.success("Status atualizado!"); setChangingStatusId(null); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateMutation = trpc.quotes.update.useMutation({
+    onSuccess: () => { toast.success("Orçamento atualizado!"); setEditingQuote(null); refetch(); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -323,6 +329,7 @@ export default function Quotes() {
                         <button onClick={() => setChangingStatusId(q.id)} className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Alterar status">
                           <Send className="w-4 h-4" />
                         </button>
+                        <button onClick={() => { setEditingQuote(q); setNotes(q.notes || ""); setValidityDays(q.validityDays || 30); setDiscount(parseFloat(q.discount || "0")); }} className="text-blue-400 hover:text-blue-600" title="Editar"><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => setDeleteId(q.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -554,6 +561,37 @@ export default function Quotes() {
             })}
           </div>
           <DialogFooter><Button variant="ghost" onClick={() => setChangingStatusId(null)}>Cancelar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal editar orçamento */}
+      <Dialog open={editingQuote !== null} onOpenChange={(o) => { if (!o) setEditingQuote(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Editar Orçamento {editingQuote?.quoteNumber}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">Validade (dias)</label>
+              <input type="number" value={validityDays} onChange={e => setValidityDays(parseInt(e.target.value)||30)}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Desconto (%)</label>
+              <input type="number" min="0" max="100" value={discount} onChange={e => setDiscount(parseFloat(e.target.value)||0)}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notas / Condições</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingQuote(null)}>Cancelar</Button>
+            <Button onClick={() => updateMutation.mutate({ id: editingQuote.id, validityDays, discount: String(discount), notes })}
+              disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

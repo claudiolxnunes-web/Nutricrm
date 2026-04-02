@@ -18,6 +18,15 @@ export default function Reports() {
     limit: 100,
   });
 
+  const { data: allClients } = trpc.clients.list.useQuery({ limit: 2000 });
+  const clientList = (allClients as any)?.data ?? (allClients as any) ?? [];
+  const clientMap: Record<number, string> = {};
+  if (Array.isArray(clientList)) {
+    clientList.forEach((c: any) => {
+      clientMap[c.id] = c.farmName || c.producerName || `Cliente #${c.id}`;
+    });
+  }
+
   // Prepare data for charts
   const salesByDate = sales?.reduce((acc: any, sale: any) => {
     const date = new Date(sale.saleDate).toLocaleDateString("pt-BR");
@@ -56,7 +65,7 @@ export default function Reports() {
     const rows = sales?.map((sale: any) => [
       new Date(sale.saleDate).toLocaleDateString("pt-BR"),
       sale.saleNumber,
-      sale.clientId,
+      clientMap[sale.clientId] || `Cliente #${sale.clientId}`,
       parseFloat(sale.totalValue).toLocaleString("pt-BR"),
       sale.paymentStatus,
     ]) || [];
@@ -234,7 +243,7 @@ export default function Reports() {
                         {new Date(sale.saleDate).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="py-2 px-2">{sale.saleNumber}</td>
-                      <td className="py-2 px-2">Cliente #{sale.clientId}</td>
+                      <td className="py-2 px-2">{clientMap[sale.clientId] || `Cliente #${sale.clientId}`}</td>
                       <td className="py-2 px-2 text-right font-semibold">
                         R$ {parseFloat(sale.totalValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </td>

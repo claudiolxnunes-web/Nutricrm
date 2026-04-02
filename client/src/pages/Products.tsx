@@ -18,12 +18,8 @@ import { Plus, Search, Package, Pencil, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const emptyForm = {
-  name: "",
-  category: "",
-  description: "",
-  price: "",
-  stock: 0,
-  unit: "kg",
+  name: "", category: "", description: "", price: "", stock: 0, unit: "kg",
+  productCode: "", species: "", phase: "", packaging: "saco", bagWeight: "", indication: "", usageMode: "",
 };
 
 export default function Products() {
@@ -97,12 +93,11 @@ export default function Products() {
 
   const handleEdit = (product: any) => {
     setFormData({
-      name: product.name || "",
-      category: product.category || "",
-      description: product.description || "",
-      price: product.price || "",
-      stock: product.stock || 0,
-      unit: product.unit || "kg",
+      name: product.name || "", category: product.category || "", description: product.description || "",
+      price: product.price || "", stock: product.stock || 0, unit: product.unit || "kg",
+      productCode: product.productCode || "", species: product.species || "", phase: product.phase || "",
+      packaging: product.packaging || "saco", bagWeight: product.bagWeight || "",
+      indication: product.indication || "", usageMode: product.usageMode || "",
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -233,36 +228,65 @@ return (
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Código do Produto</label>
+                  <Input value={(formData as any).productCode} onChange={(e) => setFormData({ ...formData, productCode: e.target.value } as any)} placeholder="Ex: 12345" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Embalagem</label>
+                  <select value={(formData as any).packaging} onChange={(e) => setFormData({ ...formData, packaging: e.target.value } as any)} className="w-full px-3 py-2 border border-slate-300 rounded-md">
+                    <option value="saco">Saco</option>
+                    <option value="granel">Granel</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Peso do Saco</label>
+                  <Input value={(formData as any).bagWeight} onChange={(e) => setFormData({ ...formData, bagWeight: e.target.value } as any)} placeholder="Ex: 25 kg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Espécie Animal</label>
+                  <select value={(formData as any).species} onChange={(e) => setFormData({ ...formData, species: e.target.value } as any)} className="w-full px-3 py-2 border border-slate-300 rounded-md">
+                    <option value="">Selecione...</option>
+                    <option value="Aves de Corte">Aves de Corte</option>
+                    <option value="Aves de Postura">Aves de Postura</option>
+                    <option value="Suínos">Suínos</option>
+                    <option value="Bovinos de Corte">Bovinos de Corte</option>
+                    <option value="Bovinos de Leite">Bovinos de Leite</option>
+                    <option value="Equinos">Equinos</option>
+                    <option value="Cães">Cães</option>
+                    <option value="Gatos">Gatos</option>
+                    <option value="Peixes">Peixes</option>
+                    <option value="Todas as Espécies">Todas as Espécies</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Fase</label>
+                  <Input value={(formData as any).phase} onChange={(e) => setFormData({ ...formData, phase: e.target.value } as any)} placeholder="Ex: Inicial, Crescimento, Acabamento..." />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Indicação / Uso</label>
+                <Input value={(formData as any).indication} onChange={(e) => setFormData({ ...formData, indication: e.target.value } as any)} placeholder="Ex: Para bovinos em fase de crescimento intensivo" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Modo de Usar</label>
+                <Input value={(formData as any).usageMode} onChange={(e) => setFormData({ ...formData, usageMode: e.target.value } as any)} placeholder="Ex: Comedouros à vontade, 3 kg/dia..." />
+              </div>
               <div>
                 <label className="text-sm font-medium">Descricao</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descricao detalhada do produto"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                  rows={3}
-                />
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Descricao detalhada do produto" className="w-full px-3 py-2 border border-slate-300 rounded-md" rows={3} />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Preco (R$) *</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="0.00"
-                  />
+                  <Input type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} placeholder="0.00" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Estoque</label>
-                  <Input
-                    type="number"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
+                  <Input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })} placeholder="0" />
                 </div>
               </div>
 

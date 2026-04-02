@@ -19,6 +19,8 @@ export default function Dashboard() {
   const totalSales = parseFloat(metrics?.totalSales || "0");
   const totalOpportunities = metrics?.totalOpportunities || 0;
   const totalClients = metrics?.totalClients || 0;
+  const closedSalesCount = metrics?.opportunitiesByStage?.find((s: any) => s.stage === "venda_concluida")?.count || 0;
+  const ticketMedio = closedSalesCount > 0 ? totalSales / closedSalesCount : 0;
 
   const opportunitiesData = metrics?.opportunitiesByStage?.map((item: any) => ({
     name: item.stage.replace(/_/g, " ").toUpperCase(),
@@ -85,9 +87,9 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R$ {totalOpportunities > 0 ? (totalSales / totalOpportunities).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "0,00"}
+              R$ {ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-slate-600">Por oportunidade</p>
+            <p className="text-xs text-slate-600">Por venda concluída ({closedSalesCount})</p>
           </CardContent>
         </Card>
       </div>

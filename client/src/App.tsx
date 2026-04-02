@@ -12,6 +12,7 @@ import Products from "./pages/Products";
 import Quotes from "./pages/Quotes";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
+import Sales from "./pages/Sales";
 import Login from "@/pages/Login";
 import Users from "@/pages/Users";
 import TrialExpired from "@/pages/TrialExpired";
@@ -66,6 +67,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <Reports />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/sales"}>
+        {() => (
+          <DashboardLayout>
+            <Sales />
           </DashboardLayout>
         )}
       </Route>
