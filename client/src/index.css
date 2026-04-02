@@ -177,3 +177,12 @@
     }
   }
 }
+
+/* ---- Responsividade mobile ---- */
+.card { min-width: 0; }
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .bottom-nav {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+}

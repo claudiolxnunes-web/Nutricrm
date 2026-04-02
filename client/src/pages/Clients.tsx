@@ -327,7 +327,7 @@ export default function Clients() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Atividade de Criacao</label>
               <select
@@ -357,7 +357,7 @@ export default function Clients() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Nome da Fazenda / Empresa *</label>
               <Input value={formData.farmName} onChange={(e) => setFormData({ ...formData, farmName: e.target.value })} placeholder="Ex: Fazenda Sao Joao" />
@@ -367,7 +367,7 @@ export default function Clients() {
               <Input value={formData.producerName} onChange={(e) => setFormData({ ...formData, producerName: e.target.value })} placeholder="Ex: Joao Silva" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Tipo de Animal</label>
               <select value={formData.animalType} onChange={(e) => setFormData({ ...formData, animalType: e.target.value as any })} className="w-full px-3 py-2 border border-slate-300 rounded-md">
@@ -383,7 +383,7 @@ export default function Clients() {
               <Input type="number" value={formData.animalQuantity} onChange={(e) => setFormData({ ...formData, animalQuantity: parseInt(e.target.value) || 0 })} placeholder="0" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">E-mail</label>
               <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@example.com" />
@@ -401,7 +401,7 @@ export default function Clients() {
             <label className="text-sm font-medium">Endereco</label>
             <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Rua, numero, complemento" />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium">Cidade</label>
               <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder="Cidade" />

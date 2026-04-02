@@ -19,12 +19,34 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { getLoginUrl } from "@/const";
-import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, BarChart3, Package, FileText, TrendingUp, Shield, BrainCircuit, BookOpen, MessageSquare, CalendarDays, ShieldCheck } from "lucide-react";
+import { useIsMobile, useIsTablet } from "@/hooks/useMobile";
+import {
+  LayoutDashboard,
+  LogOut,
+  PanelLeft,
+  Users,
+  BarChart3,
+  Package,
+  FileText,
+  TrendingUp,
+  Shield,
+  BrainCircuit,
+  BookOpen,
+  MessageSquare,
+  CalendarDays,
+  ShieldCheck,
+  MoreHorizontal,
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
+import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 const menuItems = [
@@ -39,25 +61,96 @@ const menuItems = [
   { icon: MessageSquare, label: "Interacoes", path: "/interactions" },
   { icon: CalendarDays, label: "Planejamento", path: "/planning" },
   { icon: ShieldCheck, label: "Superadmin", path: "/superadmin" },
+  { icon: Shield, label: "Usuarios", path: "/users" },
 ];
+
+const bottomNavPrimary = menuItems.slice(0, 4); // Dashboard, Clientes, Oportunidades, Produtos
+const bottomNavMore = menuItems.slice(4); // restante
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
 
-
-
 function HelpButton() {
   const [, nav] = useLocation();
   return (
     <button
       onClick={() => nav("/tutorial")}
-      className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center text-xl font-bold hover:bg-primary/90 transition-all hover:scale-110"
+      className="fixed bottom-6 right-6 z-40 w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center text-xl font-bold hover:bg-primary/90 transition-all hover:scale-110 sm:bottom-6 max-sm:bottom-24"
       title="Tutorial"
-    >?</button>
+    >
+      ?
+    </button>
   );
 }
+
+function BottomNav() {
+  const [location, setLocation] = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  return (
+    <>
+      <nav className="bottom-nav fixed bottom-0 inset-x-0 z-50 bg-white border-t border-border flex sm:hidden">
+        {bottomNavPrimary.map((item) => {
+          const isActive = location === item.path;
+          return (
+            <button
+              key={item.path}
+              onClick={() => setLocation(item.path)}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors ${
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <item.icon className="h-5 w-5" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setMoreOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+          <span>Mais</span>
+        </button>
+      </nav>
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-sm font-semibold">Menu</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-4 gap-3">
+            {bottomNavMore.map((item) => {
+              const isActive = location === item.path;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => {
+                    setLocation(item.path);
+                    setMoreOpen(false);
+                  }}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl text-[11px] font-medium transition-colors ${
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-center leading-tight">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -68,25 +161,27 @@ export default function DashboardLayout({
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  const isTablet = useIsTablet();
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
   if (loading) {
-    return <DashboardLayoutSkeleton />
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!user) {
     return (
-    <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
               Sign in to continue
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+              Access to this dashboard requires authentication. Continue to
+              launch the login flow.
             </p>
           </div>
           <Button
@@ -105,6 +200,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider
+      defaultOpen={!isTablet}
       style={
         {
           "--sidebar-width": `${sidebarWidth}px`,
@@ -133,7 +229,7 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const activeMenuItem = menuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -145,17 +241,13 @@ function DashboardLayoutContent({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-
       const sidebarLeft = sidebarRef.current?.getBoundingClientRect().left ?? 0;
       const newWidth = e.clientX - sidebarLeft;
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
         setSidebarWidth(newWidth);
       }
     };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
+    const handleMouseUp = () => setIsResizing(false);
 
     if (isResizing) {
       document.addEventListener("mousemove", handleMouseMove);
@@ -163,7 +255,6 @@ function DashboardLayoutContent({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     }
-
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -174,7 +265,8 @@ function DashboardLayoutContent({
 
   return (
     <>
-      <div className="relative" ref={sidebarRef}>
+      {/* Sidebar — oculta em mobile (< 640px) */}
+      <div className="relative max-sm:hidden" ref={sidebarRef}>
         <Sidebar
           collapsible="icon"
           className="border-r-0"
@@ -192,11 +284,17 @@ function DashboardLayoutContent({
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                    <span className="text-primary-foreground font-black text-xs">NC</span>
+                    <span className="text-primary-foreground font-black text-xs">
+                      NC
+                    </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-sidebar-foreground text-sm leading-none tracking-tight">NutriCRM</p>
-                    <p className="text-sidebar-foreground/50 text-[10px] leading-none mt-0.5">Nutricao Animal</p>
+                    <p className="font-bold text-sidebar-foreground text-sm leading-none tracking-tight">
+                      NutriCRM
+                    </p>
+                    <p className="text-sidebar-foreground/50 text-[10px] leading-none mt-0.5">
+                      Nutricao Animal
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -205,7 +303,7 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0 px-3 py-2">
             <SidebarMenu className="gap-0.5">
-              {menuItems.map(item => {
+              {menuItems.map((item) => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -213,33 +311,24 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-9 rounded-lg transition-all font-normal text-sm group/menu-btn
-                        ${isActive
+                      className={`h-9 rounded-lg transition-all font-normal text-sm group/menu-btn ${
+                        isActive
                           ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground font-medium shadow-sm"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        }`}
+                      }`}
                     >
-                      <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-primary-foreground" : "text-sidebar-foreground/60"}`} />
+                      <item.icon
+                        className={`h-4 w-4 shrink-0 ${
+                          isActive
+                            ? "text-primary-foreground"
+                            : "text-sidebar-foreground/60"
+                        }`}
+                      />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
-              <SidebarMenuItem key="/users">
-                <SidebarMenuButton
-                  isActive={location === "/users"}
-                  onClick={() => setLocation("/users")}
-                  tooltip="Usuarios"
-                  className={`h-9 rounded-lg transition-all font-normal text-sm
-                    ${location === "/users"
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground font-medium shadow-sm"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    }`}
-                >
-                  <Shield className={`h-4 w-4 shrink-0 ${location === "/users" ? "text-primary-foreground" : "text-sidebar-foreground/60"}`} />
-                  <span>Usuarios</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
@@ -275,7 +364,9 @@ function DashboardLayoutContent({
           </SidebarFooter>
         </Sidebar>
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${
+            isCollapsed ? "hidden" : ""
+          }`}
           onMouseDown={() => {
             if (isCollapsed) return;
             setIsResizing(true);
@@ -285,41 +376,55 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset className="bg-background">
-        {!isMobile && (
-          <div className="flex border-b border-border/60 h-14 items-center justify-between bg-white/80 px-6 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-foreground/80 text-sm">{activeMenuItem?.label ?? "Dashboard"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Avatar className="h-7 w-7 ring-2 ring-primary/20">
-                  <AvatarFallback className="text-[10px] font-bold bg-primary text-primary-foreground">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="font-medium text-foreground/70 hidden sm:block">{user?.name}</span>
-              </div>
-            </div>
-          </div>
-        )}
-        {isMobile && (
-          <div className="flex border-b border-border h-14 items-center justify-between bg-white/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40 shadow-sm">
-            <div className="flex items-center gap-2">
+        {/* Topbar desktop/tablet */}
+        <div className="flex border-b border-border/60 h-14 items-center justify-between bg-white/80 px-4 sm:px-6 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
+          <div className="flex items-center gap-2">
+            {/* Hamburguer — tablet/desktop */}
+            <span className="max-sm:hidden">
               <SidebarTrigger className="h-9 w-9 rounded-lg" />
-              <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
-                  <span className="text-primary-foreground font-black text-[10px]">NC</span>
-                </div>
-                <span className="font-semibold text-foreground text-sm">
-                  {activeMenuItem?.label ?? "NutriCRM"}
+            </span>
+            {/* Logo — mobile */}
+            <div className="sm:hidden flex items-center gap-2">
+              <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-black text-[10px]">
+                  NC
                 </span>
               </div>
             </div>
+            <span className="font-semibold text-foreground/80 text-sm">
+              {activeMenuItem?.label ?? "Dashboard"}
+            </span>
           </div>
-        )}
-        <main className="flex-1 p-5 md:p-6 max-w-[1400px] mx-auto w-full">{children}</main>
-      <HelpButton />
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 ring-2 ring-primary/20">
+              <AvatarFallback className="text-[10px] font-bold bg-primary text-primary-foreground">
+                {user?.name?.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-foreground/70 hidden sm:block text-sm">
+              {user?.name}
+            </span>
+            {isMobile && (
+              <button
+                onClick={logout}
+                className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                title="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Conteudo principal — pb-20 mobile para nao ficar atras do bottom nav */}
+        <main className="flex-1 p-3 sm:p-4 md:p-5 lg:p-6 max-w-[1400px] mx-auto w-full pb-20 sm:pb-6">
+          {children}
+        </main>
+        <HelpButton />
       </SidebarInset>
+
+      {/* Bottom Navigation — so mobile */}
+      <BottomNav />
     </>
   );
 }
