@@ -99,24 +99,19 @@ export const appRouter = router({
         });
       }),
 
-    list: protectedProcedure
-      .input(
-        z.object({
+        list: protectedProcedure
+      .input(z.object({
           search: z.string().optional(),
           animalType: z.string().optional(),
           status: z.string().optional(),
-          limit: z.number().optional().default(20),
+          limit: z.number().optional().default(100),
           offset: z.number().optional().default(0),
-        })
-      )
+        }))
       .query(async ({ input, ctx }) => {
-        const results = await getClients({
-          ...input,
-          userId: ctx.user.id,
-          role: ctx.user.role,
-          companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId,
-        });
-        return results;
+        const companyId = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;
+        const filters = { ...input, userId: ctx.user.id, role: ctx.user.role, companyId };
+        const [data, total] = await Promise.all([getClients(filters), getClientsCount(filters)]);
+        return { data, total };
       }),
 
     getById: protectedProcedure

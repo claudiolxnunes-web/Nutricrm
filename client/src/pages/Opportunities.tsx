@@ -50,7 +50,8 @@ export default function Opportunities() {
   }, []);
 
   const { data: opportunities, isLoading, refetch } = trpc.opportunities.list.useQuery({ limit: 200 });
-  const { data: clients, isLoading: clientsLoading } = trpc.clients.list.useQuery({ limit: 500 });
+  const { data: clientsResult, isLoading: clientsLoading } = trpc.clients.list.useQuery({ limit: 500 });
+  const clients: any[] = (clientsResult as any)?.data ?? (clientsResult as any) ?? [];
 
   const createMutation = trpc.opportunities.create.useMutation({
     onSuccess: () => { toast.success("Oportunidade criada!"); setShowForm(false); setFormData({ ...emptyForm }); refetch(); },

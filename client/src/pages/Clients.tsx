@@ -299,9 +299,12 @@ export default function Clients() {
     ? "Nome do Produtor *"
     : "Nome do Responsavel *";
 
+  const clientData: any[] = (clients as any)?.data ?? [];
+  const clientTotal: number = (clients as any)?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(clientTotal / PAGE_SIZE));
   const filteredClients = filterClientType
-    ? (clients ?? []).filter((c: any) => (c.clientType || "fazenda") === filterClientType)
-    : (clients ?? []);
+    ? clientData.filter((c: any) => (c.clientType || "fazenda") === filterClientType)
+    : clientData;
 
   const currentSubtypes = formData.activityCategory
     ? ACTIVITY_CATEGORIES[formData.activityCategory]?.subtypes ?? {}
@@ -592,6 +595,42 @@ export default function Clients() {
             Nenhum cliente encontrado. Crie um novo cliente ou importe uma planilha Excel.
           </CardContent>
         </Card>
+      )}
+
+      {/* Paginação */}
+      {clientTotal > PAGE_SIZE && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-slate-500">
+            Mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, clientTotal)} de <strong>{clientTotal}</strong> clientes
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ← Anterior
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2).map((p, idx, arr) => (
+              <span key={p}>
+                {idx > 0 && arr[idx - 1] !== p - 1 && <span className="text-slate-400 px-1">…</span>}
+                <button
+                  onClick={() => setPage(p)}
+                  className={`px-3 py-1.5 text-sm rounded-md border ${page === p ? "bg-primary text-white border-primary" : "border-slate-300 hover:bg-slate-50"}`}
+                >
+                  {p}
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Próximo →
+            </button>
+          </div>
+        </div>
       )}
 
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
