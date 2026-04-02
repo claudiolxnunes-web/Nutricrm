@@ -115,6 +115,34 @@ export default function Products() {
     setFormData({ ...emptyForm });
   };
 
+  function readExcelRows(sheet: any): any[] {
+    const raw0: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const firstKey = raw0.length > 0 ? Object.keys(raw0[0]).join(" ").toLowerCase() : "";
+    const hasName = firstKey.includes("nome") || firstKey.includes("produto") || firstKey.includes("desc");
+    if (!hasName && raw0.length > 0) {
+      return XLSX.utils.sheet_to_json(sheet, { defval: "", range: 1 });
+    }
+    return raw0;
+  }
+
+  function parseProductRow(r: any) {
+    const str = (v: any) => String(v ?? "").trim();
+    const name = str(r["Desc. Produto"] || r["Desc Produto"] || r["Nome"] || r["Produto"] || r["produto"] || r["nome"] || "");
+    const productCode = str(r["Cod.Produto"] || r["Cod. Produto"] || r["Codigo"] || r["codigo"] || r["Código"] || "") || undefined;
+    const rawPeso = str(r["Peso"] || r["Peso do Saco"] || r["peso"] || "");
+    const bagWeight = rawPeso || undefined;
+    const packText = str(r["Embalagem"] || r["embalagem"] || r["Tipo"] || r["Classif. Prod"] || "saco");
+    const packaging = packText.toLowerCase().includes("granel") ? "granel" : "saco";
+    const priceRaw = str(r["Preço Base Tab.Vigente"] || r["Preco Base Tab.Vigente"] || r["Preço Vigente"] || r["Preço"] || r["Preco"] || r["price"] || r["Valor"] || "");
+    const price = priceRaw.replace(",", ".").replace(/[^\d.]/g, "") || undefined;
+    const category = str(r["Desc. Grupo"] || r["Desc Grupo"] || r["Categoria"] || r["Grupo"] || "");
+    const indication = str(r["Indicacao"] || r["Indicação"] || r["Inclusão"] || category || "");
+    const species = str(r["Especie"] || r["Espécie"] || r["Especie e Fase"] || "");
+    const phase = str(r["Fase"] || r["fase"] || "");
+    const usageMode = str(r["Inclusão/Modo de Uso"] || r["Modo de Uso"] || r["Modo Usar"] || r["modo_uso"] || "");
+    return { productCode, name, packaging, bagWeight, indication, species, phase, usageMode, price };
+  }
+
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -123,24 +151,24 @@ export default function Products() {
       const data = evt.target?.result;
       const workbook = XLSX.read(data, { type: "binary" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const raw: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-      const rows = raw.map((r) => ({
-        productCode: String(r["Codigo"] || r["CÃ³digo"] || r["codigo"] || r["A"] || "").trim() || undefined,
-        name: String(r["Nome"] || r["Produto"] || r["produto"] || r["nome"] || r["B"] || "").trim(),
-        packaging: String(r["Embalagem"] || r["embalagem"] || r["Tipo"] || r["C"] || "saco").toLowerCase().includes("granel") ? "granel" : "saco",
-        bagWeight: String(r["Peso"] || r["Peso do Saco"] || r["peso"] || r["D"] || "").trim() || undefined,
-        indication: String(r["Indicacao"] || r["IndicaÃ§Ã£o"] || r["indicacao"] || r["E"] || "").trim() || undefined,
-        species: String(r["Especie"] || r["EspÃ©cie"] || r["especie"] || r["Especie e Fase"] || r["F"] || "").trim() || undefined,
-        phase: String(r["Fase"] || r["fase"] || r["G"] || "").trim() || undefined,
-        usageMode: String(r["Modo de Uso"] || r["Modo Usar"] || r["modo_uso"] || r["H"] || "").trim() || undefined,
-      })).filter((r) => r.name);
+      const raw = readExcelRows(sheet);
+      const seen = new Map<string, any>();
+      raw.forEach((r) => {
+        const parsed = parseProductRow(r);
+        if (parsed.name) {
+          const key = parsed.productCode || parsed.name;
+          seen.set(key, parsed);
+        }
+      });
+      const rows = Array.from(seen.values());
+      if (rows.length === 0) { toast.error("Nenhum produto encontrado. Verifique os cabeçalhos do arquivo."); return; }
       importMutation.mutate({ rows });
     };
     reader.readAsBinaryString(file);
     e.target.value = "";
   };
 
-  return (
+return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
