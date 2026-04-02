@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Users, TrendingUp, DollarSign, Target } from "lucide-react";
@@ -6,7 +8,22 @@ import { Users, TrendingUp, DollarSign, Target } from "lucide-react";
 const COLORS = ["#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899"];
 
 export default function Dashboard() {
+  const hoje = new Date();
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split("T")[0],
+    endDate: hoje.toISOString().split("T")[0],
+  });
+
   const { data: metrics, isLoading } = trpc.dashboard.metrics.useQuery();
+
+  const { data: salesInPeriod } = trpc.sales.list.useQuery({
+    startDate: new Date(dateRange.startDate),
+    endDate: new Date(dateRange.endDate),
+    limit: 5000,
+  });
+  const totalSalesPeriod = (salesInPeriod as any[])?.reduce((s: number, v: any) => s + parseFloat(v.totalValue || "0"), 0) ?? 0;
+  const salesCountPeriod = (salesInPeriod as any[])?.length ?? 0;
+  const ticketMedioPeriod = salesCountPeriod > 0 ? totalSalesPeriod / salesCountPeriod : 0;
 
   if (isLoading) {
     return (
@@ -16,11 +33,8 @@ export default function Dashboard() {
     );
   }
 
-  const totalSales = parseFloat(metrics?.totalSales || "0");
   const totalOpportunities = metrics?.totalOpportunities || 0;
   const totalClients = metrics?.totalClients || 0;
-  const closedSalesCount = metrics?.opportunitiesByStage?.find((s: any) => s.stage === "venda_concluida")?.count || 0;
-  const ticketMedio = closedSalesCount > 0 ? totalSales / closedSalesCount : 0;
 
   const opportunitiesData = metrics?.opportunitiesByStage?.map((item: any) => ({
     name: item.stage.replace(/_/g, " ").toUpperCase(),
@@ -38,9 +52,25 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-slate-600">Visão geral do seu CRM</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-slate-600">Visão geral do seu CRM</p>
+        </div>
+        <div className="flex gap-3 items-end flex-wrap">
+          <div>
+            <label className="text-xs font-medium text-slate-500">De</label>
+            <Input type="date" value={dateRange.startDate}
+              onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+              className="h-8 text-sm w-36" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Até</label>
+            <Input type="date" value={dateRange.endDate}
+              onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+              className="h-8 text-sm w-36" />
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -52,9 +82,9 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R$ {totalSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              R$ {totalSalesPeriod.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-slate-600">Valor total de vendas</p>
+            <p className="text-xs text-slate-600">Vendas no período selecionado</p>
           </CardContent>
         </Card>
 
@@ -87,9 +117,9 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R$ {ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              R$ {ticketMedioPeriod.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-slate-600">Por venda concluída ({closedSalesCount})</p>
+            <p className="text-xs text-slate-600">Por venda no período ({salesCountPeriod})</p>
           </CardContent>
         </Card>
       </div>

@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,8 @@ const emptyForm = {
   value: "",
   probability: 0,
   stage: "prospeccao",
+  expectedCloseDate: "",
+  quoteId: "",
 };
 
 function fmt(v: any) {
@@ -53,6 +55,9 @@ export default function Opportunities() {
   const { data: clientsResult, isLoading: clientsLoading } = trpc.clients.list.useQuery({ limit: 500 });
   const clients: any[] = (clientsResult as any)?.data ?? (clientsResult as any) ?? [];
 
+  const { data: allQuotes } = trpc.quotes.list.useQuery({ limit: 500 });
+  const quoteList: any[] = Array.isArray(allQuotes) ? allQuotes : [];
+
   const createMutation = trpc.opportunities.create.useMutation({
     onSuccess: () => { toast.success("Oportunidade criada!"); setShowForm(false); setFormData({ ...emptyForm }); refetch(); },
     onError: (e: any) => toast.error(e.message),
@@ -79,16 +84,42 @@ export default function Opportunities() {
     e.preventDefault();
     if (!formData.clientId || !formData.title) { toast.error("Preencha cliente e titulo"); return; }
     if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, title: formData.title, description: formData.description, value: formData.value, probability: formData.probability, stage: formData.stage as any });
+      updateMutation.mutate({
+        id: editingId,
+        title: formData.title,
+        description: formData.description,
+        value: formData.value,
+        probability: formData.probability,
+        stage: formData.stage as any,
+        expectedCloseDate: formData.expectedCloseDate ? new Date(formData.expectedCloseDate) : undefined,
+        quoteId: formData.quoteId ? Number(formData.quoteId) : undefined,
+      });
     } else {
-      createMutation.mutate({ clientId: formData.clientId, title: formData.title, description: formData.description, value: formData.value, probability: formData.probability });
+      createMutation.mutate({
+        clientId: formData.clientId,
+        title: formData.title,
+        description: formData.description,
+        value: formData.value,
+        probability: formData.probability,
+        expectedCloseDate: formData.expectedCloseDate ? new Date(formData.expectedCloseDate) : undefined,
+        quoteId: formData.quoteId ? Number(formData.quoteId) : undefined,
+      });
     }
   };
 
   const handleEdit = (opp: any) => {
     const name = clientMap[opp.clientId] ?? "";
     setClientSearch(name);
-    setFormData({ clientId: opp.clientId || 0, title: opp.title || "", description: opp.description || "", value: opp.value || "", probability: opp.probability || 0, stage: opp.stage || "prospeccao" });
+    setFormData({
+      clientId: opp.clientId || 0,
+      title: opp.title || "",
+      description: opp.description || "",
+      value: opp.value || "",
+      probability: opp.probability || 0,
+      stage: opp.stage || "prospeccao",
+      expectedCloseDate: opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toISOString().split("T")[0] : "",
+      quoteId: opp.quoteId ? String(opp.quoteId) : "",
+    });
     setEditingId(opp.id);
     setShowForm(true);
   };
@@ -146,6 +177,16 @@ export default function Opportunities() {
                     <p className="font-medium text-sm leading-tight">{opp.title}</p>
                     {clientMap[opp.clientId] && <p className="text-xs text-slate-400 mt-0.5 truncate">{clientMap[opp.clientId]}</p>}
                     {opp.value && <p className="text-sm font-semibold text-slate-700 mt-1">{fmt(opp.value)}</p>}
+                    {opp.expectedCloseDate && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        Fechamento: {new Date(opp.expectedCloseDate).toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                    {opp.quoteId && (
+                      <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded mt-1 inline-block">
+                        ORC vinculado
+                      </span>
+                    )}
                     {opp.probability > 0 && (
                       <div className="mt-2">
                         <div className="flex justify-between text-xs text-slate-400 mb-0.5"><span>Prob.</span><span>{opp.probability}%</span></div>
@@ -254,6 +295,23 @@ export default function Opportunities() {
             <div>
               <label className="text-sm font-medium">Descricao</label>
               <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Detalhes da oportunidade" className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mt-1" rows={3} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data Esperada de Fechamento</label>
+              <Input type="date" value={formData.expectedCloseDate || ""}
+                onChange={(e) => setFormData({ ...formData, expectedCloseDate: e.target.value })}
+                className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Orçamento Vinculado (opcional)</label>
+              <select value={formData.quoteId || ""}
+                onChange={(e) => setFormData({ ...formData, quoteId: e.target.value })}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">
+                <option value="">Nenhum</option>
+                {quoteList.map((q: any) => (
+                  <option key={q.id} value={q.id}>{q.quoteNumber} — {q.status}</option>
+                ))}
+              </select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setFormData({ ...emptyForm }); setClientSearch(""); setShowClientDropdown(false); }}>Cancelar</Button>

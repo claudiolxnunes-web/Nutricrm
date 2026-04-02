@@ -1,8 +1,15 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,7 +18,9 @@ import {
   CheckCircle,
   Clock,
   X,
+  Plus,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -60,12 +69,37 @@ export default function Planning() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
+  const [showNewVisit, setShowNewVisit] = useState(false);
+  const [newVisit, setNewVisit] = useState({ clientId: "", clientSearch: "", title: "", nextVisitDate: "" });
+  const [clientSearchResults, setClientSearchResults] = useState<any[]>([]);
+
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
 
-  const { data: visits = [] } = trpc.interactions.upcoming.useQuery({
+  const { data: visits = [], refetch } = trpc.interactions.upcoming.useQuery({
     fromDate: startOfMonth.toISOString(),
     toDate: endOfMonth.toISOString(),
+  });
+
+  const { data: allClients } = trpc.clients.list.useQuery({ limit: 2000 });
+  const clientList: any[] = (allClients as any)?.data ?? (Array.isArray(allClients) ? allClients : []);
+
+  const createVisitMutation = trpc.interactions.create.useMutation({
+    onSuccess: () => {
+      toast.success("Visita agendada!");
+      setShowNewVisit(false);
+      setNewVisit({
+        clientId: "",
+        clientSearch: "",
+        title: "",
+        nextVisitDate: selectedDay
+          ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
+          : "",
+      });
+      setClientSearchResults([]);
+      refetch();
+    },
+    onError: (e: any) => toast.error(e.message || "Erro"),
   });
 
   const today = new Date();
@@ -110,7 +144,7 @@ export default function Planning() {
 
   // Group visits by day of month
   function visitsForDay(day: number) {
-    return visits.filter((v: any) => {
+    return (visits as any[]).filter((v: any) => {
       if (!v.nextVisitDate) return false;
       const vd = new Date(v.nextVisitDate);
       return vd.getFullYear() === year && vd.getMonth() === month && vd.getDate() === day;
@@ -118,7 +152,7 @@ export default function Planning() {
   }
 
   // Overdue visits (nextVisitDate < today)
-  const overdueVisits = visits.filter((v: any) => {
+  const overdueVisits = (visits as any[]).filter((v: any) => {
     if (!v.nextVisitDate) return false;
     const vd = new Date(v.nextVisitDate);
     vd.setHours(0, 0, 0, 0);
@@ -138,13 +172,18 @@ export default function Planning() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-blue-600" /> Planejamento
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Calendário mensal de visitas e interações agendadas
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Calendar className="h-6 w-6 text-blue-600" /> Planejamento
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Calendário mensal de visitas e interações agendadas
+          </p>
+        </div>
+        <Button onClick={() => setShowNewVisit(true)} className="gap-2">
+          <Plus className="w-4 h-4" /> Agendar Visita
+        </Button>
       </div>
 
       <div className="flex gap-6">
@@ -187,7 +226,14 @@ export default function Planning() {
                       key={idx}
                       onClick={() => {
                         if (cell.current) {
-                          setSelectedDay(isSelected ? null : cell.day);
+                          const newSelected = isSelected ? null : cell.day;
+                          setSelectedDay(newSelected);
+                          if (newSelected !== null) {
+                            setNewVisit(v => ({
+                              ...v,
+                              nextVisitDate: `${year}-${String(month + 1).padStart(2, "0")}-${String(newSelected).padStart(2, "0")}`,
+                            }));
+                          }
                         }
                       }}
                       className={`min-h-[64px] rounded p-1 cursor-pointer transition-colors border ${
@@ -333,7 +379,7 @@ export default function Planning() {
         </Card>
       )}
 
-      {overdueVisits.length === 0 && visits.length === 0 && (
+      {overdueVisits.length === 0 && (visits as any[]).length === 0 && (
         <Card>
           <CardContent className="py-10 text-center text-slate-400">
             <Clock className="h-8 w-8 mx-auto mb-2 text-slate-300" />
@@ -341,6 +387,63 @@ export default function Planning() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog: nova visita */}
+      <Dialog open={showNewVisit} onOpenChange={setShowNewVisit}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Agendar Nova Visita</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="relative">
+              <label className="text-sm font-medium">Cliente *</label>
+              <input value={newVisit.clientSearch}
+                onChange={(e) => {
+                  const s = e.target.value;
+                  setNewVisit({ ...newVisit, clientSearch: s, clientId: "" });
+                  setClientSearchResults(s ? clientList.filter((c: any) => `${c.farmName} ${c.producerName}`.toLowerCase().includes(s.toLowerCase())).slice(0, 6) : []);
+                }}
+                placeholder="Nome da fazenda ou produtor..."
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              {clientSearchResults.length > 0 && !newVisit.clientId && (
+                <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow max-h-40 overflow-y-auto">
+                  {clientSearchResults.map((c: any) => (
+                    <button key={c.id} type="button"
+                      onMouseDown={() => { setNewVisit({ ...newVisit, clientId: String(c.id), clientSearch: c.farmName || c.producerName }); setClientSearchResults([]); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-0">
+                      {c.farmName || c.producerName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-sm font-medium">Título da Visita *</label>
+              <input value={newVisit.title} onChange={(e) => setNewVisit({ ...newVisit, title: e.target.value })}
+                placeholder="Ex: Visita técnica - apresentação produto"
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data da Visita *</label>
+              <input type="date" value={newVisit.nextVisitDate} onChange={(e) => setNewVisit({ ...newVisit, nextVisitDate: e.target.value })}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowNewVisit(false)}>Cancelar</Button>
+            <Button onClick={() => {
+              if (!newVisit.clientId || !newVisit.title || !newVisit.nextVisitDate) { toast.error("Preencha todos os campos obrigatórios"); return; }
+              createVisitMutation.mutate({
+                clientId: Number(newVisit.clientId),
+                type: "visita",
+                title: newVisit.title,
+                visitResult: "neutro",
+                nextVisitDate: new Date(newVisit.nextVisitDate),
+              });
+            }} disabled={createVisitMutation.isPending}>
+              {createVisitMutation.isPending ? "Agendando..." : "Agendar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

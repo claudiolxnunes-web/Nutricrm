@@ -1,7 +1,7 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +23,8 @@ import {
   MinusCircle,
   XCircle,
   Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -105,7 +107,20 @@ export default function Interactions() {
   const [nextVisitDate, setNextVisitDate] = useState("");
   const [visitResult, setVisitResult] = useState("");
 
-  const { data: interactions = [], refetch } = trpc.interactions.all.useQuery({
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newForm, setNewForm] = useState({
+    clientId: "",
+    clientSearch: "",
+    type: "visita" as "visita" | "ligacao" | "email" | "nota" | "reuniao",
+    title: "",
+    description: "",
+    visitResult: "neutro" as "positivo" | "neutro" | "negativo" | "sem_resposta",
+    nextVisitDate: "",
+  });
+
+  const { data: interactions = [], isLoading, refetch } = trpc.interactions.all.useQuery({
     type: filtroTipo || undefined,
     visitResult: filtroResultado || undefined,
   });
@@ -121,11 +136,30 @@ export default function Interactions() {
     onError: () => toast.error("Erro ao agendar visita."),
   });
 
-  const filtered = interactions.filter((i: any) => {
+  const { data: allClients } = trpc.clients.list.useQuery({ limit: 2000 });
+  const clientList: any[] = (allClients as any)?.data ?? (Array.isArray(allClients) ? allClients : []);
+  const filteredNewClients = newForm.clientSearch
+    ? clientList.filter((c: any) => `${c.farmName} ${c.producerName}`.toLowerCase().includes(newForm.clientSearch.toLowerCase())).slice(0, 6)
+    : [];
+
+  const createInteractionMutation = trpc.interactions.create.useMutation({
+    onSuccess: () => {
+      toast.success("Interação registrada!");
+      setShowNewForm(false);
+      setNewForm({ clientId: "", clientSearch: "", type: "visita", title: "", description: "", visitResult: "neutro", nextVisitDate: "" });
+      refetch();
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao criar interação"),
+  });
+
+  const filtered = (interactions as any[]).filter((i: any) => {
     if (!busca) return true;
     const clientName = i.clientName ?? i.client?.name ?? "";
     return clientName.toLowerCase().includes(busca.toLowerCase());
   });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function openModal(interaction: any) {
     setSelectedInteraction(interaction);
@@ -150,20 +184,110 @@ export default function Interactions() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <MessageSquare className="h-6 w-6 text-blue-600" /> Interações
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Todas as interações registradas com clientes
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <MessageSquare className="h-6 w-6 text-blue-600" /> Interações
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Todas as interações registradas com clientes
+          </p>
+        </div>
+        <Button onClick={() => setShowNewForm(!showNewForm)} className="gap-2">
+          <Plus className="w-4 h-4" /> Nova Interação
+        </Button>
       </div>
+
+      {showNewForm && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Registrar Nova Interação</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {/* Busca cliente */}
+              <div className="relative">
+                <label className="text-sm font-medium">Cliente *</label>
+                <input value={newForm.clientSearch}
+                  onChange={(e) => { setNewForm({ ...newForm, clientSearch: e.target.value, clientId: "" }); }}
+                  placeholder="Nome da fazenda ou produtor..."
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                {filteredNewClients.length > 0 && !newForm.clientId && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow max-h-40 overflow-y-auto">
+                    {filteredNewClients.map((c: any) => (
+                      <button key={c.id} type="button"
+                        onMouseDown={() => setNewForm({ ...newForm, clientId: String(c.id), clientSearch: c.farmName || c.producerName })}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-0">
+                        {c.farmName || c.producerName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Tipo</label>
+                  <select value={newForm.type} onChange={(e) => setNewForm({ ...newForm, type: e.target.value as any })}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                    <option value="visita">Visita</option>
+                    <option value="ligacao">Ligação</option>
+                    <option value="email">E-mail</option>
+                    <option value="reuniao">Reunião</option>
+                    <option value="nota">Nota</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Resultado</label>
+                  <select value={newForm.visitResult} onChange={(e) => setNewForm({ ...newForm, visitResult: e.target.value as any })}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                    <option value="positivo">Positivo</option>
+                    <option value="neutro">Neutro</option>
+                    <option value="negativo">Negativo</option>
+                    <option value="sem_resposta">Sem resposta</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Título *</label>
+                <input value={newForm.title} onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
+                  placeholder="Ex: Visita técnica para apresentação do produto X"
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Descrição</label>
+                <textarea value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
+                  rows={2} placeholder="Detalhes da interação..."
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Próxima Visita</label>
+                <input type="date" value={newForm.nextVisitDate} onChange={(e) => setNewForm({ ...newForm, nextVisitDate: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button onClick={() => {
+                  if (!newForm.clientId || !newForm.title) { toast.error("Preencha cliente e título"); return; }
+                  createInteractionMutation.mutate({
+                    clientId: Number(newForm.clientId),
+                    type: newForm.type,
+                    title: newForm.title,
+                    description: newForm.description || undefined,
+                    visitResult: newForm.visitResult,
+                    nextVisitDate: newForm.nextVisitDate ? new Date(newForm.nextVisitDate) : undefined,
+                  });
+                }} disabled={createInteractionMutation.isPending}>
+                  {createInteractionMutation.isPending ? "Salvando..." : "Salvar Interação"}
+                </Button>
+                <Button variant="outline" onClick={() => setShowNewForm(false)}>Cancelar</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
         <select
           value={filtroTipo}
-          onChange={(e) => setFiltroTipo(e.target.value)}
+          onChange={(e) => { setFiltroTipo(e.target.value); setPage(1); }}
           className="border rounded px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">Todos os Tipos</option>
@@ -176,7 +300,7 @@ export default function Interactions() {
 
         <select
           value={filtroResultado}
-          onChange={(e) => setFiltroResultado(e.target.value)}
+          onChange={(e) => { setFiltroResultado(e.target.value); setPage(1); }}
           className="border rounded px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">Todos os Resultados</option>
@@ -190,7 +314,7 @@ export default function Interactions() {
           type="text"
           placeholder="Buscar por cliente..."
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={(e) => { setBusca(e.target.value); setPage(1); }}
           className="border rounded px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[180px]"
         />
       </div>
@@ -201,14 +325,14 @@ export default function Interactions() {
 
       {/* Lista */}
       <div className="space-y-3">
-        {filtered.length === 0 && (
+        {paginated.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-slate-400">
               Nenhuma interação encontrada
             </CardContent>
           </Card>
         )}
-        {filtered.map((interaction: any) => {
+        {paginated.map((interaction: any) => {
           const clientName = interaction.clientName ?? interaction.client?.name ?? "—";
           const clientId = interaction.clientId ?? interaction.client?.id;
           const nvd = interaction.nextVisitDate;
@@ -287,6 +411,18 @@ export default function Interactions() {
           );
         })}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm text-slate-600">Página {page} de {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

@@ -94,6 +94,7 @@ const emptyForm = {
   state: "",
   zipCode: "",
   notes: "",
+  score: 0,
 };
 
 export default function Clients() {
@@ -144,9 +145,9 @@ export default function Clients() {
     if (!formData.farmName || !formData.producerName) { toast.error("Preencha os campos obrigatorios"); return; }
     const { activityCategory, ...rest } = formData;
     if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, ...rest, activityType: rest.activityType as any });
+      updateMutation.mutate({ id: editingId, ...rest, activityType: rest.activityType as any, score: rest.score });
     } else {
-      createMutation.mutate({ ...rest, activityType: rest.activityType as any });
+      createMutation.mutate({ ...rest, activityType: rest.activityType as any, score: rest.score });
     }
   };
 
@@ -168,6 +169,7 @@ export default function Clients() {
       state: client.state || "",
       zipCode: client.zipCode || "",
       notes: client.notes || "",
+      score: client.score || 0,
     });
     setEditingId(client.id);
     setShowForm(true);
@@ -419,6 +421,16 @@ export default function Clients() {
             <label className="text-sm font-medium">Notas</label>
             <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Observacoes adicionais" className="w-full px-3 py-2 border border-slate-300 rounded-md" rows={3} />
           </div>
+          <div>
+            <label className="text-sm font-medium">Score / Potencial (0–100)</label>
+            <div className="flex items-center gap-3 mt-1">
+              <Input type="range" min="0" max="100" value={(formData as any).score || 0}
+                onChange={(e) => setFormData({ ...formData, score: parseInt(e.target.value) } as any)}
+                className="flex-1" />
+              <span className="w-10 text-center font-bold text-primary">{(formData as any).score || 0}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">0 = sem potencial, 100 = cliente premium</p>
+          </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Atualizar Cliente" : "Salvar Cliente"}
@@ -544,6 +556,15 @@ export default function Clients() {
                             <a href={`tel:${client.phone}`} className="flex items-center gap-1 text-blue-600 hover:underline">
                               <Phone className="w-4 h-4" />{client.phone}
                             </a>
+                          )}
+                          {(client as any).score > 0 && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                              (client as any).score >= 70 ? "bg-green-100 text-green-700" :
+                              (client as any).score >= 40 ? "bg-yellow-100 text-yellow-700" :
+                              "bg-red-100 text-red-700"
+                            }`}>
+                              Score: {(client as any).score}
+                            </span>
                           )}
                         </div>
                         {me?.role === "admin" && allUsers && (
