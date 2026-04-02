@@ -65,9 +65,21 @@ function typeLabel(type: string) {
   return map[type] ?? type;
 }
 
+function getWeekDays(date: Date): Date[] {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day;
+  return Array.from({ length: 7 }, (_, i) => {
+    const dd = new Date(d);
+    dd.setDate(diff + i);
+    return dd;
+  });
+}
+
 export default function Planning() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
 
   const [showNewVisit, setShowNewVisit] = useState(false);
   const [newVisit, setNewVisit] = useState({
@@ -184,171 +196,251 @@ export default function Planning() {
             Calendário mensal de visitas e interações agendadas
           </p>
         </div>
-        <Button onClick={() => setShowNewVisit(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Agendar Visita
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              variant={viewMode === "month" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("month")}
+            >
+              Mês
+            </Button>
+            <Button
+              variant={viewMode === "week" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("week")}
+            >
+              Semana
+            </Button>
+          </div>
+          <Button onClick={() => setShowNewVisit(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Agendar Visita
+          </Button>
+        </div>
       </div>
 
-      <div className="flex gap-6">
-        {/* Calendário */}
-        <div className="flex-1">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <Button variant="ghost" size="sm" onClick={goToPrevMonth}>
+      {viewMode === "week" ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                Semana de {getWeekDays(currentDate)[0].toLocaleDateString("pt-BR")} a {getWeekDays(currentDate)[6].toLocaleDateString("pt-BR")}
+              </CardTitle>
+              <div className="flex gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                  const d = new Date(currentDate);
+                  d.setDate(d.getDate() - 7);
+                  setCurrentDate(d);
+                }}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <CardTitle className="text-base">
-                  {MONTH_NAMES[month]} {year}
-                </CardTitle>
-                <Button variant="ghost" size="sm" onClick={goToNextMonth}>
+                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCurrentDate(new Date())}>
+                  Hoje
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => {
+                  const d = new Date(currentDate);
+                  d.setDate(d.getDate() + 7);
+                  setCurrentDate(d);
+                }}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {/* Header dias da semana */}
-              <div className="grid grid-cols-7 mb-2">
-                {WEEKDAYS.map((wd) => (
-                  <div key={wd} className="text-center text-xs font-semibold text-slate-500 py-1">
-                    {wd}
-                  </div>
-                ))}
-              </div>
-
-              {/* Grade de dias */}
-              <div className="grid grid-cols-7 gap-0.5">
-                {cells.map((cell, idx) => {
-                  const dayVisits = cell.current ? visitsForDay(cell.day) : [];
-                  const hasVisits = dayVisits.length > 0;
-                  const isSelected = cell.current && selectedDay === cell.day;
-                  const isTodayCell = cell.current && isToday(cell.day);
-
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        if (cell.current) {
-                          const newSelected = isSelected ? null : cell.day;
-                          setSelectedDay(newSelected);
-                          if (newSelected !== null) {
-                            setNewVisit(v => ({
-                              ...v,
-                              nextVisitDate: `${year}-${String(month + 1).padStart(2, "0")}-${String(newSelected).padStart(2, "0")}`,
-                            }));
-                          }
-                        }
-                      }}
-                      className={`min-h-[64px] rounded p-1 cursor-pointer transition-colors border ${
-                        !cell.current
-                          ? "bg-slate-50 border-transparent"
-                          : isSelected
-                          ? "bg-blue-100 border-blue-400"
-                          : isTodayCell
-                          ? "bg-blue-50 border-blue-200"
-                          : "bg-white border-slate-100 hover:bg-slate-50"
-                      }`}
-                    >
-                      <div
-                        className={`text-xs font-medium mb-1 ${
-                          !cell.current
-                            ? "text-slate-300"
-                            : isTodayCell
-                            ? "text-blue-700 font-bold"
-                            : "text-slate-700"
-                        }`}
-                      >
-                        {cell.day}
-                      </div>
-                      {cell.current && hasVisits && (
-                        <div className="space-y-0.5">
-                          {dayVisits.slice(0, 3).map((v: any, vi: number) => {
-                            const vd = new Date(v.nextVisitDate);
-                            vd.setHours(0, 0, 0, 0);
-                            const past = vd < today;
-                            return (
-                              <div
-                                key={vi}
-                                className={`text-xs truncate rounded px-1 py-0.5 leading-tight ${
-                                  past
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-green-100 text-green-700"
-                                }`}
-                                title={v.clientName ?? v.client?.name ?? ""}
-                              >
-                                {v.clientName ?? v.client?.name ?? "Cliente"}
-                              </div>
-                            );
-                          })}
-                          {dayVisits.length > 3 && (
-                            <div className="text-xs text-slate-400">+{dayVisits.length - 3}</div>
-                          )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-7 gap-2">
+              {getWeekDays(currentDate).map((day, i) => {
+                const iso = day.toISOString().split("T")[0];
+                const dayVisits = (visits as any[]).filter((v: any) => {
+                  const d = v.nextVisitDate ? new Date(v.nextVisitDate).toISOString().split("T")[0] : null;
+                  return d === iso;
+                });
+                const isToday = iso === new Date().toISOString().split("T")[0];
+                return (
+                  <div key={i} className={`rounded-xl border p-2 min-h-[120px] ${isToday ? "border-primary bg-primary/5" : "border-slate-200"}`}>
+                    <p className={`text-xs font-bold mb-1 ${isToday ? "text-primary" : "text-slate-500"}`}>
+                      {WEEKDAYS[i]}
+                    </p>
+                    <p className={`text-lg font-bold leading-none mb-2 ${isToday ? "text-primary" : "text-slate-800"}`}>
+                      {day.getDate()}
+                    </p>
+                    <div className="space-y-1">
+                      {dayVisits.length === 0 ? (
+                        <p className="text-[10px] text-slate-300">Livre</p>
+                      ) : dayVisits.map((v: any) => (
+                        <div key={v.id} className={`text-[10px] px-1.5 py-1 rounded-lg ${visitResultColor(v.visitResult)} truncate`}>
+                          {v.clientName || v.title}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Painel lateral */}
-        {selectedDay !== null && (
-          <div className="w-80 flex-shrink-0">
-            <Card className="h-full">
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex gap-6">
+          {/* Calendário */}
+          <div className="flex-1">
+            <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">
-                    Visitas — {selectedDay}/{month + 1}
+                  <Button variant="ghost" size="sm" onClick={goToPrevMonth}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <CardTitle className="text-base">
+                    {MONTH_NAMES[month]} {year}
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedDay(null)}
-                    className="h-6 w-6 p-0"
-                  >
-                    <X className="h-4 w-4" />
+                  <Button variant="ghost" size="sm" onClick={goToNextMonth}>
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {selectedDayVisits.length === 0 && (
-                  <p className="text-slate-400 text-sm text-center py-4">
-                    Nenhuma visita neste dia
-                  </p>
-                )}
-                {selectedDayVisits.map((v: any, i: number) => {
-                  const vd = new Date(v.nextVisitDate);
-                  vd.setHours(0, 0, 0, 0);
-                  const past = vd < today;
-                  return (
-                    <div key={i} className="border rounded p-3 space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-semibold text-sm text-slate-800">
-                          {v.clientName ?? v.client?.name ?? "—"}
-                        </p>
-                        {past && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-bold bg-red-500 text-white flex-shrink-0">
-                            ATRASADO
-                          </span>
+              <CardContent>
+                {/* Header dias da semana */}
+                <div className="grid grid-cols-7 mb-2">
+                  {WEEKDAYS.map((wd) => (
+                    <div key={wd} className="text-center text-xs font-semibold text-slate-500 py-1">
+                      {wd}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grade de dias */}
+                <div className="grid grid-cols-7 gap-0.5">
+                  {cells.map((cell, idx) => {
+                    const dayVisits = cell.current ? visitsForDay(cell.day) : [];
+                    const hasVisits = dayVisits.length > 0;
+                    const isSelected = cell.current && selectedDay === cell.day;
+                    const isTodayCell = cell.current && isToday(cell.day);
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          if (cell.current) {
+                            const newSelected = isSelected ? null : cell.day;
+                            setSelectedDay(newSelected);
+                            if (newSelected !== null) {
+                              setNewVisit(v => ({
+                                ...v,
+                                nextVisitDate: `${year}-${String(month + 1).padStart(2, "0")}-${String(newSelected).padStart(2, "0")}`,
+                              }));
+                            }
+                          }
+                        }}
+                        className={`min-h-[64px] rounded p-1 cursor-pointer transition-colors border ${
+                          !cell.current
+                            ? "bg-slate-50 border-transparent"
+                            : isSelected
+                            ? "bg-blue-100 border-blue-400"
+                            : isTodayCell
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-white border-slate-100 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div
+                          className={`text-xs font-medium mb-1 ${
+                            !cell.current
+                              ? "text-slate-300"
+                              : isTodayCell
+                              ? "text-blue-700 font-bold"
+                              : "text-slate-700"
+                          }`}
+                        >
+                          {cell.day}
+                        </div>
+                        {cell.current && hasVisits && (
+                          <div className="space-y-0.5">
+                            {dayVisits.slice(0, 3).map((v: any, vi: number) => {
+                              const vd = new Date(v.nextVisitDate);
+                              vd.setHours(0, 0, 0, 0);
+                              const past = vd < today;
+                              return (
+                                <div
+                                  key={vi}
+                                  className={`text-xs truncate rounded px-1 py-0.5 leading-tight ${
+                                    past
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                  title={v.clientName ?? v.client?.name ?? ""}
+                                >
+                                  {v.clientName ?? v.client?.name ?? "Cliente"}
+                                </div>
+                              );
+                            })}
+                            {dayVisits.length > 3 && (
+                              <div className="text-xs text-slate-400">+{dayVisits.length - 3}</div>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500">{typeLabel(v.type)}</p>
-                      {v.title && <p className="text-xs text-slate-700">{v.title}</p>}
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${visitResultColor(v.visitResult)}`}
-                      >
-                        {visitResultLabel(v.visitResult)}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           </div>
-        )}
-      </div>
+
+          {/* Painel lateral */}
+          {selectedDay !== null && (
+            <div className="w-80 flex-shrink-0">
+              <Card className="h-full">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">
+                      Visitas — {selectedDay}/{month + 1}
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedDay(null)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {selectedDayVisits.length === 0 && (
+                    <p className="text-slate-400 text-sm text-center py-4">
+                      Nenhuma visita neste dia
+                    </p>
+                  )}
+                  {selectedDayVisits.map((v: any, i: number) => {
+                    const vd = new Date(v.nextVisitDate);
+                    vd.setHours(0, 0, 0, 0);
+                    const past = vd < today;
+                    return (
+                      <div key={i} className="border rounded p-3 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-semibold text-sm text-slate-800">
+                            {v.clientName ?? v.client?.name ?? "—"}
+                          </p>
+                          {past && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-bold bg-red-500 text-white flex-shrink-0">
+                              ATRASADO
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500">{typeLabel(v.type)}</p>
+                        {v.title && <p className="text-xs text-slate-700">{v.title}</p>}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${visitResultColor(v.visitResult)}`}
+                        >
+                          {visitResultLabel(v.visitResult)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Visitas Atrasadas */}
       {overdueVisits.length > 0 && (

@@ -7,6 +7,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, ChevronLeft, ChevronRight, DollarSign, TrendingUp, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 const STAGES = [
   { id: "prospeccao",       label: "Prospeccao",       color: "bg-blue-50 border-blue-200",    badge: "bg-blue-100 text-blue-700" },
@@ -33,6 +45,30 @@ function fmt(v: any) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function DraggableCard({ opp, children }: { opp: any; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 }}
+      {...listeners}
+      {...attributes}
+      className="cursor-grab active:cursor-grabbing"
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableColumn({ stageId, children }: { stageId: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: stageId });
+  return (
+    <div ref={setNodeRef} className={`min-h-[120px] transition-colors rounded-lg ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
 export default function Opportunities() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -40,7 +76,12 @@ export default function Opportunities() {
   const [formData, setFormData] = useState({ ...emptyForm });
   const [clientSearch, setClientSearch] = useState("");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [activeOpp, setActiveOpp] = useState<any>(null);
   const clientSearchRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -72,6 +113,22 @@ export default function Opportunities() {
     onSuccess: () => { toast.success("Removida!"); setDeleteId(null); refetch(); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  function handleDragStart(event: DragStartEvent) {
+    const opp = (opportunities as any[])?.find((o: any) => o.id === event.active.id);
+    setActiveOpp(opp || null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveOpp(null);
+    const { active, over } = event;
+    if (!over) return;
+    const opp = (opportunities as any[])?.find((o: any) => o.id === active.id);
+    if (!opp) return;
+    const newStage = over.id as string;
+    if (opp.stage === newStage) return;
+    updateMutation.mutate({ id: opp.id, stage: newStage as any });
+  }
 
   const moveStage = (opp: any, dir: number) => {
     const idx = STAGES.findIndex(s => s.id === opp.stage);
@@ -160,50 +217,66 @@ export default function Opportunities() {
       {isLoading ? (
         <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          {opportunitiesByStage.map((stage, stageIdx) => (
-            <div key={stage.id} className={`rounded-xl border-2 p-3 ${stage.color}`}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">{stage.label}</h3>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stage.badge}`}>{stage.items.length}</span>
-              </div>
-              {stage.total > 0 && (
-                <p className="text-xs text-slate-500 mb-2 flex items-center gap-1"><DollarSign className="w-3 h-3" />{fmt(stage.total)}</p>
-              )}
-              <div className="space-y-2">
-                {stage.items.length === 0 && <p className="text-xs text-slate-400 text-center py-3">Nenhuma</p>}
-                {stage.items.map((opp: any) => (
-                  <div key={opp.id} className="bg-white rounded-lg p-3 shadow-sm border border-white/80 hover:shadow-md transition cursor-pointer" onClick={() => handleEdit(opp)}>
-                    <p className="font-medium text-sm leading-tight">{opp.title}</p>
-                    {clientMap[opp.clientId] && <p className="text-xs text-slate-400 mt-0.5 truncate">{clientMap[opp.clientId]}</p>}
-                    {opp.value && <p className="text-sm font-semibold text-slate-700 mt-1">{fmt(opp.value)}</p>}
-                    {opp.expectedCloseDate && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        Fechamento: {new Date(opp.expectedCloseDate).toLocaleDateString("pt-BR")}
-                      </p>
-                    )}
-                    {opp.quoteId && (
-                      <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded mt-1 inline-block">
-                        ORC vinculado
-                      </span>
-                    )}
-                    {opp.probability > 0 && (
-                      <div className="mt-2">
-                        <div className="flex justify-between text-xs text-slate-400 mb-0.5"><span>Prob.</span><span>{opp.probability}%</span></div>
-                        <div className="w-full bg-slate-200 rounded-full h-1.5"><div className="bg-primary h-1.5 rounded-full" style={{ width: `${opp.probability}%` }}></div></div>
-                      </div>
-                    )}
-                    <div className="flex justify-between mt-2" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={stageIdx === 0} onClick={() => moveStage(opp, -1)} title="Etapa anterior"><ChevronLeft className="w-3 h-3" /></Button>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => setDeleteId(opp.id)} title="Excluir"><Trash2 className="w-3 h-3" /></Button>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={stageIdx === STAGES.length - 1} onClick={() => moveStage(opp, 1)} title="Proxima etapa"><ChevronRight className="w-3 h-3" /></Button>
-                    </div>
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+            {opportunitiesByStage.map((stage, stageIdx) => (
+              <div key={stage.id} className={`rounded-xl border-2 p-3 ${stage.color}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">{stage.label}</h3>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stage.badge}`}>{stage.items.length}</span>
+                </div>
+                {stage.total > 0 && (
+                  <p className="text-xs text-slate-500 mb-2 flex items-center gap-1"><DollarSign className="w-3 h-3" />{fmt(stage.total)}</p>
+                )}
+                <DroppableColumn stageId={stage.id}>
+                  <div className="space-y-2">
+                    {stage.items.length === 0 && <p className="text-xs text-slate-400 text-center py-3">Nenhuma</p>}
+                    {stage.items.map((opp: any) => (
+                      <DraggableCard key={opp.id} opp={opp}>
+                        <div className="bg-white rounded-lg p-3 shadow-sm border border-white/80 hover:shadow-md transition" onClick={() => handleEdit(opp)}>
+                          <p className="font-medium text-sm leading-tight">{opp.title}</p>
+                          {clientMap[opp.clientId] && <p className="text-xs text-slate-400 mt-0.5 truncate">{clientMap[opp.clientId]}</p>}
+                          {opp.value && <p className="text-sm font-semibold text-slate-700 mt-1">{fmt(opp.value)}</p>}
+                          {opp.expectedCloseDate && (
+                            <p className="text-xs text-slate-400 mt-1">
+                              Fechamento: {new Date(opp.expectedCloseDate).toLocaleDateString("pt-BR")}
+                            </p>
+                          )}
+                          {opp.quoteId && (
+                            <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded mt-1 inline-block">
+                              ORC vinculado
+                            </span>
+                          )}
+                          {opp.probability > 0 && (
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-slate-400 mb-0.5"><span>Prob.</span><span>{opp.probability}%</span></div>
+                              <div className="w-full bg-slate-200 rounded-full h-1.5"><div className="bg-primary h-1.5 rounded-full" style={{ width: `${opp.probability}%` }}></div></div>
+                            </div>
+                          )}
+                          <div className="flex justify-between mt-2" onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={stageIdx === 0} onClick={() => moveStage(opp, -1)} title="Etapa anterior"><ChevronLeft className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => setDeleteId(opp.id)} title="Excluir"><Trash2 className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={stageIdx === STAGES.length - 1} onClick={() => moveStage(opp, 1)} title="Proxima etapa"><ChevronRight className="w-3 h-3" /></Button>
+                          </div>
+                        </div>
+                      </DraggableCard>
+                    ))}
                   </div>
-                ))}
+                </DroppableColumn>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <DragOverlay>
+            {activeOpp ? (
+              <div className="bg-white rounded-lg shadow-2xl border-2 border-primary p-3 opacity-95 rotate-1 w-64">
+                <p className="font-semibold text-sm truncate">{activeOpp.title}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  R$ {parseFloat(activeOpp.value || "0").toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* Dialog: criar/editar */}
@@ -303,7 +376,7 @@ export default function Opportunities() {
                 className="mt-1" />
             </div>
             <div>
-              <label className="text-sm font-medium">Orçamento Vinculado (opcional)</label>
+              <label className="text-sm font-medium">Orcamento Vinculado (opcional)</label>
               <select value={formData.quoteId || ""}
                 onChange={(e) => setFormData({ ...formData, quoteId: e.target.value })}
                 className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm">

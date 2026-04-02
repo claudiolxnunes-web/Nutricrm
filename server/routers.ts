@@ -580,6 +580,20 @@ export const appRouter = router({
         if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         return activateUser(input.id, input.days);
       }),
+    resetPassword: protectedProcedure
+      .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        const cryptoMod = await import("crypto");
+        const passwordHash = cryptoMod.createHash("sha256").update(input.newPassword + "nutricrm-salt").digest("hex");
+        const { getDb } = await import("./db");
+        const { users } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+        await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
     create: protectedProcedure
       .input(z.object({
         name: z.string().min(1),

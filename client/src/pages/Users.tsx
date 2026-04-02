@@ -1,10 +1,11 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Shield, User, Trash2, UserPlus, TrendingUp, AlertTriangle } from "lucide-react";
+import { Shield, User, Trash2, UserPlus, TrendingUp, AlertTriangle, Key } from "lucide-react";
 import { toast } from "sonner";
 
 function getStatus(user: any) {
@@ -29,6 +30,8 @@ export default function Users() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "vendedor" as "admin" | "vendedor" });
+  const [resetId, setResetId] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState("");
   const { data: users, isLoading, refetch } = trpc.users.list.useQuery();
   const { data: me } = trpc.auth.me.useQuery();
 
@@ -58,6 +61,15 @@ export default function Users() {
       refetch();
     },
     onError: (e: any) => toast.error(e.message),
+  });
+
+  const resetPasswordMutation = trpc.users.resetPassword.useMutation({
+    onSuccess: () => {
+      toast.success("Senha redefinida com sucesso!");
+      setResetId(null);
+      setNewPassword("");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao redefinir senha"),
   });
 
   if (me?.role !== "admin" && me?.role !== "superadmin") {
@@ -125,6 +137,13 @@ export default function Users() {
                         <option value="admin">Administrador</option>
                         <option value="vendedor">Representante</option>
                       </select>
+                      <button
+                        onClick={() => { setResetId(user.id); setNewPassword(""); }}
+                        className="text-slate-400 hover:text-blue-600 transition-colors"
+                        title="Redefinir senha"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
                       <Button
                         variant="ghost" size="sm"
                         disabled={user.id === me?.id}
@@ -206,6 +225,40 @@ export default function Users() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog: redefinir senha */}
+      <Dialog open={resetId !== null} onOpenChange={(o) => { if (!o) { setResetId(null); setNewPassword(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Redefinir Senha</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-600">Digite a nova senha para o representante.</p>
+            <div>
+              <label className="text-sm font-medium">Nova Senha</label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setResetId(null); setNewPassword(""); }}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (newPassword.length < 6) { toast.error("Senha deve ter no mínimo 6 caracteres"); return; }
+                resetPasswordMutation.mutate({ userId: resetId!, newPassword });
+              }}
+              disabled={resetPasswordMutation.isPending}
+            >
+              {resetPasswordMutation.isPending ? "Salvando..." : "Redefinir Senha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: confirmar exclusao */}
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
@@ -222,4 +275,3 @@ export default function Users() {
     </div>
   );
 }
-
