@@ -235,6 +235,11 @@ export default function Opportunities() {
                       <DraggableCard key={opp.id} opp={opp}>
                         <div className="bg-white rounded-lg p-3 shadow-sm border border-white/80 hover:shadow-md transition" onClick={() => handleEdit(opp)}>
                           <p className="font-medium text-sm leading-tight">{opp.title}</p>
+                          {opp.updatedAt && (
+                            <p className="text-[10px] text-slate-400">
+                              {Math.ceil((Date.now() - new Date(opp.updatedAt).getTime()) / 86400000)} dia(s) nesta etapa
+                            </p>
+                          )}
                           {clientMap[opp.clientId] && <p className="text-xs text-slate-400 mt-0.5 truncate">{clientMap[opp.clientId]}</p>}
                           {opp.value && <p className="text-sm font-semibold text-slate-700 mt-1">{fmt(opp.value)}</p>}
                           {opp.expectedCloseDate && (

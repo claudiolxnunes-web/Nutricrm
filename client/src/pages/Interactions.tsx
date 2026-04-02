@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +26,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import ClientDetail from "@/pages/ClientDetail";
 
 const CICLO_ETAPAS = [
   { id: "planejamento", label: "Planejamento", color: "bg-slate-100 text-slate-700", icon: "📋" },
@@ -119,14 +119,15 @@ function ResultBadge({ result }: { result: string | null | undefined }) {
 }
 
 export default function Interactions() {
-  const [, setLocation] = useLocation();
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroResultado, setFiltroResultado] = useState("");
+  const [buscaInput, setBuscaInput] = useState("");
   const [busca, setBusca] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedInteraction, setSelectedInteraction] = useState<any>(null);
   const [nextVisitDate, setNextVisitDate] = useState("");
   const [visitResult, setVisitResult] = useState("");
+  const [detailClient, setDetailClient] = useState<any>(null);
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
@@ -146,6 +147,11 @@ export default function Interactions() {
     type: filtroTipo || undefined,
     visitResult: filtroResultado || undefined,
   });
+
+  useEffect(() => {
+    const t = setTimeout(() => setBusca(buscaInput), 400);
+    return () => clearTimeout(t);
+  }, [buscaInput]);
 
   const scheduleMutation = trpc.interactions.schedule.useMutation({
     onSuccess: () => {
@@ -356,8 +362,8 @@ export default function Interactions() {
         <input
           type="text"
           placeholder="Buscar por cliente..."
-          value={busca}
-          onChange={(e) => { setBusca(e.target.value); setPage(1); }}
+          value={buscaInput}
+          onChange={(e) => { setBuscaInput(e.target.value); setPage(1); }}
           className="border rounded px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 min-w-[180px]"
         />
       </div>
@@ -401,8 +407,11 @@ export default function Interactions() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <button
-                        onClick={() => clientId && setLocation(`/clients/${clientId}`)}
-                        className="font-semibold text-slate-800 hover:text-blue-600 hover:underline text-sm leading-tight"
+                        onClick={() => {
+                          const c = clientList.find((cl: any) => cl.id === interaction.clientId);
+                          if (c) setDetailClient(c);
+                        }}
+                        className="font-semibold text-primary hover:underline text-sm"
                       >
                         {clientName}
                       </button>
@@ -522,6 +531,15 @@ export default function Interactions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {detailClient && (
+        <ClientDetail
+          client={detailClient}
+          open={!!detailClient}
+          onClose={() => setDetailClient(null)}
+          onRefresh={() => {}}
+        />
+      )}
     </div>
   );
 }

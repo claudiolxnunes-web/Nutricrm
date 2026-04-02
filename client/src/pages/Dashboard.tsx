@@ -106,7 +106,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalClients}</div>
-            <p className="text-xs text-slate-600">Produtores cadastrados</p>
+            <p className="text-xs text-slate-600">Total cadastrado</p>
           </CardContent>
         </Card>
 
@@ -119,7 +119,9 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">
               R$ {ticketMedioPeriod.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-slate-600">Por venda no período ({salesCountPeriod})</p>
+            <p className="text-xs text-slate-600">
+              Média por venda no período ({salesCountPeriod} venda{salesCountPeriod !== 1 ? "s" : ""})
+            </p>
           </CardContent>
         </Card>
       </div>

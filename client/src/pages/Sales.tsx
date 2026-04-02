@@ -72,6 +72,15 @@ export default function Sales() {
     onError: (e) => toast.error(e.message || "Erro ao registrar venda"),
   });
 
+  const deleteMutation = trpc.sales.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Venda excluída!");
+      setDeleteId(null);
+      refetch();
+    },
+    onError: (e) => toast.error(e.message || "Erro ao excluir"),
+  });
+
   const totalSales = Array.isArray(sales)
     ? sales.reduce((s: number, sale: any) => s + parseFloat(sale.totalValue || "0"), 0)
     : 0;
@@ -295,7 +304,7 @@ export default function Sales() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => setDeleteId(null)}>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteId && deleteMutation.mutate({ id: deleteId })}>
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

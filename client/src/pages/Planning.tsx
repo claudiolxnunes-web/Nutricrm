@@ -465,9 +465,20 @@ export default function Planning() {
                   </p>
                   {v.title && <p className="text-xs text-slate-600">{v.title}</p>}
                 </div>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white">
-                  ATRASADO
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setNewVisit(prev => ({ ...prev, clientId: String(v.clientId || ""), nextVisitDate: new Date().toISOString().split("T")[0] }));
+                      setShowNewVisit(true);
+                    }}
+                    className="text-xs text-blue-600 hover:underline shrink-0"
+                  >
+                    Reagendar
+                  </button>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white">
+                    ATRASADO
+                  </span>
+                </div>
               </div>
             ))}
           </CardContent>

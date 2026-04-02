@@ -182,17 +182,18 @@ export default function AiForecast() {
     .slice(0, 5);
 
   // Últimos 6 meses de vendas
-  const last6Months: { label: string; value: number }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleString("pt-BR", { month: "short" });
-    const val = sales
-      .filter((s) => s.date && String(s.date).startsWith(key))
-      .reduce((a, s) => a + (Number(s.value) || 0), 0);
-    last6Months.push({ label, value: val });
-  }
-  const maxBarValue = Math.max(...last6Months.map((m) => m.value), 1);
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - (5 - i));
+    const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+    const total = (sales as any[])?.filter((s: any) => {
+      const sd = new Date(s.saleDate || s.date || "");
+      return sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth();
+    }).reduce((acc: number, s: any) => acc + parseFloat(s.totalValue || s.value || "0"), 0) ?? 0;
+    return { label, total };
+  });
+  const maxBarValue = Math.max(...last6Months.map((m) => m.total), 1);
 
   // Por Cliente
   const byClient = clients.map((c) => {
@@ -481,8 +482,8 @@ export default function AiForecast() {
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <div
                         className="w-full bg-blue-500 rounded-t"
-                        style={{ height: `${Math.max(4, (m.value / maxBarValue) * 80)}px` }}
-                        title={fmt(m.value)}
+                        style={{ height: `${Math.max(4, (m.total / maxBarValue) * 80)}px` }}
+                        title={fmt(m.total)}
                       />
                       <span className="text-xs text-slate-500 capitalize">{m.label}</span>
                     </div>

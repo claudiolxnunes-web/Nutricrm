@@ -31,7 +31,7 @@ export default function Products() {
 
   const { data: products, isLoading, refetch } = trpc.products.list.useQuery({
     search,
-    limit: 50,
+    limit: 500,
   });
 
   const createMutation = trpc.products.create.useMutation({

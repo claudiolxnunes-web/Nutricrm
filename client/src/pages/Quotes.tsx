@@ -39,7 +39,7 @@ const emptyItem = (): Item => ({ productName: "", quantity: "1", unitPrice: "0",
 export default function Quotes() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterValidade, setFilterValidade] = useState("todos");
+  const [filterValidade, setFilterValidade] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [formStep, setFormStep] = useState(0); // 0=cliente 1=produtos 2=dados
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -124,8 +124,9 @@ export default function Quotes() {
   }
 
   const filtered = (quotes as any[]).filter(q => {
-    if (filterValidade === "validos") return daysUntil(q.createdAt, q.validityDays) > 0;
-    if (filterValidade === "vencidos") return daysUntil(q.createdAt, q.validityDays) <= 0;
+    if (filterValidade === "vigente") return daysUntil(q.createdAt, q.validityDays) > 7;
+    if (filterValidade === "expirando") { const d = daysUntil(q.createdAt, q.validityDays); return d >= 0 && d <= 7; }
+    if (filterValidade === "expirado") return daysUntil(q.createdAt, q.validityDays) < 0;
     return true;
   });
 
@@ -172,6 +173,9 @@ export default function Quotes() {
         <div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Cliente</div>
         <div style="font-size:15px;font-weight:700;color:#1e293b">${q.clientName || `Cliente #${q.clientId}`}</div>
         ${q.clientStatus ? `<div style="margin-top:4px;font-size:11px;color:#64748b">Status: ${q.clientStatus}</div>` : ""}
+        ${q.clientPhone ? `<div style="font-size:12px;color:#475569;margin-top:3px">Tel: ${q.clientPhone}</div>` : ""}
+        ${q.clientEmail ? `<div style="font-size:12px;color:#475569;margin-top:2px">Email: ${q.clientEmail}</div>` : ""}
+        ${q.clientCity ? `<div style="font-size:12px;color:#475569;margin-top:2px">${q.clientCity}${q.clientState ? "/" + q.clientState : ""}</div>` : ""}
       </div>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px">
         <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Validade</div>
@@ -221,6 +225,15 @@ export default function Quotes() {
   }
 
   async function exportPdf(q: any) {
+    const clientData = clientList.find((c: any) => c.id === q.clientId);
+    const qWithClient = {
+      ...q,
+      clientName: clientData?.farmName || clientData?.producerName || q.clientName,
+      clientPhone: clientData?.phone || clientData?.whatsapp || "",
+      clientEmail: clientData?.email || "",
+      clientCity: clientData?.city || "",
+      clientState: clientData?.state || "",
+    };
     let itens: any[] = [];
     if (expandedId === q.id && expandedQuote?.items) {
       itens = expandedQuote.items;
@@ -232,7 +245,7 @@ export default function Quotes() {
         itens = [];
       }
     }
-    const html = buildPdfHtml(q, itens);
+    const html = buildPdfHtml(qWithClient, itens);
     const win = window.open("", "_blank", "width=850,height=950,scrollbars=yes");
     if (!win) { toast.error("Permita popups no navegador para exportar PDF"); return; }
     win.document.write(html);
@@ -265,10 +278,11 @@ export default function Quotes() {
           <option value="">Todos os status</option>
           {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
-        <select value={filterValidade} onChange={e => setFilterValidade(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none">
-          <option value="todos">Todas validades</option>
-          <option value="validos">Válidos</option>
-          <option value="vencidos">Vencidos</option>
+        <select value={filterValidade} onChange={e => setFilterValidade(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+          <option value="">Todas as validades</option>
+          <option value="vigente">Vigente</option>
+          <option value="expirando">Expirando em 7 dias</option>
+          <option value="expirado">Expirado</option>
         </select>
       </div>
 
@@ -330,6 +344,9 @@ export default function Quotes() {
                           <Send className="w-4 h-4" />
                         </button>
                         <button onClick={() => { setEditingQuote(q); setNotes(q.notes || ""); setValidityDays(q.validityDays || 30); setDiscount(parseFloat(q.discount || "0")); }} className="text-blue-400 hover:text-blue-600" title="Editar"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => exportPdf(q)} className="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Exportar PDF">
+                          <Download className="w-4 h-4" />
+                        </button>
                         <button onClick={() => setDeleteId(q.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
                           <Trash2 className="w-4 h-4" />
                         </button>

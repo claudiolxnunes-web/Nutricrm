@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Shield, User, Trash2, UserPlus, TrendingUp, AlertTriangle, Key } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Shield, User, Trash2, UserPlus, TrendingUp, AlertTriangle, Key, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 function getStatus(user: any) {
@@ -119,15 +120,20 @@ export default function Users() {
                         {status.label}
                       </span>
                       <span className="text-sm text-slate-500 bg-slate-100 px-2 py-1 rounded">{user.clientCount} clientes</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={activateMutation.isPending}
-                        onClick={() => activateMutation.mutate({ id: user.id, days: 30 })}
-                        className="text-green-700 border-green-300 hover:bg-green-50"
-                      >
-                        Ativar 30 dias
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-xs gap-1 text-green-700 border-green-300 hover:bg-green-50">
+                            Ativar <ChevronDown className="w-3 h-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {[30, 90, 180, 365].map((days) => (
+                            <DropdownMenuItem key={days} onClick={() => activateMutation.mutate({ id: user.id, days })}>
+                              {days === 365 ? "1 ano" : `${days} dias`}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <select
                         value={user.role}
                         disabled={user.id === me?.id}

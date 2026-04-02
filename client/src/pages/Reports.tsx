@@ -213,6 +213,35 @@ export default function Reports() {
         </Card>
       </div>
 
+      {/* Top Clientes no Período */}
+      {Array.isArray(sales) && sales.length > 0 && (() => {
+        const byClient: Record<string, number> = {};
+        (sales as any[]).forEach((s: any) => {
+          const name = clientMap[s.clientId] || `Cliente #${s.clientId}`;
+          byClient[name] = (byClient[name] || 0) + parseFloat(s.totalValue || "0");
+        });
+        const top = Object.entries(byClient).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const max = top[0]?.[1] || 1;
+        return (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Top 5 Clientes no Período</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {top.map(([name, value], i) => (
+                <div key={i}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium truncate max-w-[60%]">{name}</span>
+                    <span className="text-emerald-700 font-bold">{value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-emerald-500 rounded-full" style={{ width: `${(value / max) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Sales Table */}
       <Card>
         <CardHeader>
@@ -237,12 +266,12 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sales.map((sale: any) => (
+                  {sales.map((sale: any, i: number) => (
                     <tr key={sale.id} className="border-b hover:bg-slate-50">
                       <td className="py-2 px-2">
                         {new Date(sale.saleDate).toLocaleDateString("pt-BR")}
                       </td>
-                      <td className="py-2 px-2">{sale.saleNumber}</td>
+                      <td className="py-2 px-2 text-slate-500">#{i + 1}</td>
                       <td className="py-2 px-2">{clientMap[sale.clientId] || `Cliente #${sale.clientId}`}</td>
                       <td className="py-2 px-2 text-right font-semibold">
                         R$ {parseFloat(sale.totalValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}

@@ -398,8 +398,8 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
                   <Input type="datetime-local" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="mt-1" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Duração (min)</label>
-                  <Input type="number" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} placeholder="60" className="mt-1" />
+                  <label className="text-sm font-medium">Duração (minutos)</label>
+                  <Input type="number" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} placeholder="Ex: 60" className="mt-1" />
                 </div>
               </div>
               <div>

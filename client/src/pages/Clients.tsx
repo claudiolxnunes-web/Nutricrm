@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -112,8 +112,15 @@ export default function Clients() {
   const { data: me } = trpc.auth.me.useQuery();
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 100;
-  const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({ search, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
+  const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({
+    search,
+    clientType: filterClientType || undefined,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+  });
   const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: me?.role === "admin" });
+
+  useEffect(() => { setPage(1); }, [search, filterClientType]);
 
   const createMutation = trpc.clients.create.useMutation({
     onSuccess: () => { toast.success("Cliente criado!"); setShowForm(false); setFormData({ ...emptyForm }); refetch(); },
