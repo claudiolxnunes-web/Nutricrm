@@ -1,4 +1,4 @@
-﻿import { useAuth } from "@/_core/hooks/useAuth";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -180,27 +180,31 @@ function DashboardLayoutContent({
           className="border-r-0"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-16 justify-center">
-            <div className="flex items-center gap-3 px-2 transition-all w-full">
+          <SidebarHeader className="h-16 justify-center border-b border-sidebar-border/50">
+            <div className="flex items-center gap-3 px-3 transition-all w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-8 w-8 flex items-center justify-center hover:bg-sidebar-accent rounded-lg transition-colors focus:outline-none shrink-0"
                 aria-label="Toggle navigation"
               >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
+                <PanelLeft className="h-4 w-4 text-sidebar-foreground/60" />
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
-                    Navigation
-                  </span>
+                  <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                    <span className="text-primary-foreground font-black text-xs">NC</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sidebar-foreground text-sm leading-none tracking-tight">NutriCRM</p>
+                    <p className="text-sidebar-foreground/50 text-[10px] leading-none mt-0.5">Nutricao Animal</p>
+                  </div>
                 </div>
               ) : null}
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
+          <SidebarContent className="gap-0 px-3 py-2">
+            <SidebarMenu className="gap-0.5">
               {menuItems.map(item => {
                 const isActive = location === item.path;
                 return (
@@ -209,11 +213,13 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
+                      className={`h-9 rounded-lg transition-all font-normal text-sm group/menu-btn
+                        ${isActive
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground font-medium shadow-sm"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        }`}
                     >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
+                      <item.icon className={`h-4 w-4 shrink-0 ${isActive ? "text-primary-foreground" : "text-sidebar-foreground/60"}`} />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -224,31 +230,33 @@ function DashboardLayoutContent({
                   isActive={location === "/users"}
                   onClick={() => setLocation("/users")}
                   tooltip="Usuarios"
-                  className={`h-10 transition-all font-normal`}
+                  className={`h-9 rounded-lg transition-all font-normal text-sm
+                    ${location === "/users"
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground font-medium shadow-sm"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    }`}
                 >
-                  <Shield
-                    className={`h-4 w-4 ${location === "/users" ? "text-primary" : ""}`}
-                  />
+                  <Shield className={`h-4 w-4 shrink-0 ${location === "/users" ? "text-primary-foreground" : "text-sidebar-foreground/60"}`} />
                   <span>Usuarios</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="p-3">
+          <SidebarFooter className="p-3 border-t border-sidebar-border/50">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
+                <button className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-sidebar-accent transition-colors w-full text-left focus:outline-none group-data-[collapsible=icon]:justify-center">
+                  <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/30">
+                    <AvatarFallback className="text-xs font-bold bg-primary text-primary-foreground">
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
+                    <p className="text-sm font-semibold text-sidebar-foreground truncate leading-none">
                       {user?.name || "-"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
+                    <p className="text-xs text-sidebar-foreground/50 truncate mt-1">
                       {user?.email || "-"}
                     </p>
                   </div>
@@ -260,7 +268,7 @@ function DashboardLayoutContent({
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
+                  <span>Sair</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -276,31 +284,42 @@ function DashboardLayoutContent({
         />
       </div>
 
-      <SidebarInset>
-        {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
+      <SidebarInset className="bg-background">
+        {!isMobile && (
+          <div className="flex border-b border-border/60 h-14 items-center justify-between bg-white/80 px-6 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
             <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
-                </div>
+              <span className="font-semibold text-foreground/80 text-sm">{activeMenuItem?.label ?? "Dashboard"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Avatar className="h-7 w-7 ring-2 ring-primary/20">
+                  <AvatarFallback className="text-[10px] font-bold bg-primary text-primary-foreground">
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="font-medium text-foreground/70 hidden sm:block">{user?.name}</span>
               </div>
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        {isMobile && (
+          <div className="flex border-b border-border h-14 items-center justify-between bg-white/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40 shadow-sm">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="h-9 w-9 rounded-lg" />
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-black text-[10px]">NC</span>
+                </div>
+                <span className="font-semibold text-foreground text-sm">
+                  {activeMenuItem?.label ?? "NutriCRM"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+        <main className="flex-1 p-5 md:p-6 max-w-[1400px] mx-auto w-full">{children}</main>
       <HelpButton />
       </SidebarInset>
     </>
   );
 }
-
-
-
-
-
-
-
