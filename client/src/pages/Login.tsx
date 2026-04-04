@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,8 +53,13 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-green-800">NutriCRM</h1>
-          <p className="text-green-600 mt-2">CRM para NutriÃ§Ã£o Animal</p>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="h-10 w-10 rounded-xl bg-green-700 flex items-center justify-center shadow-md">
+              <span className="text-white font-black text-sm">NC</span>
+            </div>
+            <h1 className="text-3xl font-bold text-green-800">NutriCRM</h1>
+          </div>
+          <p className="text-green-600 mt-1">CRM para Nutrição Animal</p>
         </div>
         <Card>
           <Tabs defaultValue="login">
@@ -73,7 +78,7 @@ export default function Login() {
                   </div>
                   <div>
                     <Label htmlFor="login-password">Senha</Label>
-                    <Input id="login-password" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" value={loginForm.password} onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} required />
+                    <Input id="login-password" type="password" placeholder="••••••••" value={loginForm.password} onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} required />
                   </div>
                   <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
                     {loading ? "Entrando..." : "Entrar"}
@@ -96,7 +101,7 @@ export default function Login() {
                   </div>
                   <div>
                     <Label htmlFor="reg-password">Senha</Label>
-                    <Input id="reg-password" type="password" placeholder="MÃ­nimo 6 caracteres" value={registerForm.password} onChange={e => setRegisterForm(f => ({ ...f, password: e.target.value }))} minLength={6} required />
+                    <Input id="reg-password" type="password" placeholder="Mínimo 6 caracteres" value={registerForm.password} onChange={e => setRegisterForm(f => ({ ...f, password: e.target.value }))} minLength={6} required />
                   </div>
                   <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
                     {loading ? "Criando..." : "Criar Conta"}
@@ -110,5 +115,3 @@ export default function Login() {
     </div>
   );
 }
-
-
