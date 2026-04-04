@@ -110,10 +110,12 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
       type: form.type as any,
       title: form.title,
       description: form.description || undefined,
-      date: new Date(form.date),
+      date: form.date ? new Date(form.date) : new Date(),
       duration: form.duration ? parseInt(form.duration) : undefined,
       result: form.result || undefined,
       nextAction: form.nextAction || undefined,
+      visitResult: form.visitResult || undefined,
+      nextVisitDate: form.nextVisitDate ? new Date(form.nextVisitDate) : undefined,
     });
   };
 

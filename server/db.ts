@@ -235,6 +235,7 @@ export async function createClient(data: {
   state?: string;
   zipCode?: string;
   notes?: string;
+  score?: number;
   createdBy: number;
   companyId?: number;
 }) {
@@ -586,7 +587,23 @@ export async function getQuotes(filters?: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  let query: any = db.select().from(quotes);
+  let query: any = db.select({
+    id: quotes.id,
+    opportunityId: quotes.opportunityId,
+    clientId: quotes.clientId,
+    quoteNumber: quotes.quoteNumber,
+    status: quotes.status,
+    validityDays: quotes.validityDays,
+    notes: quotes.notes,
+    totalValue: quotes.totalValue,
+    discount: quotes.discount,
+    finalValue: quotes.finalValue,
+    createdBy: quotes.createdBy,
+    companyId: quotes.companyId,
+    createdAt: quotes.createdAt,
+    updatedAt: quotes.updatedAt,
+    itemCount: sql<number>`(SELECT COUNT(*) FROM quote_items WHERE quote_id = ${quotes.id})`,
+  }).from(quotes);
 
   const conditions = [];
 
@@ -596,6 +613,10 @@ export async function getQuotes(filters?: {
 
   if (filters?.status) {
     conditions.push(eq(quotes.status, filters.status as any));
+  }
+
+  if (filters?.search) {
+    conditions.push(like(quotes.quoteNumber, `%${filters.search}%`));
   }
 
   if (filters?.companyId) {
@@ -823,6 +844,7 @@ export async function createSale(data: {
   saleDate: Date;
   deliveryDate?: Date;
   notes?: string;
+  paymentStatus?: string;
   createdBy: number;
   companyId?: number;
 }) {
@@ -830,6 +852,13 @@ export async function createSale(data: {
   if (!db) throw new Error("Database not available");
 
   return db.insert(sales).values({ ...data, companyId: data.companyId ?? 1 });
+}
+
+export async function deleteSale(id: number, companyId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(sales).where(and(eq(sales.id, id), eq(sales.companyId, companyId)));
+  return { success: true };
 }
 
 export async function getSales(filters?: {
@@ -1007,7 +1036,7 @@ export async function getMonthlyProgress(companyId: number, month: string) {
   const startDate = new Date(year, m - 1, 1);
   const endDate = new Date(year, m, 0, 23, 59, 59);
   const salesRows = await db.select().from(sales)
-    .where(and(eq(sales.companyId, companyId), gte(sales.createdAt, startDate), lte(sales.createdAt, endDate)));
+    .where(and(eq(sales.companyId, companyId), gte(sales.saleDate, startDate), lte(sales.saleDate, endDate)));
   const realized = salesRows.reduce((s, r) => s + parseFloat(r.totalValue ?? "0"), 0);
   const oppsRows = await db.select().from(opportunities)
     .where(and(eq(opportunities.companyId, companyId), sql`stage != 'perdida'`));

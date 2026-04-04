@@ -64,7 +64,7 @@ function generateAIInsights(data: { opportunities: any[]; sales: any[]; clients:
     .map((c) => {
       const clientOpps = opportunities.filter((o) => o.clientId === c.id && o.stage !== "perdida");
       const weighted = clientOpps.reduce((s, o) => s + (Number(o.value) || 0) * (STAGE_PROB[o.stage] || 0) / 100, 0);
-      return { name: c.name, weighted };
+      return { name: (c.farmName || c.producerName || `#${c.id}`), weighted };
     })
     .sort((a, b) => b.weighted - a.weighted)
     .slice(0, 3);
@@ -128,11 +128,11 @@ export default function AiForecast() {
   const prevMonthStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
   const salesThisMonth = sales
-    .filter((s) => s.date && String(s.date).startsWith(curMonthStr))
-    .reduce((a, s) => a + (Number(s.value) || 0), 0);
+    .filter((s) => s.saleDate && String(s.saleDate).startsWith(curMonthStr))
+    .reduce((a, s) => a + (Number(s.totalValue) || 0), 0);
   const salesLastMonth = sales
-    .filter((s) => s.date && String(s.date).startsWith(prevMonthStr))
-    .reduce((a, s) => a + (Number(s.value) || 0), 0);
+    .filter((s) => s.saleDate && String(s.saleDate).startsWith(prevMonthStr))
+    .reduce((a, s) => a + (Number(s.totalValue) || 0), 0);
 
   const growthPct = salesLastMonth > 0
     ? ((salesThisMonth - salesLastMonth) / salesLastMonth) * 100
@@ -144,11 +144,11 @@ export default function AiForecast() {
   const daysRemaining = daysInMonth - dayOfMonth;
   const last30Sales = sales
     .filter((s) => {
-      if (!s.date) return false;
-      const d = new Date(s.date);
+      if (!s.saleDate) return false;
+      const d = new Date(s.saleDate);
       return (Date.now() - d.getTime()) <= 30 * 24 * 60 * 60 * 1000;
     })
-    .reduce((a, s) => a + (Number(s.value) || 0), 0);
+    .reduce((a, s) => a + (Number(s.totalValue) || 0), 0);
   const dailyRate = dayOfMonth > 0 ? last30Sales / dayOfMonth : 0;
   const endOfMonthProjection = salesThisMonth + dailyRate * daysRemaining;
 
@@ -201,7 +201,7 @@ export default function AiForecast() {
     const gross = clientOpps.reduce((s, o) => s + (Number(o.value) || 0), 0);
     const weighted = clientOpps.reduce((s, o) => s + (Number(o.value) || 0) * (STAGE_PROB[o.stage] || 0) / 100, 0);
     const stages = Array.from(new Set(clientOpps.map((o: any) => STAGE_LABELS[o.stage] || o.stage))).join(", ");
-    return { id: c.id, name: c.name, count: clientOpps.length, gross, weighted, stages };
+    return { id: c.id, name: (c.farmName || c.producerName || `#${c.id}`), count: clientOpps.length, gross, weighted, stages };
   })
     .filter((c) => c.count > 0)
     .sort((a, b) => b.weighted - a.weighted);
@@ -575,20 +575,20 @@ export default function AiForecast() {
                           <td className="py-2 pr-4">
                             <Badge
                               className={
-                                item.class === "A"
+                                item.cls === "A"
                                   ? "bg-green-100 text-green-700"
-                                  : item.class === "B"
+                                  : item.cls === "B"
                                   ? "bg-yellow-100 text-yellow-700"
                                   : "bg-red-100 text-red-700"
                               }
                             >
-                              {item.class}
+                              {item.cls}
                             </Badge>
                           </td>
                           <td className="py-2 pr-4 font-medium">{item.name}</td>
-                          <td className="py-2 pr-4 text-right">{fmt(item.revenue ?? 0)}</td>
+                          <td className="py-2 pr-4 text-right">{fmt(item.value ?? 0)}</td>
                           <td className="py-2 pr-4 text-right">{(item.pct ?? 0).toFixed(1)}%</td>
-                          <td className="py-2 text-right">{(item.cumPct ?? 0).toFixed(1)}%</td>
+                          <td className="py-2 text-right">{(item.accPct ?? 0).toFixed(1)}%</td>
                         </tr>
                       ))}
                     </tbody>

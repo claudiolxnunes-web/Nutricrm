@@ -37,6 +37,7 @@ import {
   getVisits,
   createSale,
   getSales,
+  deleteSale,
   getDashboardMetrics,
   countUsersByCompany,
   getCompanyPlan,
@@ -89,6 +90,7 @@ export const appRouter = router({
           state: z.string().optional(),
           zipCode: z.string().optional(),
           notes: z.string().optional(),
+          score: z.number().min(0).max(100).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -183,6 +185,13 @@ export const appRouter = router({
           stock: z.number().optional(),
           unit: z.string().optional().default("kg"),
           active: z.boolean().optional().default(true),
+          productCode: z.string().optional(),
+          species: z.string().optional(),
+          phase: z.string().optional(),
+          packaging: z.string().optional(),
+          bagWeight: z.string().optional(),
+          indication: z.string().optional(),
+          usageMode: z.string().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -220,6 +229,13 @@ export const appRouter = router({
           stock: z.number().optional(),
           unit: z.string().optional(),
           active: z.boolean().optional(),
+          productCode: z.string().optional(),
+          species: z.string().optional(),
+          phase: z.string().optional(),
+          packaging: z.string().optional(),
+          bagWeight: z.string().optional(),
+          indication: z.string().optional(),
+          usageMode: z.string().optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -314,6 +330,7 @@ export const appRouter = router({
           value: z.string().optional(),
           probability: z.number().optional(),
           expectedCloseDate: z.date().optional(),
+          quoteId: z.number().optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -437,7 +454,7 @@ export const appRouter = router({
           type: z.enum(["visita", "ligacao", "email", "nota", "reuniao"]),
           title: z.string().min(1),
           description: z.string().optional(),
-          date: z.date(),
+          date: z.date().optional(),
           duration: z.number().optional(),
           result: z.string().optional(),
           nextAction: z.string().optional(),
@@ -448,6 +465,7 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         return createInteraction({
           ...(input as any),
+          date: input.date || new Date(),
           nextVisitDate: input.nextVisitDate ? new Date(input.nextVisitDate) : undefined,
           visitResult: input.visitResult || undefined,
           createdBy: ctx.user.id,
@@ -507,16 +525,18 @@ export const appRouter = router({
           opportunityId: z.number().optional(),
           clientId: z.number(),
           quoteId: z.number().optional(),
-          saleNumber: z.string().min(1),
+          saleNumber: z.string().optional(),
           totalValue: z.string().regex(/^\d+(\.\d{1,2})?$/),
           saleDate: z.date(),
           deliveryDate: z.date().optional(),
           notes: z.string().optional(),
+          paymentStatus: z.enum(["pago","parcial","pendente"]).optional().default("pendente"),
         })
       )
       .mutation(async ({ input, ctx }) => {
         return createSale({
           ...input,
+          saleNumber: input.saleNumber || `VENDA-${Date.now()}`,
           createdBy: ctx.user.id,
           companyId: ctx.user.companyId,
         });
@@ -538,6 +558,12 @@ export const appRouter = router({
           ...input,
           companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId,
         });
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        return deleteSale(input.id, ctx.user.companyId);
       }),
   }),
 
