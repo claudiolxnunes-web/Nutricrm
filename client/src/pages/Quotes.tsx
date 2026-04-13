@@ -26,9 +26,10 @@ type Item = {
   quantity: string;
   unitPrice: string;
   unit: string;
+  totalPrice: string;
 };
 
-const emptyItem = (): Item => ({ productName: "", quantity: "1", unitPrice: "0", unit: "un" });
+const emptyItem = (): Item => ({ productId: undefined, productName: "", quantity: "1", unitPrice: "0", unit: "un", totalPrice: "0" });
 
 export default function Quotes() {
   const [filterStatus, setFilterStatus] = useState("");
@@ -41,7 +42,6 @@ export default function Quotes() {
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<Item[]>([emptyItem()]);
-  const [productSearches, setProductSearches] = useState<string[]>([""]);
   const [showClientList, setShowClientList] = useState(false);
 
   // Modal alterar status
@@ -113,7 +113,6 @@ export default function Quotes() {
     setDiscount(0);
     setNotes("");
     setItems([emptyItem()]);
-    setProductSearches([""]);
   }
 
   function updateItem(idx: number, field: keyof Item, val: string) {
@@ -123,13 +122,11 @@ export default function Quotes() {
   }
 
   function addItem() {
-    setItems([...items, emptyItem()]);
-    setProductSearches([...productSearches, ""]);
+    setItems(prev => [...prev, { productId: undefined, productName: "", quantity: "1", unitPrice: "0", unit: "un", totalPrice: "0" }]);
   }
 
   function removeItem(idx: number) {
-    setItems(items.filter((_, i) => i !== idx));
-    setProductSearches(productSearches.filter((_, i) => i !== idx));
+    setItems(prev => prev.filter((_, i) => i !== idx));
   }
 
   const total = items.reduce((s, i) => s + Number(i.quantity || 1) * Number(i.unitPrice || 0), 0);
@@ -501,55 +498,38 @@ export default function Quotes() {
                 <div className="col-span-1" />
               </div>
 
-              {items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+              {items.map((item, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-start">
                   {/* Produto */}
-                  <div className="col-span-4 relative">
-                    <input
-                      type="text"
-                      value={productSearches[idx] ?? item.productName}
-                      onChange={e => {
-                        const ps = [...productSearches];
-                        ps[idx] = e.target.value;
-                        setProductSearches(ps);
-                        updateItem(idx, "productName", e.target.value);
-                        const next = [...items];
-                        next[idx].productId = undefined;
-                        setItems(next);
+                  <div className="col-span-4">
+                    <select
+                      value={item.productId || ""}
+                      onChange={(e) => {
+                        const prod = productList.find((p: any) => p.id === Number(e.target.value));
+                        setItems(prev => prev.map((it, i) => i === index ? {
+                          ...it,
+                          productId: prod ? prod.id : undefined,
+                          productName: prod ? prod.name : it.productName,
+                          unitPrice: prod ? String(prod.price || "0") : it.unitPrice,
+                          unit: prod ? (prod.unit || "un") : it.unit,
+                          totalPrice: String(Number(it.quantity) * Number(prod ? prod.price : it.unitPrice)),
+                        } : it));
                       }}
-                      placeholder="Nome do produto..."
-                      className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    {(productSearches[idx] || "").length > 0 &&
-                      productList.filter((p: any) =>
-                        (p.name || "").toLowerCase().includes((productSearches[idx] || "").toLowerCase())
-                      ).length > 0 && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-36 overflow-y-auto">
-                        {productList
-                          .filter((p: any) =>
-                            (p.name || "").toLowerCase().includes((productSearches[idx] || "").toLowerCase())
-                          )
-                          .slice(0, 10)
-                          .map((p: any) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onMouseDown={e => {
-                                e.preventDefault();
-                                const ps = [...productSearches];
-                                ps[idx] = p.name;
-                                setProductSearches(ps);
-                                const next = [...items];
-                                next[idx] = { ...next[idx], productName: p.name, productId: p.id, unitPrice: String(p.price || "0") };
-                                setItems(next);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 flex justify-between border-b border-slate-50 last:border-0"
-                            >
-                              <span>{p.name}</span>
-                              <span className="text-slate-400 text-xs">{p.price ? fmt(parseFloat(p.price)) : ""}</span>
-                            </button>
-                          ))}
-                      </div>
+                      className="border border-slate-300 rounded px-2 py-1 text-sm w-full"
+                    >
+                      <option value="">— Selecione ou digite —</option>
+                      {productList.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name} {p.productCode ? `(${p.productCode})` : ""}</option>
+                      ))}
+                    </select>
+                    {!item.productId && (
+                      <input
+                        type="text"
+                        placeholder="Ou digite o nome do produto"
+                        value={item.productName || ""}
+                        onChange={(e) => setItems(prev => prev.map((it, i) => i === index ? { ...it, productName: e.target.value } : it))}
+                        className="border border-slate-300 rounded px-2 py-1 text-sm w-full mt-1"
+                      />
                     )}
                   </div>
                   {/* Qtd */}
@@ -559,7 +539,7 @@ export default function Quotes() {
                       min="0"
                       step="0.01"
                       value={item.quantity}
-                      onChange={e => updateItem(idx, "quantity", e.target.value)}
+                      onChange={e => updateItem(index, "quantity", e.target.value)}
                       className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -567,7 +547,7 @@ export default function Quotes() {
                   <div className="col-span-2">
                     <select
                       value={item.unit}
-                      onChange={e => updateItem(idx, "unit", e.target.value)}
+                      onChange={e => updateItem(index, "unit", e.target.value)}
                       className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none"
                     >
                       {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -580,7 +560,7 @@ export default function Quotes() {
                       min="0"
                       step="0.01"
                       value={item.unitPrice}
-                      onChange={e => updateItem(idx, "unitPrice", e.target.value)}
+                      onChange={e => updateItem(index, "unitPrice", e.target.value)}
                       className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -591,7 +571,7 @@ export default function Quotes() {
                   {/* Remover */}
                   <div className="col-span-1 flex justify-center">
                     {items.length > 1 && (
-                      <button onClick={() => removeItem(idx)} className="p-1 text-red-400 hover:text-red-600">
+                      <button onClick={() => removeItem(index)} className="p-1 text-red-400 hover:text-red-600">
                         <X className="w-4 h-4" />
                       </button>
                     )}
