@@ -1,70 +1,77 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Search, Trash2, Package, CheckCircle, XCircle, Send, Clock, AlertCircle, ChevronDown, X, Download, Pencil } from "lucide-react";
+import { Plus, FileText, Trash2, CheckCircle, XCircle, Send, Clock, AlertCircle, Download, Pencil, X, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  rascunho:  { label: "Rascunho",  color: "bg-slate-100 text-slate-600 border-slate-200",  icon: Clock },
-  enviado:   { label: "Enviado",   color: "bg-blue-100 text-blue-700 border-blue-200",     icon: Send },
-  aceito:    { label: "Aceito",    color: "bg-green-100 text-green-700 border-green-200",  icon: CheckCircle },
-  rejeitado: { label: "Rejeitado", color: "bg-red-100 text-red-700 border-red-200",        icon: XCircle },
+  rascunho:  { label: "Rascunho",  color: "bg-slate-100 text-slate-600 border-slate-200",    icon: Clock },
+  enviado:   { label: "Enviado",   color: "bg-blue-100 text-blue-700 border-blue-200",       icon: Send },
+  aceito:    { label: "Aceito",    color: "bg-green-100 text-green-700 border-green-200",    icon: CheckCircle },
+  rejeitado: { label: "Rejeitado", color: "bg-red-100 text-red-700 border-red-200",          icon: XCircle },
   expirado:  { label: "Expirado",  color: "bg-orange-100 text-orange-700 border-orange-200", icon: AlertCircle },
 };
 
-const CLIENT_STATUS_COLOR: Record<string, string> = {
-  ativo:    "bg-green-100 text-green-700",
-  inativo:  "bg-slate-100 text-slate-500",
-  prospect: "bg-blue-100 text-blue-600",
-};
-
-const UNITS = ["saco","kg","ton","litro","caixa","unidade","fardo","pallet"];
+const UNITS = ["un", "saco", "kg", "ton", "litro", "caixa", "fardo", "pallet"];
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 
-function daysUntil(createdAt: any, validityDays: number): number {
-  if (!createdAt) return 0;
-  const expiry = new Date(createdAt).getTime() + validityDays * 86400000;
-  return Math.ceil((expiry - Date.now()) / 86400000);
-}
+type Item = {
+  productId?: number;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  unit: string;
+};
 
-type Item = { productId?: number; productName: string; quantity: string; unitPrice: string; unit: string };
-
-const emptyItem = (): Item => ({ productName: "", quantity: "1", unitPrice: "0", unit: "saco" });
+const emptyItem = (): Item => ({ productName: "", quantity: "1", unitPrice: "0", unit: "un" });
 
 export default function Quotes() {
-  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterValidade, setFilterValidade] = useState("");
+
+  // Modal de criação
   const [showForm, setShowForm] = useState(false);
-  const [formStep, setFormStep] = useState(0); // 0=cliente 1=produtos 2=dados
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [changingStatusId, setChangingStatusId] = useState<number | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [editingQuote, setEditingQuote] = useState<any | null>(null);
-
-  // Form state
   const [clientSearch, setClientSearch] = useState("");
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [items, setItems] = useState<Item[]>([emptyItem()]);
-  const [discount, setDiscount] = useState(0);
-  const [productSearch, setProductSearch] = useState<string[]>([""]);
-  const [quoteNumber, setQuoteNumber] = useState(() => `ORC-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [validityDays, setValidityDays] = useState(30);
+  const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState("");
+  const [items, setItems] = useState<Item[]>([emptyItem()]);
+  const [productSearches, setProductSearches] = useState<string[]>([""]);
+  const [showClientList, setShowClientList] = useState(false);
 
-  const { data: quotes = [], isLoading, refetch } = trpc.quotes.list.useQuery({ search, status: filterStatus || undefined, limit: 100 });
-  const { data: allClients = [] } = trpc.clients.list.useQuery({ limit: 1000 });
-  const { data: allProducts = [] } = trpc.products.list.useQuery({ limit: 500 });
-  const { data: expandedQuote } = trpc.quotes.getWithItems.useQuery({ id: expandedId! }, { enabled: expandedId !== null });
+  // Modal alterar status
+  const [changingStatusId, setChangingStatusId] = useState<number | null>(null);
 
-  const clientList = (allClients as any)?.data ?? allClients ?? [];
-  const productList = (allProducts as any)?.data ?? allProducts ?? [];
+  // Modal editar
+  const [editingQuote, setEditingQuote] = useState<any | null>(null);
+  const [editValidityDays, setEditValidityDays] = useState(30);
+  const [editDiscount, setEditDiscount] = useState(0);
+  const [editNotes, setEditNotes] = useState("");
 
+  // Envio de email
+  const [sendingEmail, setSendingEmail] = useState<{ quoteId: number; toEmail: string; message: string } | null>(null);
+
+  // Excluir
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  // Dados
+  const { data: quotes = [], isLoading, refetch } = trpc.quotes.list.useQuery({ limit: 100 });
+  const { data: allClients = [] } = trpc.clients.list.useQuery({ limit: 500 });
+  const { data: allProducts = [] } = trpc.products.list.useQuery({ limit: 200 });
+  const utils = trpc.useUtils();
+
+  const clientList: any[] = (allClients as any)?.data ?? (allClients as any[]) ?? [];
+  const productList: any[] = (allProducts as any)?.data ?? (allProducts as any[]) ?? [];
+  const quoteList: any[] = (quotes as any)?.data ?? (quotes as any[]) ?? [];
+
+  const selectedClient = clientList.find((c: any) => c.id === selectedClientId) ?? null;
+
+  // Mutations
   const createMutation = trpc.quotes.create.useMutation({
     onSuccess: () => { toast.success("Orçamento criado!"); resetForm(); refetch(); },
     onError: (e) => toast.error(e.message),
@@ -85,10 +92,8 @@ export default function Quotes() {
     onError: (e) => toast.error(e.message),
   });
 
-  const [sendingEmail, setSendingEmail] = useState<{ quoteId: number; toEmail: string; message: string } | null>(null);
-
   const sendEmailMutation = trpc.quotes.sendEmail.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast.success(`Orçamento enviado para ${data.sentTo}`);
       setSendingEmail(null);
       refetch();
@@ -96,59 +101,65 @@ export default function Quotes() {
     onError: (e) => toast.error(e.message),
   });
 
+  // Helpers de formulário
   function resetForm() {
-    setShowForm(false); setFormStep(0); setSelectedClient(null); setClientSearch("");
-    setItems([emptyItem()]); setDiscount(0); setProductSearch([""]); setNotes("");
-    setValidityDays(30); setQuoteNumber(`ORC-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`);
+    setShowForm(false);
+    setClientSearch("");
+    setSelectedClientId(null);
+    setShowClientList(false);
+    setValidityDays(30);
+    setDiscount(0);
+    setNotes("");
+    setItems([emptyItem()]);
+    setProductSearches([""]);
   }
 
-  function updateItem(i: number, field: keyof Item, val: string) {
+  function updateItem(idx: number, field: keyof Item, val: string) {
     const next = [...items];
-    (next[i] as any)[field] = val;
+    (next[idx] as any)[field] = val;
     setItems(next);
   }
 
-  function removeItem(i: number) { setItems(items.filter((_, idx) => idx !== i)); setProductSearch(productSearch.filter((_, idx) => idx !== i)); }
-  function addItem() { setItems([...items, emptyItem()]); setProductSearch([...productSearch, ""]); }
+  function addItem() {
+    setItems([...items, emptyItem()]);
+    setProductSearches([...productSearches, ""]);
+  }
 
-  const subtotal = items.reduce((s, it) => s + (parseFloat(it.quantity)||0) * (parseFloat(it.unitPrice)||0), 0);
-  const total = subtotal * (1 - discount / 100);
+  function removeItem(idx: number) {
+    setItems(items.filter((_, i) => i !== idx));
+    setProductSearches(productSearches.filter((_, i) => i !== idx));
+  }
+
+  const total = items.reduce((s, i) => s + Number(i.quantity || 1) * Number(i.unitPrice || 0), 0);
+  const totalWithDiscount = total * (1 - discount / 100);
 
   function handleSubmit() {
-    if (!selectedClient) { toast.error("Selecione um cliente"); setFormStep(0); return; }
-    if (items.some(i => !i.productName && !i.productId)) { toast.error("Preencha o nome de todos os produtos"); setFormStep(1); return; }
+    if (!selectedClientId) { toast.error("Selecione um cliente"); return; }
+    if (items.some(i => !i.productName.trim())) { toast.error("Preencha o nome de todos os produtos"); return; }
     createMutation.mutate({
-      clientId: selectedClient.id,
-      quoteNumber,
-      validityDays,
+      clientId: Number(selectedClientId),
+      quoteNumber: `ORC-${Date.now()}`,
+      validityDays: Number(validityDays) || 30,
+      discount: Number(discount) || 0,
       notes: notes || undefined,
-      discount: Number(discount || 0),
-      items: items.map(it => ({
-        productId: it.productId,
-        productName: it.productName,
-        quantity: String(it.quantity || "1"),
-        unitPrice: String(it.unitPrice || "0"),
-        totalPrice: String((parseFloat(it.quantity || "1") || 1) * (parseFloat(it.unitPrice || "0") || 0)),
-        unit: it.unit,
+      items: items.map(i => ({
+        productId: i.productId ? Number(i.productId) : undefined,
+        productName: String(i.productName || ""),
+        quantity: String(i.quantity || "1"),
+        unitPrice: String(i.unitPrice || "0"),
+        totalPrice: String(Number(i.quantity || 1) * Number(i.unitPrice || 0)),
+        unit: String(i.unit || "un"),
       })),
     });
   }
 
-  const filtered = (quotes as any[]).filter(q => {
-    if (filterValidade === "vigente") return daysUntil(q.createdAt, q.validityDays) > 7;
-    if (filterValidade === "expirando") { const d = daysUntil(q.createdAt, q.validityDays); return d >= 0 && d <= 7; }
-    if (filterValidade === "expirado") return daysUntil(q.createdAt, q.validityDays) < 0;
-    return true;
-  });
-
-  const utils = trpc.useUtils();
-
+  // PDF
   function buildPdfHtml(q: any, itens: any[]): string {
     const fmtR = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtD = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
     const statusLabel: Record<string, string> = { rascunho: "Rascunho", enviado: "Enviado", aceito: "Aceito", rejeitado: "Rejeitado", expirado: "Expirado" };
     const statusColor: Record<string, string> = { rascunho: "#64748b", enviado: "#2563eb", aceito: "#16a34a", rejeitado: "#dc2626", expirado: "#ea580c" };
-    const subtotalVal = itens.reduce((s, it) => s + (parseFloat(it.quantity)||0) * (parseFloat(it.unitPrice||"0")), 0);
+    const subtotalVal = itens.reduce((s, it) => s + (parseFloat(it.quantity) || 0) * (parseFloat(it.unitPrice || "0")), 0);
     const discountPct = parseFloat(q.discount || "0");
     const totalVal = subtotalVal * (1 - discountPct / 100);
     const expiryDate = q.createdAt ? new Date(new Date(q.createdAt).getTime() + (q.validityDays || 30) * 86400000).toLocaleDateString("pt-BR") : "—";
@@ -157,33 +168,21 @@ export default function Quotes() {
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${it.productName || `Produto #${it.productId}`}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${parseFloat(it.quantity).toLocaleString("pt-BR")}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${it.unit || "—"}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${fmtR(parseFloat(it.unitPrice||"0"))}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600">${fmtR(parseFloat(it.totalPrice||"0"))}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${fmtR(parseFloat(it.unitPrice || "0"))}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600">${fmtR(parseFloat(it.totalPrice || "0"))}</td>
       </tr>`).join("");
     return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
     <title>Orçamento ${q.quoteNumber}</title>
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;background:#fff;padding:32px}
-      @media print{body{padding:16px} .no-print{display:none} @page{margin:15mm}}
-    </style></head><body>
-    <!-- Cabeçalho -->
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#1e293b;background:#fff;padding:32px}@media print{body{padding:16px}.no-print{display:none}@page{margin:15mm}}</style>
+    </head><body>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:16px;margin-bottom:20px">
-      <div>
-        <div style="font-size:22px;font-weight:800;color:#16a34a">NutriCRM</div>
-        <div style="font-size:11px;color:#64748b;margin-top:2px">Nutrição Animal — Sistema de Gestão</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:18px;font-weight:700;color:#1e293b">${q.quoteNumber}</div>
-        <div style="margin-top:4px"><span style="background:${statusColor[q.status]||"#64748b"};color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">${statusLabel[q.status]||q.status}</span></div>
-      </div>
+      <div><div style="font-size:22px;font-weight:800;color:#16a34a">NutriCRM</div><div style="font-size:11px;color:#64748b;margin-top:2px">Nutrição Animal — Sistema de Gestão</div></div>
+      <div style="text-align:right"><div style="font-size:18px;font-weight:700;color:#1e293b">${q.quoteNumber}</div><div style="margin-top:4px"><span style="background:${statusColor[q.status] || "#64748b"};color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">${statusLabel[q.status] || q.status}</span></div></div>
     </div>
-    <!-- Dados do cliente -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px">
         <div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Cliente</div>
         <div style="font-size:15px;font-weight:700;color:#1e293b">${q.clientName || `Cliente #${q.clientId}`}</div>
-        ${q.clientStatus ? `<div style="margin-top:4px;font-size:11px;color:#64748b">Status: ${q.clientStatus}</div>` : ""}
         ${q.clientPhone ? `<div style="font-size:12px;color:#475569;margin-top:3px">Tel: ${q.clientPhone}</div>` : ""}
         ${q.clientEmail ? `<div style="font-size:12px;color:#475569;margin-top:2px">Email: ${q.clientEmail}</div>` : ""}
         ${q.clientCity ? `<div style="font-size:12px;color:#475569;margin-top:2px">${q.clientCity}${q.clientState ? "/" + q.clientState : ""}</div>` : ""}
@@ -195,28 +194,22 @@ export default function Quotes() {
         <div style="font-size:12px;color:#64748b;margin-top:3px">${q.validityDays || 30} dias de validade</div>
       </div>
     </div>
-    <!-- Tabela de produtos -->
     <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Produtos / Serviços</div>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
-        <thead>
-          <tr style="background:#16a34a;color:#fff">
-            <th style="padding:10px;text-align:left;font-size:12px">Produto</th>
-            <th style="padding:10px;text-align:right;font-size:12px">Qtd</th>
-            <th style="padding:10px;text-align:center;font-size:12px">Und</th>
-            <th style="padding:10px;text-align:right;font-size:12px">Preço Unit.</th>
-            <th style="padding:10px;text-align:right;font-size:12px">Total</th>
-          </tr>
-        </thead>
+        <thead><tr style="background:#16a34a;color:#fff">
+          <th style="padding:10px;text-align:left;font-size:12px">Produto</th>
+          <th style="padding:10px;text-align:right;font-size:12px">Qtd</th>
+          <th style="padding:10px;text-align:center;font-size:12px">Und</th>
+          <th style="padding:10px;text-align:right;font-size:12px">Preço Unit.</th>
+          <th style="padding:10px;text-align:right;font-size:12px">Total</th>
+        </tr></thead>
         <tbody>${rowsHtml || '<tr><td colspan="5" style="padding:12px;text-align:center;color:#94a3b8">Nenhum item</td></tr>'}</tbody>
       </table>
     </div>
-    <!-- Totais -->
     <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
       <div style="min-width:260px">
-        <div style="display:flex;justify-content:space-between;padding:6px 0;color:#64748b;font-size:13px">
-          <span>Subtotal:</span><span>${fmtR(subtotalVal)}</span>
-        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;color:#64748b;font-size:13px"><span>Subtotal:</span><span>${fmtR(subtotalVal)}</span></div>
         ${discountPct > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;color:#dc2626;font-size:13px"><span>Desconto (${discountPct}%):</span><span>- ${fmtR(subtotalVal * discountPct / 100)}</span></div>` : ""}
         <div style="display:flex;justify-content:space-between;padding:10px 12px;background:#f0fdf4;border-radius:6px;border:2px solid #16a34a;margin-top:6px">
           <span style="font-size:16px;font-weight:800;color:#16a34a">TOTAL FINAL</span>
@@ -225,10 +218,7 @@ export default function Quotes() {
       </div>
     </div>
     ${q.notes ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:4px">Observações / Condições</div><div style="font-size:13px;color:#1e293b">${q.notes}</div></div>` : ""}
-    <!-- Rodapé -->
-    <div style="border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;color:#94a3b8;font-size:11px">
-      Este orçamento tem validade de ${q.validityDays || 30} dias a partir da data de emissão. · Gerado pelo NutriCRM
-    </div>
+    <div style="border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;color:#94a3b8;font-size:11px">Este orçamento tem validade de ${q.validityDays || 30} dias a partir da data de emissão. · Gerado pelo NutriCRM</div>
     <div class="no-print" style="margin-top:24px;text-align:center">
       <button onclick="window.print()" style="background:#16a34a;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">Imprimir / Salvar como PDF</button>
     </div>
@@ -246,15 +236,11 @@ export default function Quotes() {
       clientState: clientData?.state || "",
     };
     let itens: any[] = [];
-    if (expandedId === q.id && expandedQuote?.items) {
-      itens = expandedQuote.items;
-    } else {
-      try {
-        const data = await utils.quotes.getWithItems.fetch({ id: q.id });
-        itens = data?.items ?? [];
-      } catch {
-        itens = [];
-      }
+    try {
+      const data = await utils.quotes.getWithItems.fetch({ id: q.id });
+      itens = data?.items ?? [];
+    } catch {
+      itens = [];
     }
     const html = buildPdfHtml(qWithClient, itens);
     const win = window.open("", "_blank", "width=850,height=950,scrollbars=yes");
@@ -264,7 +250,8 @@ export default function Quotes() {
     setTimeout(() => win.print(), 600);
   }
 
-  const STEPS = ["Cliente", "Produtos", "Dados & Salvar"];
+  // Filtragem
+  const filtered = quoteList.filter((q: any) => !filterStatus || q.status === filterStatus);
 
   return (
     <div className="space-y-5 p-1">
@@ -272,34 +259,32 @@ export default function Quotes() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Orçamentos</h1>
-          <p className="text-sm text-slate-400">{(quotes as any[]).length} orçamento(s) encontrado(s)</p>
+          <p className="text-sm text-slate-400">{filtered.length} orçamento(s)</p>
         </div>
         <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Novo Orçamento
         </Button>
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por cliente ou número..." className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-        </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none">
+      {/* Filtro de status */}
+      <div className="flex gap-2">
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
           <option value="">Todos os status</option>
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <select value={filterValidade} onChange={e => setFilterValidade(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-          <option value="">Todas as validades</option>
-          <option value="vigente">Vigente</option>
-          <option value="expirando">Expirando em 7 dias</option>
-          <option value="expirado">Expirado</option>
+          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
         </select>
       </div>
 
-      {/* Lista de cards */}
+      {/* Tabela */}
       {isLoading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <FileText className="w-14 h-14 mx-auto mb-3 opacity-20" />
@@ -307,334 +292,424 @@ export default function Quotes() {
           <p className="text-sm mt-1">Crie um novo orçamento para começar</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((q: any) => {
-            const days = daysUntil(q.createdAt, q.validityDays);
-            const expired = days <= 0;
-            const cfg = STATUS_CONFIG[q.status] || STATUS_CONFIG.rascunho;
-            const StatusIcon = cfg.icon;
-            const displayTotal = parseFloat(q.itemsTotal || q.finalValue || q.totalValue || "0");
-            const isExpanded = expandedId === q.id;
-            return (
-              <div key={q.id} className={`bg-white rounded-xl border ${expired && q.status !== "aceito" ? "border-orange-200" : "border-slate-200"} shadow-sm hover:shadow-md transition`}>
-                <div className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                    {/* Left */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-800">{q.quoteNumber}</span>
-                        <Badge className={`text-xs border ${cfg.color} flex items-center gap-1`}>
-                          <StatusIcon className="w-3 h-3" />{cfg.label}
-                        </Badge>
-                        {q.clientStatus && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CLIENT_STATUS_COLOR[q.clientStatus] || "bg-slate-100 text-slate-500"}`}>
-                            {q.clientStatus}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-slate-700 font-medium mt-0.5">{q.clientName || `Cliente #${q.clientId}`}</p>
-                      <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-400">
-                        <span>Criado em {fmtDate(q.createdAt)}</span>
-                        <span className={expired && q.status !== "aceito" ? "text-red-500 font-medium" : "text-slate-400"}>
-                          {expired ? `Vencido há ${Math.abs(days)} dias` : `Válido por mais ${days} dias`}
-                        </span>
-                        <span className="flex items-center gap-1"><Package className="w-3 h-3" />{q.itemCount || 0} produto(s)</span>
-                      </div>
-                    </div>
-                    {/* Right */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-emerald-600">{fmt(displayTotal)}</p>
-                        {q.discount > 0 && <p className="text-xs text-slate-400">Desconto: {q.discount}%</p>}
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => setExpandedId(isExpanded ? null : q.id)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg" title="Ver itens">
-                          <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                        </button>
-                        <button onClick={() => setChangingStatusId(q.id)} className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Alterar status">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold text-slate-600">Número</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-600">Cliente</th>
+                <th className="text-right px-4 py-3 font-semibold text-slate-600">Total</th>
+                <th className="text-center px-4 py-3 font-semibold text-slate-600">Status</th>
+                <th className="text-center px-4 py-3 font-semibold text-slate-600">Data</th>
+                <th className="text-center px-4 py-3 font-semibold text-slate-600">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((q: any) => {
+                const cfg = STATUS_CONFIG[q.status] || STATUS_CONFIG.rascunho;
+                const StatusIcon = cfg.icon;
+                const displayTotal = parseFloat(q.itemsTotal || q.finalValue || q.totalValue || "0");
+                return (
+                  <tr key={q.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 font-mono font-semibold text-slate-800">{q.quoteNumber}</td>
+                    <td className="px-4 py-3 text-slate-700">{q.clientName || `Cliente #${q.clientId}`}</td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(displayTotal)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge className={`text-xs border ${cfg.color} inline-flex items-center gap-1`}>
+                        <StatusIcon className="w-3 h-3" />{cfg.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-400">{fmtDate(q.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1">
+                        {/* Alterar status */}
+                        <button
+                          onClick={() => setChangingStatusId(q.id)}
+                          className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Alterar status"
+                        >
                           <Send className="w-4 h-4" />
                         </button>
-                        <button onClick={() => { setEditingQuote(q); setNotes(q.notes || ""); setValidityDays(q.validityDays || 30); setDiscount(parseFloat(q.discount || "0")); }} className="text-blue-400 hover:text-blue-600" title="Editar"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => exportPdf(q)} className="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Exportar PDF">
+                        {/* Editar */}
+                        <button
+                          onClick={() => {
+                            setEditingQuote(q);
+                            setEditValidityDays(q.validityDays || 30);
+                            setEditDiscount(parseFloat(q.discount || "0"));
+                            setEditNotes(q.notes || "");
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {/* Exportar PDF */}
+                        <button
+                          onClick={() => exportPdf(q)}
+                          className="p-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                          title="Exportar PDF"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
+                        {/* Enviar email */}
                         <button
-                          onClick={() => setSendingEmail({
-                            quoteId: q.id,
-                            toEmail: (q as any).clientEmail || "",
-                            message: ""
-                          })}
-                          className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                          onClick={() => setSendingEmail({ quoteId: q.id, toEmail: q.clientEmail || "", message: "" })}
+                          className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
                           title="Enviar por Email"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                         </button>
-                        <button onClick={() => setDeleteId(q.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
+                        {/* Excluir */}
+                        <button
+                          onClick={() => setDeleteId(q.id)}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          title="Excluir"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Itens expandidos */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/50 rounded-b-xl">
-                    {!expandedQuote ? (
-                      <p className="text-sm text-slate-400">Carregando itens...</p>
-                    ) : expandedQuote.items?.length === 0 ? (
-                      <p className="text-sm text-slate-400">Nenhum item neste orçamento.</p>
-                    ) : (
-                      <table className="w-full text-sm">
-                        <thead><tr className="text-xs text-slate-400 border-b border-slate-200">
-                          <th className="text-left pb-1">Produto</th>
-                          <th className="text-right pb-1">Qtd</th>
-                          <th className="text-right pb-1">Und</th>
-                          <th className="text-right pb-1">Unit.</th>
-                          <th className="text-right pb-1">Total</th>
-                        </tr></thead>
-                        <tbody>
-                          {expandedQuote.items.map((it: any, i: number) => (
-                            <tr key={i} className="border-b border-slate-100 last:border-0">
-                              <td className="py-1.5 font-medium text-slate-700">{it.productName || `Produto #${it.productId}`}</td>
-                              <td className="text-right text-slate-600">{it.quantity}</td>
-                              <td className="text-right text-slate-400">{it.unit || "—"}</td>
-                              <td className="text-right text-slate-600">{fmt(parseFloat(it.unitPrice||"0"))}</td>
-                              <td className="text-right font-semibold text-slate-800">{fmt(parseFloat(it.totalPrice||"0"))}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot><tr>
-                          <td colSpan={4} className="text-right text-xs text-slate-400 pt-2">Total do orçamento:</td>
-                          <td className="text-right font-bold text-emerald-600 pt-2">{fmt(displayTotal)}</td>
-                        </tr></tfoot>
-                      </table>
-                    )}
-                    {expandedQuote?.notes && <p className="text-xs text-slate-400 mt-2 border-t border-slate-100 pt-2">Obs: {expandedQuote.notes}</p>}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* ========== MODAL NOVO ORÇAMENTO ========== */}
+      {/* ========== MODAL NOVO ORÇAMENTO (formulário único) ========== */}
       <Dialog open={showForm} onOpenChange={(o) => { if (!o) resetForm(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-primary" /> Novo Orçamento
             </DialogTitle>
           </DialogHeader>
 
-          {/* Steps */}
-          <div className="flex gap-1 mb-4">
-            {STEPS.map((label, i) => (
-              <button key={i} onClick={() => setFormStep(i)} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${formStep === i ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-                {i + 1}. {label}
-              </button>
-            ))}
-          </div>
-
-          {/* STEP 0 — Cliente */}
-          {formStep === 0 && (
-            <div className="space-y-3">
+          <div className="space-y-4 py-1">
+            {/* Cliente */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Cliente *</label>
               {selectedClient ? (
-                <div className="flex items-center gap-3 p-3 border-2 border-green-300 bg-green-50 rounded-xl">
+                <div className="flex items-center gap-3 p-3 border-2 border-green-300 bg-green-50 rounded-lg">
                   <div className="flex-1">
-                    <p className="font-bold text-green-800">{selectedClient.farmName || selectedClient.producerName}</p>
-                    {selectedClient.farmName && <p className="text-sm text-green-600">{selectedClient.producerName}</p>}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CLIENT_STATUS_COLOR[selectedClient.status] || "bg-slate-100 text-slate-500"}`}>{selectedClient.status}</span>
+                    <p className="font-semibold text-green-800">{selectedClient.farmName || selectedClient.producerName}</p>
+                    {selectedClient.farmName && <p className="text-xs text-green-600">{selectedClient.producerName}</p>}
                   </div>
-                  <button onClick={() => setSelectedClient(null)} className="text-slate-400 hover:text-red-500"><X className="w-4 h-4" /></button>
+                  <button
+                    onClick={() => { setSelectedClientId(null); setClientSearch(""); setShowClientList(false); }}
+                    className="text-slate-400 hover:text-red-500"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Buscar cliente *</label>
+                <div className="relative">
                   <div className="relative">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
-                    <input type="text" value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Digite o nome da fazenda ou produtor..." className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
-                  <div className="border border-slate-200 rounded-lg bg-white max-h-52 overflow-y-auto">
-                    {clientList.filter((c: any) => { const q = clientSearch.toLowerCase(); return !q || (c.farmName||"").toLowerCase().includes(q) || (c.producerName||"").toLowerCase().includes(q); }).slice(0, 30).map((c: any) => (
-                      <button key={c.id} type="button" onMouseDown={e => { e.preventDefault(); setSelectedClient(c); setClientSearch(""); }} className="w-full text-left px-3 py-2.5 hover:bg-blue-50 flex items-center justify-between border-b border-slate-50 last:border-0">
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{c.farmName || c.producerName}</p>
-                          {c.farmName && <p className="text-xs text-slate-400">{c.producerName}</p>}
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${CLIENT_STATUS_COLOR[c.status] || "bg-slate-100 text-slate-500"}`}>{c.status}</span>
-                      </button>
-                    ))}
-                    {clientList.filter((c: any) => { const q = clientSearch.toLowerCase(); return !q || (c.farmName||"").toLowerCase().includes(q) || (c.producerName||"").toLowerCase().includes(q); }).length === 0 && <p className="px-3 py-3 text-sm text-slate-400 text-center">Nenhum cliente encontrado</p>}
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-end pt-2">
-                <Button disabled={!selectedClient} onClick={() => setFormStep(1)}>Próximo: Produtos →</Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 1 — Produtos */}
-          {formStep === 1 && (
-            <div className="space-y-3">
-              {items.map((item, i) => (
-                <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50/40">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Item {i + 1}</span>
-                    {items.length > 1 && <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>}
-                  </div>
-                  {/* Product search / free text */}
-                  <div className="relative">
                     <input
                       type="text"
-                      value={productSearch[i] ?? item.productName}
-                      onChange={e => {
-                        const ps = [...productSearch]; ps[i] = e.target.value;
-                        setProductSearch(ps);
-                        updateItem(i, "productName", e.target.value);
-                        updateItem(i, "productId" as any, "");
-                      }}
-                      placeholder="Nome do produto (catálogo ou digitar livremente)..."
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      value={clientSearch}
+                      onChange={e => { setClientSearch(e.target.value); setShowClientList(true); }}
+                      onFocus={() => setShowClientList(true)}
+                      placeholder="Buscar cliente por nome..."
+                      className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    {productSearch[i] && productList.filter((p: any) => (p.name||"").toLowerCase().includes((productSearch[i]||"").toLowerCase())).length > 0 && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-36 overflow-y-auto">
-                        {productList.filter((p: any) => (p.name||"").toLowerCase().includes((productSearch[i]||"").toLowerCase())).slice(0, 10).map((p: any) => (
-                          <button key={p.id} type="button" onMouseDown={e => { e.preventDefault(); const ps = [...productSearch]; ps[i] = p.name; setProductSearch(ps); updateItem(i, "productName", p.name); updateItem(i, "productId" as any, String(p.id)); updateItem(i, "unitPrice", String(p.price || "0")); }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 flex justify-between border-b border-slate-50 last:border-0">
-                            <span>{p.name}</span><span className="text-slate-400 text-xs">{p.price ? fmt(parseFloat(p.price)) : ""}</span>
+                  </div>
+                  {showClientList && (
+                    <div className="absolute z-30 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {clientList
+                        .filter((c: any) => {
+                          const q = clientSearch.toLowerCase();
+                          return !q || (c.farmName || "").toLowerCase().includes(q) || (c.producerName || "").toLowerCase().includes(q);
+                        })
+                        .slice(0, 30)
+                        .map((c: any) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); setSelectedClientId(c.id); setClientSearch(""); setShowClientList(false); }}
+                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b border-slate-50 last:border-0"
+                          >
+                            <p className="text-sm font-medium text-slate-800">{c.farmName || c.producerName}</p>
+                            {c.farmName && <p className="text-xs text-slate-400">{c.producerName}</p>}
                           </button>
                         ))}
+                      {clientList.filter((c: any) => {
+                        const q = clientSearch.toLowerCase();
+                        return !q || (c.farmName || "").toLowerCase().includes(q) || (c.producerName || "").toLowerCase().includes(q);
+                      }).length === 0 && (
+                        <p className="px-3 py-3 text-sm text-slate-400 text-center">Nenhum cliente encontrado</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Validade + Desconto */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Validade (dias)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={validityDays}
+                  onChange={e => setValidityDays(parseInt(e.target.value) || 30)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Desconto (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={discount}
+                  onChange={e => setDiscount(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            {/* Notas */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Notas</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Condições de pagamento, frete, observações..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+            </div>
+
+            {/* Produtos */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Produtos</p>
+
+              {/* Cabeçalho colunas */}
+              <div className="grid grid-cols-12 gap-2 px-1">
+                <div className="col-span-4 text-xs text-slate-400 font-medium">Produto</div>
+                <div className="col-span-2 text-xs text-slate-400 font-medium">Qtd</div>
+                <div className="col-span-2 text-xs text-slate-400 font-medium">Und</div>
+                <div className="col-span-2 text-xs text-slate-400 font-medium">Preço unit.</div>
+                <div className="col-span-1 text-xs text-slate-400 font-medium text-right">Total</div>
+                <div className="col-span-1" />
+              </div>
+
+              {items.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+                  {/* Produto */}
+                  <div className="col-span-4 relative">
+                    <input
+                      type="text"
+                      value={productSearches[idx] ?? item.productName}
+                      onChange={e => {
+                        const ps = [...productSearches];
+                        ps[idx] = e.target.value;
+                        setProductSearches(ps);
+                        updateItem(idx, "productName", e.target.value);
+                        const next = [...items];
+                        next[idx].productId = undefined;
+                        setItems(next);
+                      }}
+                      placeholder="Nome do produto..."
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    {(productSearches[idx] || "").length > 0 &&
+                      productList.filter((p: any) =>
+                        (p.name || "").toLowerCase().includes((productSearches[idx] || "").toLowerCase())
+                      ).length > 0 && (
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-36 overflow-y-auto">
+                        {productList
+                          .filter((p: any) =>
+                            (p.name || "").toLowerCase().includes((productSearches[idx] || "").toLowerCase())
+                          )
+                          .slice(0, 10)
+                          .map((p: any) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                const ps = [...productSearches];
+                                ps[idx] = p.name;
+                                setProductSearches(ps);
+                                const next = [...items];
+                                next[idx] = { ...next[idx], productName: p.name, productId: p.id, unitPrice: String(p.price || "0") };
+                                setItems(next);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 flex justify-between border-b border-slate-50 last:border-0"
+                            >
+                              <span>{p.name}</span>
+                              <span className="text-slate-400 text-xs">{p.price ? fmt(parseFloat(p.price)) : ""}</span>
+                            </button>
+                          ))}
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <label className="text-xs text-slate-400">Qtd</label>
-                      <input type="number" min="0" step="0.01" value={item.quantity} onChange={e => updateItem(i, "quantity", e.target.value)} className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400">Unidade</label>
-                      <select value={item.unit} onChange={e => updateItem(i, "unit", e.target.value)} className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none">
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400">Preço unit. (R$)</label>
-                      <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateItem(i, "unitPrice", e.target.value)} className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400">Total</label>
-                      <div className="px-2 py-1.5 bg-slate-100 rounded-md text-sm font-semibold text-emerald-700">
-                        {fmt((parseFloat(item.quantity)||0) * (parseFloat(item.unitPrice)||0))}
-                      </div>
-                    </div>
+                  {/* Qtd */}
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.quantity}
+                      onChange={e => updateItem(idx, "quantity", e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  {/* Und */}
+                  <div className="col-span-2">
+                    <select
+                      value={item.unit}
+                      onChange={e => updateItem(idx, "unit", e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none"
+                    >
+                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                  {/* Preço unit */}
+                  <div className="col-span-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.unitPrice}
+                      onChange={e => updateItem(idx, "unitPrice", e.target.value)}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  {/* Total */}
+                  <div className="col-span-1 py-1.5 text-right text-sm font-semibold text-emerald-700">
+                    {fmt(Number(item.quantity || 0) * Number(item.unitPrice || 0))}
+                  </div>
+                  {/* Remover */}
+                  <div className="col-span-1 flex justify-center">
+                    {items.length > 1 && (
+                      <button onClick={() => removeItem(idx)} className="p-1 text-red-400 hover:text-red-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={addItem} className="w-full gap-2 border-dashed">
-                <Plus className="w-4 h-4" /> Adicionar produto
-              </Button>
-              {/* Totais */}
-              <div className="border-t border-slate-200 pt-3 space-y-2">
-                <div className="flex justify-between text-sm text-slate-600"><span>Subtotal:</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Desconto (%):</span>
-                  <input type="number" min="0" max="100" value={discount} onChange={e => setDiscount(parseFloat(e.target.value)||0)} className="w-20 px-2 py-1 border border-slate-300 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-                <div className="flex justify-between font-bold text-lg"><span>Total Final:</span><span className="text-emerald-600">{fmt(total)}</span></div>
-              </div>
-              <div className="flex justify-between pt-2">
-                <Button variant="outline" onClick={() => setFormStep(0)}>← Voltar</Button>
-                <Button onClick={() => setFormStep(2)}>Próximo: Dados →</Button>
-              </div>
-            </div>
-          )}
 
-          {/* STEP 2 — Dados & Salvar */}
-          {formStep === 2 && (
-            <div className="space-y-4">
-              <div className="p-3 bg-slate-50 rounded-xl text-sm space-y-1 border border-slate-200">
-                <p><span className="text-slate-400">Cliente:</span> <strong>{selectedClient?.farmName || selectedClient?.producerName}</strong></p>
-                <p><span className="text-slate-400">Itens:</span> {items.length} produto(s) · Total: <strong className="text-emerald-600">{fmt(total)}</strong></p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Número do Orçamento *</label>
-                  <input value={quoteNumber} onChange={e => setQuoteNumber(e.target.value)} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <button
+                type="button"
+                onClick={addItem}
+                className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1"
+              >
+                <Plus className="w-4 h-4" /> Adicionar produto
+              </button>
+            </div>
+
+            {/* Total */}
+            <div className="border-t border-slate-200 pt-3 space-y-1">
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-slate-500">
+                  <span>Subtotal:</span>
+                  <span>{fmt(total)}</span>
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Validade (dias)</label>
-                  <input type="number" value={validityDays} onChange={e => setValidityDays(parseInt(e.target.value)||30)} className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              )}
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-red-500">
+                  <span>Desconto ({discount}%):</span>
+                  <span>- {fmt(total * discount / 100)}</span>
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Notas / Condições de pagamento</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Ex: Pagamento em 30 dias, frete incluso, condições especiais..." className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
-              </div>
-              <div className="flex justify-between pt-2">
-                <Button variant="outline" onClick={() => setFormStep(1)}>← Voltar</Button>
-                <Button onClick={handleSubmit} disabled={createMutation.isPending} className="gap-2">
-                  <FileText className="w-4 h-4" />{createMutation.isPending ? "Salvando..." : "Salvar Orçamento"}
-                </Button>
+              )}
+              <div className="flex justify-between font-bold text-lg">
+                <span>TOTAL:</span>
+                <span className="text-emerald-600">{fmt(totalWithDiscount)}</span>
               </div>
             </div>
-          )}
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" onClick={resetForm}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={createMutation.isPending} className="gap-2">
+              <FileText className="w-4 h-4" />
+              {createMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal alterar status */}
+      {/* ========== MODAL ALTERAR STATUS ========== */}
       <Dialog open={changingStatusId !== null} onOpenChange={o => { if (!o) setChangingStatusId(null); }}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Alterar Status do Orçamento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Alterar Status</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 gap-2 py-2">
             {Object.entries(STATUS_CONFIG).map(([k, v]) => {
               const Icon = v.icon;
               return (
-                <button key={k} onClick={() => statusMutation.mutate({ id: changingStatusId!, status: k as any })} disabled={statusMutation.isPending}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all hover:scale-[1.02] ${v.color}`}>
+                <button
+                  key={k}
+                  onClick={() => statusMutation.mutate({ id: changingStatusId!, status: k as any })}
+                  disabled={statusMutation.isPending}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all hover:scale-[1.01] ${v.color}`}
+                >
                   <Icon className="w-4 h-4" />{v.label}
                 </button>
               );
             })}
           </div>
-          <DialogFooter><Button variant="ghost" onClick={() => setChangingStatusId(null)}>Cancelar</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setChangingStatusId(null)}>Cancelar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal editar orçamento */}
-      <Dialog open={editingQuote !== null} onOpenChange={(o) => { if (!o) setEditingQuote(null); }}>
+      {/* ========== MODAL EDITAR ========== */}
+      <Dialog open={editingQuote !== null} onOpenChange={o => { if (!o) setEditingQuote(null); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Editar Orçamento {editingQuote?.quoteNumber}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar {editingQuote?.quoteNumber}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <label className="text-sm font-medium">Validade (dias)</label>
-              <input type="number" value={validityDays} onChange={e => setValidityDays(parseInt(e.target.value)||30)}
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <input
+                type="number"
+                value={editValidityDays}
+                onChange={e => setEditValidityDays(parseInt(e.target.value) || 30)}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Desconto (%)</label>
-              <input type="number" min="0" max="100" value={discount} onChange={e => setDiscount(parseFloat(e.target.value)||0)}
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={editDiscount}
+                onChange={e => setEditDiscount(parseFloat(e.target.value) || 0)}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Notas / Condições</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+              <textarea
+                value={editNotes}
+                onChange={e => setEditNotes(e.target.value)}
+                rows={3}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditingQuote(null)}>Cancelar</Button>
-            <Button onClick={() => updateMutation.mutate({ id: editingQuote.id, validityDays, discount: String(discount), notes })}
-              disabled={updateMutation.isPending}>
+            <Button
+              onClick={() => updateMutation.mutate({ id: editingQuote.id, validityDays: editValidityDays, discount: String(editDiscount), notes: editNotes })}
+              disabled={updateMutation.isPending}
+            >
               {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirmação excluir */}
+      {/* ========== CONFIRMAÇÃO EXCLUIR ========== */}
       <AlertDialog open={deleteId !== null} onOpenChange={o => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -643,46 +718,43 @@ export default function Quotes() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteMutation.mutate({ id: deleteId! })} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteMutation.mutate({ id: deleteId! })} className="bg-red-600 hover:bg-red-700">
+              Excluir
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* ========== MODAL ENVIAR EMAIL ========== */}
       {sendingEmail && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold mb-1">Enviar Orçamento por Email</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              O email será enviado em seu nome com reply-to para o seu email.
-            </p>
-
+            <p className="text-sm text-slate-500 mb-4">O email será enviado com reply-to para o seu email.</p>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1">Para:</label>
                 <input
                   type="email"
                   value={sendingEmail.toEmail}
-                  onChange={(e) => setSendingEmail(prev => prev ? { ...prev, toEmail: e.target.value } : null)}
+                  onChange={e => setSendingEmail(prev => prev ? { ...prev, toEmail: e.target.value } : null)}
                   placeholder="cliente@email.com"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
-
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1">
                   Mensagem personalizada <span className="text-slate-400">(opcional)</span>
                 </label>
                 <textarea
                   value={sendingEmail.message}
-                  onChange={(e) => setSendingEmail(prev => prev ? { ...prev, message: e.target.value } : null)}
+                  onChange={e => setSendingEmail(prev => prev ? { ...prev, message: e.target.value } : null)}
                   placeholder="Ex: Olá, conforme combinado segue o orçamento..."
                   rows={3}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                 />
-                <p className="text-xs text-slate-400 mt-1">Aparecerá em destaque no início do email.</p>
               </div>
             </div>
-
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setSendingEmail(null)}
@@ -691,13 +763,11 @@ export default function Quotes() {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  sendEmailMutation.mutate({
-                    quoteId: sendingEmail.quoteId,
-                    toEmail: sendingEmail.toEmail || undefined,
-                    customMessage: sendingEmail.message || undefined,
-                  });
-                }}
+                onClick={() => sendEmailMutation.mutate({
+                  quoteId: sendingEmail.quoteId,
+                  toEmail: sendingEmail.toEmail || undefined,
+                  customMessage: sendingEmail.message || undefined,
+                })}
                 disabled={sendEmailMutation.isPending || !sendingEmail.toEmail}
                 className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
