@@ -85,6 +85,17 @@ export default function Quotes() {
     onError: (e) => toast.error(e.message),
   });
 
+  const [sendingEmail, setSendingEmail] = useState<{ quoteId: number; toEmail: string; message: string } | null>(null);
+
+  const sendEmailMutation = trpc.quotes.sendEmail.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Orçamento enviado para ${data.sentTo}`);
+      setSendingEmail(null);
+      refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   function resetForm() {
     setShowForm(false); setFormStep(0); setSelectedClient(null); setClientSearch("");
     setItems([emptyItem()]); setDiscount(0); setProductSearch([""]); setNotes("");
@@ -346,6 +357,17 @@ export default function Quotes() {
                         <button onClick={() => { setEditingQuote(q); setNotes(q.notes || ""); setValidityDays(q.validityDays || 30); setDiscount(parseFloat(q.discount || "0")); }} className="text-blue-400 hover:text-blue-600" title="Editar"><Pencil className="w-4 h-4" /></button>
                         <button onClick={() => exportPdf(q)} className="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Exportar PDF">
                           <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setSendingEmail({
+                            quoteId: q.id,
+                            toEmail: (q as any).clientEmail || "",
+                            message: ""
+                          })}
+                          className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="Enviar por Email"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                         </button>
                         <button onClick={() => setDeleteId(q.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
                           <Trash2 className="w-4 h-4" />
@@ -625,6 +647,66 @@ export default function Quotes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {sendingEmail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-1">Enviar Orçamento por Email</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              O email será enviado em seu nome com reply-to para o seu email.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Para:</label>
+                <input
+                  type="email"
+                  value={sendingEmail.toEmail}
+                  onChange={(e) => setSendingEmail(prev => prev ? { ...prev, toEmail: e.target.value } : null)}
+                  placeholder="cliente@email.com"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">
+                  Mensagem personalizada <span className="text-slate-400">(opcional)</span>
+                </label>
+                <textarea
+                  value={sendingEmail.message}
+                  onChange={(e) => setSendingEmail(prev => prev ? { ...prev, message: e.target.value } : null)}
+                  placeholder="Ex: Olá, conforme combinado segue o orçamento..."
+                  rows={3}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                />
+                <p className="text-xs text-slate-400 mt-1">Aparecerá em destaque no início do email.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setSendingEmail(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-slate-300 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  sendEmailMutation.mutate({
+                    quoteId: sendingEmail.quoteId,
+                    toEmail: sendingEmail.toEmail || undefined,
+                    customMessage: sendingEmail.message || undefined,
+                  });
+                }}
+                disabled={sendEmailMutation.isPending || !sendingEmail.toEmail}
+                className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {sendEmailMutation.isPending ? "Enviando..." : "Enviar Orçamento"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -442,6 +442,45 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         return deleteQuoteItem(input.itemId);
       }),
+
+    sendEmail: protectedProcedure
+      .input(z.object({
+        quoteId: z.number(),
+        toEmail: z.string().email().optional(),
+        customMessage: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const quote = await getQuoteWithItems(input.quoteId);
+        if (!quote) throw new TRPCError({ code: "NOT_FOUND", message: "Orçamento não encontrado" });
+
+        const client = await getClientById(quote.clientId);
+        if (!client) throw new TRPCError({ code: "NOT_FOUND", message: "Cliente não encontrado" });
+
+        if (ctx.user.role !== "superadmin" && ctx.user.role !== "admin") {
+          if ((quote as any).createdBy !== ctx.user.id) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para enviar este orçamento" });
+          }
+        }
+
+        const destinatario = input.toEmail || (client as any).email;
+        if (!destinatario) throw new TRPCError({ code: "BAD_REQUEST", message: "Cliente não tem email cadastrado. Informe um email manualmente." });
+
+        const { enviarOrcamentoPorEmail } = await import("./email");
+        await enviarOrcamentoPorEmail({
+          to: destinatario,
+          from: (ctx.user as any).email || "nutricrm@email.com",
+          fromName: (ctx.user as any).name || "NutriCRM",
+          quote,
+          client,
+          customMessage: input.customMessage,
+        });
+
+        if ((quote as any).status === "rascunho") {
+          await updateQuoteStatus(input.quoteId, "enviado");
+        }
+
+        return { success: true, sentTo: destinatario };
+      }),
   }),
 
   // ========== INTERACTIONS ==========
