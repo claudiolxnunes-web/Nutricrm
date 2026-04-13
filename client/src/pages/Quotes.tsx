@@ -67,7 +67,9 @@ export default function Quotes() {
 
   const clientList: any[] = (allClients as any)?.data ?? (allClients as any[]) ?? [];
   const productList: any[] = (allProducts as any)?.data ?? (allProducts as any[]) ?? [];
-  const quoteList: any[] = (quotes as any)?.data ?? (quotes as any[]) ?? [];
+  const quoteList: any[] = Array.isArray((quotes as any)?.data) 
+    ? (quotes as any).data 
+    : Array.isArray(quotes) ? quotes as any[] : [];
 
   const selectedClient = clientList.find((c: any) => c.id === selectedClientId) ?? null;
 
