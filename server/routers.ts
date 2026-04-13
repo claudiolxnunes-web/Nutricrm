@@ -378,7 +378,8 @@ export const appRouter = router({
         offset: z.number().optional().default(0),
       }))
       .query(async ({ input, ctx }) => {
-        return getQuotes({ ...input, companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId });
+        const companyFilter = ctx.user.role === "superadmin" ? ctx.user.companyId : ctx.user.companyId;
+        return getQuotes({ ...input, companyId: companyFilter });
       }),
 
     getById: protectedProcedure
