@@ -356,11 +356,11 @@ export const appRouter = router({
         notes: z.string().optional(),
         discount: z.number().optional().default(0),
         items: z.array(z.object({
-          productId: z.number().optional(),
+          productId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? Number(v) : undefined),
           productName: z.string().optional(),
-          quantity: z.string(),
-          unitPrice: z.string(),
-          totalPrice: z.string(),
+          quantity: z.union([z.string(), z.number()]).transform(v => String(v)),
+          unitPrice: z.union([z.string(), z.number()]).transform(v => String(v)),
+          totalPrice: z.union([z.string(), z.number()]).transform(v => String(v)),
           unit: z.string().optional(),
         })).optional().default([]),
       }))
