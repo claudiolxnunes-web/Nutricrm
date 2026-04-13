@@ -235,11 +235,27 @@ export default function Opportunities() {
                       <DraggableCard key={opp.id} opp={opp}>
                         <div className="bg-white rounded-lg p-3 shadow-sm border border-white/80 hover:shadow-md transition" onClick={() => handleEdit(opp)}>
                           <p className="font-medium text-sm leading-tight">{opp.title}</p>
-                          {opp.updatedAt && (
-                            <p className="text-[10px] text-slate-400">
-                              {Math.ceil((Date.now() - new Date(opp.updatedAt).getTime()) / 86400000)} dia(s) nesta etapa
-                            </p>
-                          )}
+                          {(() => {
+                            const diasNaEtapa = Math.floor((Date.now() - new Date(opp.updatedAt).getTime()) / 86400000);
+                            const alertaParada = diasNaEtapa >= 15 && opp.stage === "negociacao";
+                            const alertaAtencao = diasNaEtapa >= 7 && ["visita_tecnica", "orcamento_enviado"].includes(opp.stage);
+                            return (
+                              <>
+                                {opp.updatedAt && (
+                                  <p className="text-[10px] text-slate-400">
+                                    {Math.ceil((Date.now() - new Date(opp.updatedAt).getTime()) / 86400000)} dia(s) nesta etapa
+                                  </p>
+                                )}
+                                {(alertaParada || alertaAtencao) && (
+                                  <div className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${
+                                    alertaParada ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                                  }`}>
+                                    {alertaParada ? "🔴" : "🟡"} {diasNaEtapa}d parado
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                           {clientMap[opp.clientId] && <p className="text-xs text-slate-400 mt-0.5 truncate">{clientMap[opp.clientId]}</p>}
                           {opp.value && <p className="text-sm font-semibold text-slate-700 mt-1">{fmt(opp.value)}</p>}
                           {opp.expectedCloseDate && (

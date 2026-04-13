@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { FileText, Download } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState({
@@ -79,6 +80,80 @@ export default function Reports() {
     a.click();
   };
 
+  const exportExcel = () => {
+    if (!sales || sales.length === 0) { toast.error("Nenhuma venda para exportar"); return; }
+    const rows = [
+      ["Data", "Cliente", "Valor (R$)", "Status Pagamento", "Número"],
+      ...(sales as any[]).map((sale: any) => [
+        new Date(sale.saleDate).toLocaleDateString("pt-BR"),
+        clientMap[sale.clientId] || `Cliente #${sale.clientId}`,
+        Number(sale.totalValue).toFixed(2),
+        sale.paymentStatus || "-",
+        sale.saleNumber || "-",
+      ]),
+      [],
+      ["TOTAIS"],
+      ["Total de Vendas", `R$ ${totalSales.toFixed(2)}`],
+      ["Nº Transações", totalTransactions],
+      ["Ticket Médio", `R$ ${averageSale.toFixed(2)}`],
+    ];
+    const csvContent = rows.map(r => r.join("\t")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `relatorio-vendas-${dateRange.startDate}-${dateRange.endDate}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    if (!sales || sales.length === 0) { toast.error("Nenhuma venda para exportar"); return; }
+    const linhas = (sales as any[]).map((sale: any) => `
+      <tr>
+        <td>${new Date(sale.saleDate).toLocaleDateString("pt-BR")}</td>
+        <td>${clientMap[sale.clientId] || `#${sale.clientId}`}</td>
+        <td style="text-align:right">R$ ${Number(sale.totalValue).toFixed(2)}</td>
+        <td>${sale.paymentStatus || "-"}</td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <html><head><title>Relatório de Vendas</title>
+      <style>
+        body { font-family: Arial; padding: 20px; color: #333; }
+        h2 { color: #2d7a3a; border-bottom: 2px solid #2d7a3a; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th { background: #2d7a3a; color: white; padding: 10px; text-align: left; }
+        td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+        tr:nth-child(even) td { background: #f9f9f9; }
+        .totais { margin-top: 24px; background: #f0fdf4; padding: 16px; border-radius: 8px; }
+        .totais p { margin: 4px 0; font-size: 14px; }
+        .totais .valor { font-size: 22px; font-weight: bold; color: #2d7a3a; }
+      </style></head>
+      <body>
+        <h2>📊 Relatório de Vendas — NutriCRM</h2>
+        <p style="color:#666;font-size:13px;">Período: ${dateRange.startDate} a ${dateRange.endDate}</p>
+        <table>
+          <thead><tr><th>Data</th><th>Cliente</th><th>Valor</th><th>Status</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+        <div class="totais">
+          <p>Total de transações: <strong>${totalTransactions}</strong></p>
+          <p>Ticket médio: <strong>R$ ${averageSale.toFixed(2)}</strong></p>
+          <p class="valor">Total: R$ ${totalSales.toFixed(2)}</p>
+        </div>
+      </body></html>
+    `;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -86,10 +161,18 @@ export default function Reports() {
           <h1 className="text-3xl font-bold">Relatórios</h1>
           <p className="text-slate-600">Análise de vendas e performance</p>
         </div>
-        <Button onClick={handleExport} className="gap-2">
-          <Download className="w-4 h-4" />
-          Exportar CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleExport} className="gap-2">
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportExcel} className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-green-600" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPDF} className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-red-500" /> PDF
+          </Button>
+        </div>
       </div>
 
       {/* Date Range Filter */}

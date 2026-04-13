@@ -16,6 +16,9 @@ export default function Dashboard() {
 
   const { data: metrics, isLoading } = trpc.dashboard.metrics.useQuery();
 
+  const { data: quotes } = trpc.quotes.list.useQuery({ limit: 200 });
+  const { data: oppsData } = trpc.opportunities.list.useQuery({ limit: 200 });
+
   const { data: salesInPeriod } = trpc.sales.list.useQuery({
     startDate: new Date(dateRange.startDate),
     endDate: new Date(dateRange.endDate),
@@ -24,6 +27,33 @@ export default function Dashboard() {
   const totalSalesPeriod = (salesInPeriod as any[])?.reduce((s: number, v: any) => s + parseFloat(v.totalValue || "0"), 0) ?? 0;
   const salesCountPeriod = (salesInPeriod as any[])?.length ?? 0;
   const ticketMedioPeriod = salesCountPeriod > 0 ? totalSalesPeriod / salesCountPeriod : 0;
+
+  // Orçamentos enviados há mais de 5 dias sem resposta
+  const orcamentosSemResposta = (quotes as any)?.filter((q: any) => {
+    if (q.status !== "enviado") return false;
+    const dias = Math.floor((hoje.getTime() - new Date(q.createdAt).getTime()) / 86400000);
+    return dias >= 5;
+  }) || [];
+
+  // Oportunidades em negociação há mais de 15 dias
+  const oppsParadas = ((oppsData as any) || []).filter((o: any) => {
+    if (o.stage !== "negociacao") return false;
+    const dias = Math.floor((hoje.getTime() - new Date(o.updatedAt).getTime()) / 86400000);
+    return dias >= 15;
+  });
+
+  const alertas = [
+    ...orcamentosSemResposta.map((q: any) => ({
+      tipo: "orcamento",
+      cor: "yellow",
+      msg: `Orçamento ${q.quoteNumber} enviado há ${Math.floor((hoje.getTime() - new Date(q.createdAt).getTime()) / 86400000)} dias sem resposta`,
+    })),
+    ...oppsParadas.map((o: any) => ({
+      tipo: "oportunidade",
+      cor: "red",
+      msg: `Oportunidade "${o.title}" está em negociação há mais de 15 dias`,
+    })),
+  ];
 
   if (isLoading) {
     return (
@@ -72,6 +102,25 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Alertas e Lembretes */}
+      {alertas.length > 0 && (
+        <div className="mb-6 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+            <span>🔔</span> Alertas e Lembretes ({alertas.length})
+          </h3>
+          {alertas.map((a: any, i: number) => (
+            <div key={i} className={`flex items-start gap-3 p-3 rounded-lg text-sm border ${
+              a.cor === "red"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-yellow-50 border-yellow-200 text-yellow-800"
+            }`}>
+              <span>{a.cor === "red" ? "🔴" : "🟡"}</span>
+              <span>{a.msg}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
