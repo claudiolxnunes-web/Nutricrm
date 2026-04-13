@@ -122,13 +122,13 @@ export default function Quotes() {
       quoteNumber,
       validityDays,
       notes: notes || undefined,
-      discount,
+      discount: Number(discount || 0),
       items: items.map(it => ({
         productId: it.productId,
         productName: it.productName,
-        quantity: String(parseFloat(it.quantity)||1),
-        unitPrice: String(parseFloat(it.unitPrice)||0),
-        totalPrice: String((parseFloat(it.quantity)||1) * (parseFloat(it.unitPrice)||0)),
+        quantity: String(it.quantity || "1"),
+        unitPrice: String(it.unitPrice || "0"),
+        totalPrice: String((parseFloat(it.quantity || "1") || 1) * (parseFloat(it.unitPrice || "0") || 0)),
         unit: it.unit,
       })),
     });
