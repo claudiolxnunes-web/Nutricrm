@@ -122,7 +122,6 @@ export const quotes = pgTable("quotes", {
   validityDays: integer("validityDays").default(30),
   notes: text("notes"),
   createdBy: integer("createdBy").notNull(),
-  sentAt: timestamp("sentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 }, (t) => ({ qtClientIdIdx: index("qtClientIdIdx").on(t.clientId), qtStatusIdx: index("qtStatusIdx").on(t.status) }));
