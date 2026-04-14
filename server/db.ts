@@ -577,33 +577,52 @@ export async function createQuote(data: {
 }
 
 export async function getQuotes(filters?: {
+  companyId?: number;
   clientId?: number;
   status?: string;
   search?: string;
   limit?: number;
   offset?: number;
-  companyId?: number;
 }) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  let query = db.select().from(quotes);
+  const conditions: any[] = [];
 
-  let query: any = db.select({
-    id: quotes.id,
-    opportunityId: quotes.opportunityId,
-    clientId: quotes.clientId,
-    quoteNumber: quotes.quoteNumber,
-    status: quotes.status,
-    validityDays: quotes.validityDays,
-    notes: quotes.notes,
-    totalValue: quotes.totalValue,
-    discount: quotes.discount,
-    finalValue: quotes.finalValue,
-    createdBy: quotes.createdBy,
-    companyId: quotes.companyId,
-    createdAt: quotes.createdAt,
-    updatedAt: quotes.updatedAt,
-    itemCount: sql<number>`(SELECT COUNT(*) FROM quote_items WHERE quote_id = ${quotes.id})`,
-  }).from(quotes);
+  if (filters?.companyId) {
+    conditions.push(eq(quotes.companyId, filters.companyId));
+  }
+  if (filters?.clientId) {
+    conditions.push(eq(quotes.clientId, filters.clientId));
+  }
+  if (filters?.status) {
+    conditions.push(eq(quotes.status, filters.status));
+  }
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
+  }
+  if (filters?.offset) {
+    query = query.offset(filters.offset);
+  }
+
+  const quoteList = await query.orderBy(desc(quotes.createdAt));
+
+  // Busca itens separadamente para cada orçamento
+  if (quoteList.length > 0) {
+    const quoteIds = quoteList.map(q => q.id);
+    const allItems = await db.select().from(quoteItems).where(inArray(quoteItems.quoteId, quoteIds));
+    
+    // Junta os itens com os orçamentos
+    return quoteList.map(q => ({
+      ...q,
+      items: allItems.filter(item => item.quoteId === q.id),
+      itemCount: allItems.filter(item => item.quoteId === q.id).length,
+    }));
+  }
+
+  return quoteList;
+}
 
   const conditions = [];
 
