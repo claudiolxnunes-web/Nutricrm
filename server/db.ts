@@ -560,104 +560,69 @@ export async function deleteOpportunity(id: number) {
 
 // ========== QUOTES ==========
 
-export async function createQuote(data: {
-  opportunityId?: number;
-  clientId: number;
-  quoteNumber: string;
-  status?: "rascunho" | "enviado" | "aceito" | "rejeitado" | "expirado";
-  validityDays?: number;
-  notes?: string;
-  createdBy: number;
-  companyId?: number;
-}) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-
-  return db.insert(quotes).values({ ...data, companyId: data.companyId ?? 1 });
-}
-
 export async function getQuotes(filters?: {
   companyId?: number;
   clientId?: number;
   status?: string;
-  search?: string;
   limit?: number;
   offset?: number;
 }) {
-  let query = db.select().from(quotes);
+  // Query simples sem joins
   const conditions: any[] = [];
+  
+  if (filters?.companyId) conditions.push(eq(quotes.companyId, filters.companyId));
+  if (filters?.clientId) conditions.push(eq(quotes.clientId, filters.clientId));
+  if (filters?.status) conditions.push(eq(quotes.status, filters.status));
+  
+  const quoteList = await db
+    .select({
+      id: quotes.id,
+      companyId: quotes.companyId,
+      clientId: quotes.clientId,
+      quoteNumber: quotes.quoteNumber,
+      status: quotes.status,
+      totalValue: quotes.totalValue,
+      discount: quotes.discount,
+      finalValue: quotes.finalValue,
+      validityDays: quotes.validityDays,
+      notes: quotes.notes,
+      createdBy: quotes.createdBy,
+      createdAt: quotes.createdAt,
+      updatedAt: quotes.updatedAt,
+    })
+    .from(quotes)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(quotes.createdAt))
+    .limit(filters?.limit || 50)
+    .offset(filters?.offset || 0);
 
-  if (filters?.companyId) {
-    conditions.push(eq(quotes.companyId, filters.companyId));
-  }
-  if (filters?.clientId) {
-    conditions.push(eq(quotes.clientId, filters.clientId));
-  }
-  if (filters?.status) {
-    conditions.push(eq(quotes.status, filters.status));
-  }
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions));
-  }
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
-  if (filters?.offset) {
-    query = query.offset(filters.offset);
-  }
+  // Busca itens apenas se houver orçamentos
+  if (quoteList.length === 0) return quoteList;
 
-  const quoteList = await query.orderBy(desc(quotes.createdAt));
+  // Busca itens em lotes pequenos para economizar memória
+  const quoteIds = quoteList.map(q => q.id);
+  const allItems = await db
+    .select({
+      id: quoteItems.id,
+      quoteId: quoteItems.quoteId,
+      productId: quoteItems.productId,
+      productName: quoteItems.productName,
+      quantity: quoteItems.quantity,
+      unitPrice: quoteItems.unitPrice,
+      totalPrice: quoteItems.totalPrice,
+      unit: quoteItems.unit,
+    })
+    .from(quoteItems)
+    .where(inArray(quoteItems.quoteId, quoteIds.slice(0, 100))); // limite de 100 orçamentos
 
-  // Busca itens separadamente para cada orçamento
-  if (quoteList.length > 0) {
-    const quoteIds = quoteList.map(q => q.id);
-    const allItems = await db.select().from(quoteItems).where(inArray(quoteItems.quoteId, quoteIds));
-    
-    // Junta os itens com os orçamentos
-    return quoteList.map(q => ({
-      ...q,
-      items: allItems.filter(item => item.quoteId === q.id),
-      itemCount: allItems.filter(item => item.quoteId === q.id).length,
-    }));
-  }
-
-  return quoteList;
+  // Junta os dados
+  return quoteList.map(q => ({
+    ...q,
+    items: allItems.filter(item => item.quoteId === q.id),
+    itemCount: allItems.filter(item => item.quoteId === q.id).length,
+  }));
 }
 
-  const conditions = [];
-
-  if (filters?.clientId) {
-    conditions.push(eq(quotes.clientId, filters.clientId));
-  }
-
-  if (filters?.status) {
-    conditions.push(eq(quotes.status, filters.status as any));
-  }
-
-  if (filters?.search) {
-    conditions.push(like(quotes.quoteNumber, `%${filters.search}%`));
-  }
-
-  if (filters?.companyId) {
-    conditions.push(eq(quotes.companyId, filters.companyId));
-  }
-
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions));
-  }
-
-  query = query.orderBy(desc(quotes.createdAt));
-
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
-
-  if (filters?.offset) {
-    query = query.offset(filters.offset);
-  }
-
-  return query;
-}
 
 export async function getQuoteById(id: number) {
   const db = await getDb();
