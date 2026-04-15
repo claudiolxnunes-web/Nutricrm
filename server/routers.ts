@@ -284,6 +284,7 @@ export const appRouter = router({
           value: z.string().optional(),
           probability: z.number().optional(),
           expectedCloseDate: z.date().optional(),
+          quoteId: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -764,6 +765,41 @@ export const appRouter = router({
       return getAiForecastData(companyId);
     }),
   }),
+
+     orcamentosSimples: router({
+  list: protectedProcedure
+    .query(async ({ ctx }) => {
+      const companyId = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;
+      return getOrcamentosSimples(companyId, ctx.user.id);
+    }),
+    create: protectedProcedure
+    .input(z.object({
+      clienteNome: z.string().min(1),
+      clienteEmail: z.string().email().optional(),
+      produtos: z.array(z.object({
+        nome: z.string(),
+        quantidade: z.number(),
+        preco: z.number(),
+        total: z.number(),
+      })),
+      total: z.number(),
+      status: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      return createOrcamentoSimples({
+        userId: ctx.user.id,
+        companyId: ctx.user.companyId,
+        clienteNome: input.clienteNome,
+        clienteEmail: input.clienteEmail,
+        produtos: input.produtos,
+        total: input.total,
+        status: input.status,
+      });
+    }),
+}),
+
+  }),
+
 });
 
 export type AppRouter = typeof appRouter;
