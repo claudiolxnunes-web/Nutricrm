@@ -320,7 +320,7 @@ export default function Interactions() {
                     title: newForm.title,
                     description: cicloInfo + (descBase ? " " + descBase : ""),
                     visitResult: newForm.visitResult,
-                    nextVisitDate: newForm.nextVisitDate ? new Date(newForm.nextVisitDate) : undefined,
+                    nextVisitDate: newForm.nextVisitDate || undefined,
                   });
                 }} disabled={createInteractionMutation.isPending}>
                   {createInteractionMutation.isPending ? "Salvando..." : "Salvar Interação"}

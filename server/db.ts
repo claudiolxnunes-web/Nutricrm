@@ -1,5 +1,6 @@
 ﻿import { eq, and, like, desc, asc, gte, lte, inArray, sql, or, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { orcamentosSimples } from "../drizzle/schema";
 import {
   InsertUser,
   users,
@@ -1177,3 +1178,37 @@ export async function getClientsCount(filters?: { search?: string; animalType?: 
   const result = await (conditions.length > 0 ? q.where(and(...conditions)) : q);
   return result[0]?.count ?? 0;
 }
+
+
+// ===== ORÇAMENTOS SIMPLES =====
+export async function getOrcamentosSimples(companyId?: number, userId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  let query = db.select().from(orcamentosSimples);
+  if (companyId) query = query.where(eq(orcamentosSimples.companyId, companyId));
+  if (userId) query = query.where(eq(orcamentosSimples.userId, userId));
+  return query.orderBy(desc(orcamentosSimples.criadoEm));
+}
+
+export async function createOrcamentoSimples(data: {
+  userId: number;
+  companyId: number;
+  clienteNome: string;
+  clienteEmail?: string;
+  produtos: any[];
+  total: number;
+  status?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  return db.insert(orcamentosSimples).values({
+    userId: data.userId,
+    companyId: data.companyId,
+    clienteNome: data.clienteNome,
+    clienteEmail: data.clienteEmail,
+    produtos: data.produtos,
+    total: String(data.total),
+    status: data.status || 'rascunho',
+  }).returning();
+}
+

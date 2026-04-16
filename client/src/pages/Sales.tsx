@@ -93,10 +93,11 @@ export default function Sales() {
       toast.error("Preencha cliente e valor");
       return;
     }
+    const totalValueFormatted = parseFloat(formData.totalValue).toFixed(2);
     createMutation.mutate({
       clientId: Number(formData.clientId),
       quoteId: formData.quoteId ? Number(formData.quoteId) : undefined,
-      totalValue: formData.totalValue,
+      totalValue: totalValueFormatted,
       paymentStatus: formData.paymentStatus,
       saleDate: new Date(formData.saleDate),
       notes: formData.notes || undefined,
