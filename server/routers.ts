@@ -57,7 +57,12 @@ import {
   getMonthlyProgress,
   getABCData,
 } from "./db";
-
+import {
+  // ... todos os imports existentes ...
+  getABCData,
+  getOrcamentosSimples,      // ADICIONAR
+  createOrcamentoSimples,    // ADICIONAR
+} from "./db";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
