@@ -569,6 +569,8 @@ export async function getQuotes(filters?: {
   offset?: number;
 }) {
   // Query simples sem joins
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
   const conditions: any[] = [];
   
   if (filters?.companyId) conditions.push(eq(quotes.companyId, filters.companyId));

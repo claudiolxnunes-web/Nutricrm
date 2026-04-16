@@ -203,19 +203,5 @@ export const monthlyGoals = pgTable("monthly_goals", {
   goalValue: decimal("goalValue", { precision: 12, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("createdAt").defaultNow(),
 }, (t) => [index("monthly_goals_idx").on(t.companyId, t.month)]);
-export const orcamentosSimples = pgTable("orcamentos_simples", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  companyId: integer("company_id").notNull(),
-  clienteNome: text("cliente_nome").notNull(),
-  clienteEmail: text("cliente_email"),
-  produtos: jsonb("produtos").notNull(),
-  total: numeric("total", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").default("rascunho"),
-  criadoEm: timestamp("criado_em").defaultNow().notNull(),
-});
-
-export type OrcamentoSimples = typeof orcamentosSimples.$inferSelect;
-export type InsertOrcamentoSimples = typeof orcamentosSimples.$inferInsert;
 
 

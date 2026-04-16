@@ -23,7 +23,7 @@ import {
   getOpportunityById,
   updateOpportunity,
   deleteOpportunity,
-  createQuote, createQuoteWithItems, getQuoteWithItems,
+  createQuoteWithItems, getQuoteWithItems,
   getQuotes,
   getQuoteById,
   updateQuote, updateQuoteStatus, deleteQuote,
@@ -800,7 +800,6 @@ export const appRouter = router({
       }),
   }),
 
-  }),
 });
 
 export type AppRouter = typeof appRouter;
