@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-type Produto = { nome: string; quantidade: number; preco: number; total: number };
+type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
 
 export default function Quotes() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [clienteNome, setClienteNome] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
-  const [produtos, setProdutos] = useState<Produto[]>([{ nome: "", quantidade: 1, preco: 0, total: 0 }]);
+  const [produtos, setProdutos] = useState<Produto[]>([{ nome: "", quantidade: 1, unidade: "", preco: 0, total: 0 }]);
 
   // Busca do banco
   const { data: orcamentosNuvem = [], refetch } = trpc.orcamentosSimples?.list?.useQuery() || {};
@@ -28,7 +28,7 @@ export default function Quotes() {
   function resetForm() {
     setClienteNome("");
     setClienteEmail("");
-    setProdutos([{ nome: "", quantidade: 1, preco: 0, total: 0 }]);
+    setProdutos([{ nome: "", quantidade: 1, unidade: "", preco: 0, total: 0 }]);
   }
 
   function atualizarProduto(idx: number, campo: keyof Produto, valor: any) {
@@ -36,6 +36,21 @@ export default function Quotes() {
     novos[idx] = { ...novos[idx], [campo]: valor };
     novos[idx].total = novos[idx].quantidade * novos[idx].preco;
     setProdutos(novos);
+  }
+
+  function selecionarProduto(idx: number, produtoId: number) {
+    const prod = listaProdutos.find((x: any) => x.id === produtoId);
+    if (prod) {
+      const novos = [...produtos];
+      novos[idx] = {
+        ...novos[idx],
+        nome: prod.name,
+        unidade: prod.unit || "KG",
+        preco: Number(prod.price) || 0,
+        total: novos[idx].quantidade * (Number(prod.price) || 0)
+      };
+      setProdutos(novos);
+    }
   }
 
   const total = produtos.reduce((s, p) => s + p.total, 0);
@@ -88,26 +103,36 @@ export default function Quotes() {
 
           {/* Produtos */}
           <h3 className="font-medium mb-2">Produtos</h3>
+          
+          {/* Cabeçalho da tabela */}
+          <div className="grid grid-cols-6 gap-2 mb-2 text-sm font-medium text-slate-600 bg-slate-100 p-2 rounded">
+            <div>Produto</div>
+            <div>Nome</div>
+            <div>Quantidade</div>
+            <div>Unidade</div>
+            <div>Preço Unit.</div>
+            <div>Total</div>
+          </div>
+          
           {produtos.map((p, i) => (
-            <div key={i} className="grid grid-cols-4 gap-2 mb-2">
+            <div key={i} className="grid grid-cols-6 gap-2 mb-2 items-center">
               <select 
                 className="border rounded px-2 py-1"
-                onChange={(e) => {
-                  const prod = listaProdutos.find((x: any) => x.id === Number(e.target.value));
-                  if (prod) atualizarProduto(i, "nome", prod.name);
-                }}
+                onChange={(e) => selecionarProduto(i, Number(e.target.value))}
               >
-                <option value="">Produto...</option>
+                <option value="">Selecione...</option>
                 {listaProdutos.map((prod: any) => (
                   <option key={prod.id} value={prod.id}>{prod.name}</option>
                 ))}
               </select>
-              <Input type="number" placeholder="Qtd" value={p.quantidade} onChange={(e) => atualizarProduto(i, "quantidade", Number(e.target.value))} />
-              <Input type="number" placeholder="Preço" value={p.preco} onChange={(e) => atualizarProduto(i, "preco", Number(e.target.value))} />
-              <div className="py-2 text-right font-medium">R$ {p.total.toFixed(2)}</div>
+              <Input value={p.nome} onChange={(e) => atualizarProduto(i, "nome", e.target.value)} placeholder="Nome do produto" />
+              <Input type="number" min="0.01" step="0.01" value={p.quantidade} onChange={(e) => atualizarProduto(i, "quantidade", Number(e.target.value))} />
+              <Input value={p.unidade} onChange={(e) => atualizarProduto(i, "unidade", e.target.value)} placeholder="SC/KG" />
+              <Input type="number" min="0" step="0.01" value={p.preco} onChange={(e) => atualizarProduto(i, "preco", Number(e.target.value))} />
+              <div className="text-right font-medium">R$ {p.total.toFixed(2)}</div>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={() => setProdutos([...produtos, { nome: "", quantidade: 1, preco: 0, total: 0 }])} className="mb-4">
+          <Button variant="outline" size="sm" onClick={() => setProdutos([...produtos, { nome: "", quantidade: 1, unidade: "", preco: 0, total: 0 }])} className="mb-4">
             + Adicionar produto
           </Button>
 
