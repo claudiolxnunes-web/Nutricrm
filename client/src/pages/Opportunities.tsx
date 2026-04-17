@@ -153,7 +153,15 @@ export default function Opportunities() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formData.clientId || !formData.title) { toast.error("Preencha cliente e titulo"); return; }
-    const payload = { ...formData, clientId: Number(formData.clientId), value: String(formData.value || "0"), probability: Number(formData.probability || 0), quoteId: formData.quoteId ? Number(formData.quoteId) : undefined };
+    const payload = { 
+      ...formData, 
+      clientId: Number(formData.clientId), 
+      value: String(formData.value || "0"), 
+      probability: Number(formData.probability || 0), 
+      quoteId: formData.quoteId ? Number(formData.quoteId) : undefined,
+      expectedCloseDate: formData.expectedCloseDate ? new Date(formData.expectedCloseDate) : undefined,
+      stage: formData.stage as any
+    };
     if (editingId) updateMutation.mutate({ id: editingId, ...payload });
     else createMutation.mutate(payload);
   }
@@ -169,13 +177,13 @@ export default function Opportunities() {
     if (!over) return;
     const newStage = over.id as string;
     const opp = (opportunities as any[] || []).find((o: any) => o.id === active.id);
-    if (opp && newStage !== opp.stage) moveStageMutation.mutate({ id: opp.id, stage: newStage });
+    if (opp && newStage !== opp.stage) moveStageMutation.mutate({ id: opp.id, stage: newStage as any });
   }
 
   function moveStage(opp: any, direction: number) {
     const idx = STAGES.findIndex(s => s.id === opp.stage);
     const newIdx = idx + direction;
-    if (newIdx >= 0 && newIdx < STAGES.length) moveStageMutation.mutate({ id: opp.id, stage: STAGES[newIdx].id });
+    if (newIdx >= 0 && newIdx < STAGES.length) moveStageMutation.mutate({ id: opp.id, stage: STAGES[newIdx].id as any });
   }
 
   function openSendQuoteDialog(quote: any) {
@@ -559,3 +567,6 @@ export default function Opportunities() {
     </div>
   );
 }
+
+
+
