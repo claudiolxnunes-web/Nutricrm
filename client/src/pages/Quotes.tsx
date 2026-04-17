@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, FileText } from "lucide-react";
+import { Send, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
@@ -17,6 +17,7 @@ export default function Quotes() {
   // Dialog de envio
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [selectedOrcamento, setSelectedOrcamento] = useState<any>(null);
+const [showViewDialog, setShowViewDialog] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [customMessage, setCustomMessage] = useState("");
 
@@ -82,6 +83,11 @@ export default function Quotes() {
       produtos,
       total,
     });
+  }
+
+  function openViewDialog(orcamento: any) {
+    setSelectedOrcamento(orcamento);
+    setShowViewDialog(true);
   }
 
   function openSendDialog(orcamento: any) {
@@ -300,3 +306,6 @@ export default function Quotes() {
     </div>
   );
 }
+
+
+
