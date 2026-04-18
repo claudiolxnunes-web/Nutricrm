@@ -74,6 +74,11 @@ export default function Quotes() {
     setShowViewDialog(true);
   }
 
+  function openViewDialog(orcamento: any) {
+    setSelectedOrcamento(orcamento);
+    setShowViewDialog(true);
+  }
+
   function openSendDialog(orcamento: any) {
     setSelectedOrcamento(orcamento);
     setEmailTo(orcamento.clienteEmail || "");
@@ -244,27 +249,16 @@ export default function Quotes() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-<td className="p-3 text-center">
+         <td className="p-3 text-center">
                     <div className="flex justify-center gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => openViewDialog(o)}
-                        title="Visualizar"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => openViewDialog(o)} title="Visualizar">
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => openSendDialog(o)}
-                        disabled={!o.clienteEmail}
-                        title={o.clienteEmail ? "Enviar por email" : "Sem email"}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => openSendDialog(o)} disabled={!o.clienteEmail} title={o.clienteEmail ? "Enviar" : "Sem email"}>
                         <Send className="w-4 h-4" />
                       </Button>
                     </div>
                   </td>
+  </div>
+    );
+}
