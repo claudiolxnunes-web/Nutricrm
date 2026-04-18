@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, Mail, Shield, Edit, Phone, FileText, DollarSign } from "lucide-react";
+import { Users, Mail, Shield, Edit, Phone, FileText, DollarSign, Plus, UserPlus, Trash2, AlertTriangle } from "lucide-react";
 import { formatDateBR } from "@/lib/dateUtils";
 
 const ROLES: Record<string, { label: string; color: string }> = {
@@ -20,6 +20,15 @@ export default function Representantes() {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", role: "vendedor" });
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [newUserData, setNewUserData] = useState({
+    name: "",
+    email: "",
+    role: "vendedor",
+    password: "",
+  });
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
 
   const { data: users = [], refetch } = trpc.users.list.useQuery();
 
@@ -31,6 +40,26 @@ export default function Representantes() {
       refetch();
     },
     onError: (err: any) => toast.error("Erro: " + err.message),
+  });
+
+  const createUserMutation = trpc.users?.create?.useMutation({
+    onSuccess: () => {
+      toast.success("Representante cadastrado com sucesso!");
+      setShowNewDialog(false);
+      setNewUserData({ name: "", email: "", role: "vendedor", password: "" });
+      refetch?.();
+    },
+    onError: (err: any) => toast.error("Erro ao cadastrar: " + err.message),
+  });
+
+  const deleteUserMutation = trpc.users?.delete?.useMutation({
+    onSuccess: () => {
+      toast.success("Representante removido com sucesso!");
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
+      refetch?.();
+    },
+    onError: (err: any) => toast.error("Erro ao remover: " + err.message),
   });
 
   function openEditDialog(user: any) {
@@ -51,6 +80,24 @@ export default function Representantes() {
       email: formData.email || undefined,
       role: formData.role as "admin" | "vendedor" | "gerente",
     });
+  }
+
+  function handleCreateUser() {
+    if (!newUserData.name || !newUserData.email || !newUserData.password) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+    createUserMutation.mutate(newUserData);
+  }
+
+  function openDeleteDialog(user: any) {
+    setUserToDelete(user);
+    setShowDeleteDialog(true);
+  }
+
+  function handleDeleteUser() {
+    if (!userToDelete) return;
+    deleteUserMutation.mutate({ id: userToDelete.id });
   }
 
   // Calcular estatísticas por vendedor
@@ -83,6 +130,10 @@ export default function Representantes() {
           </h1>
           <p className="text-slate-600">Gerencie sua equipe de vendas</p>
         </div>
+        <Button onClick={() => setShowNewDialog(true)} className="gap-2">
+          <UserPlus className="w-4 h-4" />
+          Novo Representante
+        </Button>
       </div>
 
       {/* Cards de Resumo */}
@@ -208,6 +259,15 @@ export default function Representantes() {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openDeleteDialog(user)}
+                            title="Remover representante"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -264,6 +324,112 @@ export default function Representantes() {
             </Button>
             <Button onClick={handleSave} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Novo Representante */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Novo Representante
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">Nome completo *</label>
+              <Input
+                value={newUserData.name}
+                onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
+                placeholder="Nome do representante"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Email *</label>
+              <Input
+                type="email"
+                value={newUserData.email}
+                onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                placeholder="email@exemplo.com"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Senha *</label>
+              <Input
+                type="password"
+                value={newUserData.password}
+                onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                placeholder="Mínimo 6 caracteres"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Função</label>
+              <select
+                value={newUserData.role}
+                onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+              >
+                <option value="vendedor">Vendedor</option>
+                <option value="gerente">Gerente</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateUser}
+              disabled={createUserMutation.isPending}
+            >
+              {createUserMutation.isPending ? "Cadastrando..." : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Remover Representante
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>
+              Tem certeza que deseja remover o representante{" "}
+              <strong>{userToDelete?.name}</strong>?
+            </p>
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                <strong>Atenção:</strong> Esta ação não pode ser desfeita!
+              </p>
+              <p className="text-sm text-red-600 mt-2">
+                Todas as oportunidades, interações e vendas associadas a este 
+                representante serão mantidas no sistema, mas ele não terá mais acesso.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? "Removendo..." : "Remover Representante"}
             </Button>
           </DialogFooter>
         </DialogContent>

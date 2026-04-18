@@ -23,6 +23,7 @@ import Planning from "@/pages/Planning";
 import SuperAdmin from "@/pages/SuperAdmin";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import Representantes from "./pages/Representantes";
+import VendedorApp from "./pages/VendedorApp";
 
 function Router() {
   return (
@@ -135,6 +136,7 @@ function Router() {
           </DashboardLayout>
         )}
       </Route>
+      <Route path={"/app"} component={VendedorApp} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

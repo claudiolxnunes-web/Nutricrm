@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter, Copy, FileDown } from "lucide-react";
+import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter, Copy, FileDown, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 // @ts-ignore
 import { jsPDF } from "jspdf";
@@ -232,6 +232,159 @@ export default function Quotes() {
     doc.save(`orcamento-${orcamento.clienteNome.replace(/\s+/g, "_")}-${orcamento.id}.pdf`);
     toast.success("PDF gerado com sucesso!");
   }
+  function gerarPDFWhatsApp(orcamento: any) {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    let y = 20;
+
+    // Cabeçalho
+    doc.setFillColor(37, 99, 235); // Azul
+    doc.rect(0, 0, pageWidth, 50, "F");
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.text("ORÇAMENTO", pageWidth / 2, 35, { align: "center" });
+    
+    y = 60;
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(10);
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, pageWidth - margin, y, { align: "right" });
+
+    // Dados do Cliente
+    y += 15;
+    doc.setTextColor(37, 99, 235);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("CLIENTE", margin, y);
+    
+    y += 10;
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(orcamento.clienteNome, margin, y);
+    
+    if (orcamento.clienteEmail) {
+      y += 7;
+      doc.setFontSize(10);
+      doc.text(orcamento.clienteEmail, margin, y);
+    }
+
+    // Produtos
+    y += 20;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y - 5, pageWidth - (margin * 2), 12, "F");
+    
+    doc.setTextColor(37, 99, 235);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("PRODUTOS", margin, y + 3);
+
+    // Cabeçalho da tabela
+    y += 18;
+    doc.setFillColor(37, 99, 235);
+    doc.rect(margin, y - 6, pageWidth - (margin * 2), 10, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Produto", margin + 3, y);
+    doc.text("Qtd", margin + 75, y);
+    doc.text("Un", margin + 90, y);
+    doc.text("Preço", margin + 105, y);
+    doc.text("Total", margin + 140, y);
+
+    // Linhas dos produtos
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50, 50, 50);
+    
+    orcamento.produtos?.forEach((prod: any, idx: number) => {
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+      
+      // Cor alternada
+      if (idx % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(margin, y - 6, pageWidth - (margin * 2), 9, "F");
+      }
+      
+      doc.text(prod.nome.substring(0, 35), margin + 3, y);
+      doc.text(String(prod.quantidade), margin + 78, y);
+      doc.text(prod.unidade || "KG", margin + 92, y);
+      doc.text(`R$ ${Number(prod.preco).toFixed(2)}`, margin + 108, y);
+      doc.text(`R$ ${Number(prod.total).toFixed(2)}`, margin + 142, y);
+      y += 10;
+    });
+
+    // Total
+    y += 10;
+    doc.setFillColor(240, 250, 240);
+    doc.rect(margin, y - 8, pageWidth - (margin * 2), 20, "F");
+    doc.setTextColor(0, 128, 0);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL:", margin + 5, y + 2);
+    doc.setFontSize(16);
+    doc.text(`R$ ${Number(orcamento.total).toFixed(2)}`, pageWidth - margin - 5, y + 2, { align: "right" });
+
+    // Rodapé
+    y = doc.internal.pageSize.getHeight() - 30;
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Orçamento válido por 15 dias.", pageWidth / 2, y, { align: "center" });
+    y += 5;
+    doc.text("NutriCRM - Sistema de Gestão Comercial", pageWidth / 2, y, { align: "center" });
+
+    // Gerar blob do PDF
+    const pdfBlob = doc.output("blob");
+    return pdfBlob;
+  }
+
+  async function enviarWhatsApp(orcamento: any) {
+    if (!orcamento.clienteNome) {
+      toast.error("Cliente sem nome");
+      return;
+    }
+
+    // Gerar PDF
+    const pdfBlob = gerarPDFWhatsApp(orcamento);
+    
+    // Criar URL do PDF
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    // Texto da mensagem
+    const mensagem = encodeURIComponent(
+      `*Orçamento NutriCRM*\n\n` +
+      `Olá ${orcamento.clienteNome},\n\n` +
+      `Segue seu orçamento no valor de *R$ ${Number(orcamento.total).toFixed(2)}*.\n\n` +
+      `*Produtos:*\n` +
+      orcamento.produtos?.map((p: any) => 
+        `• ${p.nome}: ${p.quantidade} ${p.unidade} x R$ ${Number(p.preco).toFixed(2)} = R$ ${Number(p.total).toFixed(2)}`
+      ).join("\n") +
+      `\n\n*Total: R$ ${Number(orcamento.total).toFixed(2)}*\n\n` +
+      `Orçamento válido por 15 dias.\n\n` +
+      `Em breve entraremos em contato.`
+    );
+
+    // Abrir WhatsApp Web/App
+    const whatsappUrl = `https://wa.me/?text=${mensagem}`;
+    window.open(whatsappUrl, "_blank");
+    
+    // Download do PDF para o usuário anexar
+    const link = document.createElement("a");
+    link.href = pdfUrl;
+    link.download = `orcamento-${orcamento.clienteNome.replace(/\s+/g, "_")}.pdf`;
+    link.click();
+    
+    toast.success("PDF baixado! Anexe no WhatsApp.");
+    
+    // Limpar URL
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 10000);
+  }
+
   function openDeleteDialog(orcamento: any) {
     setSelectedOrcamento(orcamento);
     setShowDeleteDialog(true);
@@ -484,6 +637,15 @@ export default function Quotes() {
                             <Button 
                               variant="ghost" 
                               size="sm" 
+                              onClick={() => enviarWhatsApp(o)}
+                              title="Enviar por WhatsApp"
+                              className="text-green-600 hover:text-green-800"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
                               onClick={() => duplicarOrcamento(o)}
                               title="Duplicar Orçamento"
                             >
@@ -559,6 +721,9 @@ export default function Quotes() {
           <DialogFooter className="flex justify-between">
             <Button variant="outline" onClick={() => gerarPDF(selectedOrcamento)} className="gap-2">
               <FileDown className="w-4 h-4" /> Baixar PDF
+            </Button>
+            <Button variant="outline" onClick={() => enviarWhatsApp(selectedOrcamento)} className="gap-2 text-green-600 border-green-600 hover:bg-green-50">
+              <MessageCircle className="w-4 h-4" /> Enviar WhatsApp
             </Button>
             <Button onClick={() => setShowViewDialog(false)}>Fechar</Button>
           </DialogFooter>

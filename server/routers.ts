@@ -671,10 +671,20 @@ export const appRouter = router({
         return { success: true };
       }),
     delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
+      .input(z.object({
+        id: z.number(),
+      }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
-        if (input.id === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Nao pode excluir a si mesmo" });
+        // Verificar permissão
+        if (ctx.user.role !== "superadmin" && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão" });
+        }
+        
+        // Não permitir excluir a si mesmo
+        if (ctx.user.id === input.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Não pode excluir seu próprio usuário" });
+        }
+        
         await deleteUser(input.id);
         return { success: true };
       }),
@@ -893,6 +903,29 @@ export const appRouter = router({
         return { success: true, sentTo: input.toEmail };
       }),
   }),
+
+  // ========== VENDEDOR MOBILE SYNC ==========
+  sync: protectedProcedure
+    .input(z.object({
+      visitas: z.array(z.any()),
+      jornada: z.object({ inicio: z.string(), fim: z.string().optional() }).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Salvar visitas como interações
+      for (const visita of input.visitas) {
+        await createInteraction({
+          companyId: ctx.user.companyId,
+          clientId: visita.clientId,
+          type: "visita",
+          title: `Visita a ${visita.clientName}`,
+          description: visita.notes || undefined,
+          date: new Date(visita.startTime),
+          createdBy: ctx.user.id,
+        } as any);
+      }
+
+      return { success: true, sincronizados: input.visitas.length };
+    }),
 
 });
 

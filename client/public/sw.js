@@ -80,3 +80,62 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification('NutriCRM', options)
   );
 });
+
+// Sync em background
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-vendedor-dados') {
+    event.waitUntil(syncVendedorDados());
+  }
+});
+
+async function getDadosPendentes() {
+  try {
+    const raw = await new Promise((resolve) => {
+      const req = indexedDB.open('vendedorSync', 1);
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('pendentes')) { resolve([]); return; }
+        const tx = db.transaction('pendentes', 'readonly');
+        const store = tx.objectStore('pendentes');
+        const all = store.getAll();
+        all.onsuccess = () => resolve(all.result);
+        all.onerror = () => resolve([]);
+      };
+      req.onerror = () => resolve([]);
+    });
+    return raw || [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function marcarComoSincronizado(id) {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('vendedorSync', 1);
+    req.onsuccess = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('pendentes')) { resolve(); return; }
+      const tx = db.transaction('pendentes', 'readwrite');
+      tx.objectStore('pendentes').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    };
+    req.onerror = () => resolve();
+  });
+}
+
+async function syncVendedorDados() {
+  const dados = await getDadosPendentes();
+  for (const dado of dados) {
+    try {
+      await fetch('/trpc/sync', {
+        method: 'POST',
+        body: JSON.stringify(dado),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      await marcarComoSincronizado(dado.id);
+    } catch (err) {
+      console.error('Falha ao sincronizar:', err);
+    }
+  }
+}
