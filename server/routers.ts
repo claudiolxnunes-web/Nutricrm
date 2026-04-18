@@ -58,6 +58,8 @@ import {
   getABCData,
   getOrcamentosSimples,
   createOrcamentoSimples,
+  updateOrcamentoSimples,
+  deleteOrcamentoSimples,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -797,6 +799,34 @@ export const appRouter = router({
           total: input.total,
           status: input.status,
         });
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        clienteNome: z.string().min(1).optional(),
+        clienteEmail: z.string().email().optional(),
+        produtos: z.array(z.object({
+          nome: z.string(),
+          quantidade: z.number(),
+          preco: z.number(),
+          total: z.number(),
+        })).optional(),
+        total: z.number().optional(),
+        status: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        return updateOrcamentoSimples(input.id, {
+          clienteNome: input.clienteNome,
+          clienteEmail: input.clienteEmail,
+          produtos: input.produtos,
+          total: input.total,
+          status: input.status,
+        });
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        return deleteOrcamentoSimples(input.id);
       }),
   }),
 

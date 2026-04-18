@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, Eye } from "lucide-react";
+import { Send, Eye, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
@@ -19,6 +19,8 @@ export default function Quotes() {
   const [selectedOrcamento, setSelectedOrcamento] = useState<any>(null);
   const [emailTo, setEmailTo] = useState("");
   const [customMessage, setCustomMessage] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: orcamentosNuvem = [], refetch } = trpc.orcamentosSimples?.list?.useQuery() || {};
   const { data: clientes = [] } = trpc.clients?.list?.useQuery({ limit: 500 }) || {};
@@ -27,6 +29,14 @@ export default function Quotes() {
   const createMutation = trpc.orcamentosSimples?.create?.useMutation({
     onSuccess: () => { toast.success("Orçamento salvo!"); refetch?.(); setMostrarForm(false); resetForm(); },
     onError: () => toast.error("Erro ao salvar"),
+  });
+  const updateMutation = trpc.orcamentosSimples?.update?.useMutation({
+    onSuccess: () => { toast.success("Orçamento atualizado!"); refetch?.(); setMostrarForm(false); setEditingId(null); resetForm(); },
+    onError: () => toast.error("Erro ao atualizar"),
+  });
+  const deleteMutation = trpc.orcamentosSimples?.delete?.useMutation({
+    onSuccess: () => { toast.success("Orçamento excluído!"); refetch?.(); setShowDeleteDialog(false); },
+    onError: () => toast.error("Erro ao excluir"),
   });
 
   const listaClientes = (clientes as any)?.data || clientes || [];
@@ -66,7 +76,11 @@ export default function Quotes() {
 
   function salvar() {
     if (!clienteNome) { toast.error("Informe o cliente"); return; }
-    createMutation.mutate({ clienteNome, clienteEmail: clienteEmail || undefined, produtos, total });
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, clienteNome, clienteEmail: clienteEmail || undefined, produtos, total });
+    } else {
+      createMutation.mutate({ clienteNome, clienteEmail: clienteEmail || undefined, produtos, total });
+    }
   }
 
   function openViewDialog(orcamento: any) {
@@ -78,6 +92,22 @@ export default function Quotes() {
     setSelectedOrcamento(orcamento);
     setEmailTo(orcamento.clienteEmail || "");
     setShowSendDialog(true);
+  }
+  function openEditDialog(orcamento: any) {
+    setEditingId(orcamento.id);
+    setClienteNome(orcamento.clienteNome);
+    setClienteEmail(orcamento.clienteEmail || "");
+    setProdutos(orcamento.produtos || [{ nome: "", quantidade: 1, unidade: "KG", preco: 0, total: 0 }]);
+    setMostrarForm(true);
+  }
+  function openDeleteDialog(orcamento: any) {
+    setSelectedOrcamento(orcamento);
+    setShowDeleteDialog(true);
+  }
+  function handleDelete() {
+    if (selectedOrcamento?.id) {
+      deleteMutation.mutate({ id: selectedOrcamento.id });
+    }
   }
 
   function handleSendEmail() {
@@ -98,7 +128,7 @@ export default function Quotes() {
 
       {mostrarForm && (
         <div className="bg-white p-6 rounded-lg shadow mb-6 border">
-          <h2 className="text-lg font-semibold mb-4">Novo Orçamento</h2>
+          <h2 className="text-lg font-semibold mb-4">{editingId ? "Editar Orçamento" : "Novo Orçamento"}</h2>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-1">Cliente *</label>
@@ -135,7 +165,7 @@ export default function Quotes() {
           <div className="flex justify-between items-center pt-4 border-t">
             <div className="text-xl font-bold">Total: R$ {total.toFixed(2)}</div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setMostrarForm(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setMostrarForm(false); setEditingId(null); resetForm(); }}>Cancelar</Button>
               <Button onClick={salvar} disabled={!clienteNome || createMutation?.isPending}>{createMutation?.isPending ? "Salvando..." : "Salvar"}</Button>
             </div>
           </div>
@@ -166,7 +196,9 @@ export default function Quotes() {
                   <td className="p-3 text-center">
                     <div className="flex justify-center gap-1">
                       <Button variant="ghost" size="sm" onClick={() => openViewDialog(o)} title="Visualizar"><Eye className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(o)} title="Editar"><Pencil className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="sm" onClick={() => openSendDialog(o)} disabled={!o.clienteEmail} title={o.clienteEmail ? "Enviar por email" : "Sem email"}><Send className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => openDeleteDialog(o)} title="Excluir"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </td>
                 </tr>
@@ -242,6 +274,23 @@ export default function Quotes() {
               <Button onClick={handleSendEmail} disabled={!emailTo}><Send className="w-3 h-3 mr-1" /> Abrir Email</Button>
             </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Confirmar Exclusão */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Confirmar Exclusão</DialogTitle></DialogHeader>
+          <div className="py-4">
+            <p>Tem certeza que deseja excluir o orçamento de <strong>{selectedOrcamento?.clienteNome}</strong>?</p>
+            <p className="text-sm text-slate-500 mt-2">Esta ação não pode ser desfeita.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation?.isPending}>
+              {deleteMutation?.isPending ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -1214,3 +1214,30 @@ export async function createOrcamentoSimples(data: {
   }).returning();
 }
 
+export async function updateOrcamentoSimples(id: number, data: {
+  clienteNome?: string;
+  clienteEmail?: string;
+  produtos?: any[];
+  total?: number;
+  status?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  return db.update(orcamentosSimples)
+    .set({
+      ...(data.clienteNome && { clienteNome: data.clienteNome }),
+      ...(data.clienteEmail !== undefined && { clienteEmail: data.clienteEmail }),
+      ...(data.produtos && { produtos: data.produtos }),
+      ...(data.total !== undefined && { total: String(data.total) }),
+      ...(data.status && { status: data.status }),
+    })
+    .where(eq(orcamentosSimples.id, id))
+    .returning();
+}
+
+export async function deleteOrcamentoSimples(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  return db.delete(orcamentosSimples).where(eq(orcamentosSimples.id, id)).returning();
+}
+
