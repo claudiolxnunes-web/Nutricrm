@@ -3,8 +3,9 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter, Copy } from "lucide-react";
+import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter, Copy, FileDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { jsPDF } from "jspdf";
 
 type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
 
@@ -113,6 +114,111 @@ export default function Quotes() {
     setProdutos(orcamento.produtos?.map((p: any) => ({ ...p })) || [{ nome: "", quantidade: 1, unidade: "KG", preco: 0, total: 0 }]);
     setMostrarForm(true);
     toast.info("Orçamento duplicado! Revise e salve.");
+  }
+
+  function gerarPDF(orcamento: any) {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    let y = 20;
+
+    // Cabeçalho
+    doc.setFontSize(20);
+    doc.setTextColor(33, 37, 41);
+    doc.text("ORÇAMENTO", pageWidth / 2, y, { align: "center" });
+    
+    y += 15;
+    doc.setFontSize(10);
+    doc.setTextColor(108, 117, 125);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pageWidth / 2, y, { align: "center" });
+
+    // Linha separadora
+    y += 10;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    // Dados do Cliente
+    y += 15;
+    doc.setFontSize(12);
+    doc.setTextColor(33, 37, 41);
+    doc.setFont("helvetica", "bold");
+    doc.text("DADOS DO CLIENTE", margin, y);
+    
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Cliente: ${orcamento.clienteNome}`, margin, y);
+    
+    if (orcamento.clienteEmail) {
+      y += 7;
+      doc.text(`Email: ${orcamento.clienteEmail}`, margin, y);
+    }
+
+    // Produtos
+    y += 20;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("PRODUTOS", margin, y);
+
+    // Cabeçalho da tabela
+    y += 12;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y - 5, pageWidth - (margin * 2), 10, "F");
+    doc.setFontSize(9);
+    doc.setTextColor(33, 37, 41);
+    doc.text("Produto", margin + 2, y + 2);
+    doc.text("Qtd", margin + 80, y + 2);
+    doc.text("Un", margin + 95, y + 2);
+    doc.text("Preço", margin + 110, y + 2);
+    doc.text("Total", margin + 140, y + 2);
+
+    // Linhas dos produtos
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    orcamento.produtos?.forEach((prod: any, idx: number) => {
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+      
+      // Cor alternada
+      if (idx % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(margin, y - 5, pageWidth - (margin * 2), 8, "F");
+      }
+      
+      doc.text(prod.nome.substring(0, 35), margin + 2, y);
+      doc.text(String(prod.quantidade), margin + 80, y);
+      doc.text(prod.unidade || "KG", margin + 95, y);
+      doc.text(`R$ ${Number(prod.preco).toFixed(2)}`, margin + 110, y);
+      doc.text(`R$ ${Number(prod.total).toFixed(2)}`, margin + 140, y);
+      y += 8;
+    });
+
+    // Linha separadora
+    y += 5;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, pageWidth - margin, y);
+
+    // Total
+    y += 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(0, 100, 0);
+    doc.text(`TOTAL: R$ ${Number(orcamento.total).toFixed(2)}`, pageWidth - margin, y, { align: "right" });
+
+    // Rodapé
+    y = doc.internal.pageSize.getHeight() - 30;
+    doc.setFontSize(9);
+    doc.setTextColor(108, 117, 125);
+    doc.setFont("helvetica", "normal");
+    doc.text("Este orçamento é válido por 15 dias.", pageWidth / 2, y, { align: "center" });
+    y += 5;
+    doc.text("NutriCRM - Sistema de Gestão Comercial", pageWidth / 2, y, { align: "center" });
+
+    // Salvar
+    doc.save(`orcamento-${orcamento.clienteNome.replace(/\s+/g, "_")}-${orcamento.id}.pdf`);
+    toast.success("PDF gerado com sucesso!");
   }
   function openDeleteDialog(orcamento: any) {
     setSelectedOrcamento(orcamento);
@@ -354,6 +460,15 @@ export default function Quotes() {
                             <Button 
                               variant="ghost" 
                               size="sm" 
+                              onClick={() => gerarPDF(o)}
+                              title="Baixar PDF"
+                              className="text-purple-600 hover:text-purple-800"
+                            >
+                              <FileDown className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
                               onClick={() => duplicarOrcamento(o)}
                               title="Duplicar Orçamento"
                             >
@@ -426,7 +541,12 @@ export default function Quotes() {
               </div>
             </div>
           )}
-          <DialogFooter><Button onClick={() => setShowViewDialog(false)}>Fechar</Button></DialogFooter>
+          <DialogFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => gerarPDF(selectedOrcamento)} className="gap-2">
+              <FileDown className="w-4 h-4" /> Baixar PDF
+            </Button>
+            <Button onClick={() => setShowViewDialog(false)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
