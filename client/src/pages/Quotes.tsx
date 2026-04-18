@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, Eye, Pencil, Trash2 } from "lucide-react";
+import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
@@ -21,6 +21,7 @@ export default function Quotes() {
   const [customMessage, setCustomMessage] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("todos");
 
   const { data: orcamentosNuvem = [], refetch } = trpc.orcamentosSimples?.list?.useQuery() || {};
   const { data: clientes = [] } = trpc.clients?.list?.useQuery({ limit: 500 }) || {};
@@ -37,6 +38,11 @@ export default function Quotes() {
   const deleteMutation = trpc.orcamentosSimples?.delete?.useMutation({
     onSuccess: () => { toast.success("Orçamento excluído!"); refetch?.(); setShowDeleteDialog(false); },
     onError: () => toast.error("Erro ao excluir"),
+  });
+
+  const updateStatusMutation = trpc.orcamentosSimples?.update?.useMutation({
+    onSuccess: () => { toast.success("Status atualizado!"); refetch?.(); },
+    onError: () => toast.error("Erro ao atualizar status"),
   });
 
   const listaClientes = (clientes as any)?.data || clientes || [];
@@ -110,6 +116,27 @@ export default function Quotes() {
     }
   }
 
+  function changeStatus(id: number, novoStatus: string) {
+    updateStatusMutation.mutate({ id, status: novoStatus });
+  }
+
+  function getStatusColor(status: string) {
+    switch (status) {
+      case "aceito": return "bg-green-100 text-green-700 border-green-300";
+      case "rejeitado": return "bg-red-100 text-red-700 border-red-300";
+      case "enviado": return "bg-blue-100 text-blue-700 border-blue-300";
+      default: return "bg-slate-100 text-slate-700 border-slate-300";
+    }
+  }
+  function getStatusLabel(status: string) {
+    switch (status) {
+      case "aceito": return "Aceito";
+      case "rejeitado": return "Rejeitado";
+      case "enviado": return "Enviado";
+      default: return "Rascunho";
+    }
+  }
+
   function handleSendEmail() {
     if (!selectedOrcamento || !emailTo) { toast.error("Informe o email"); return; }
     const subject = encodeURIComponent(`Orçamento NutriCRM - ${selectedOrcamento.clienteNome}`);
@@ -172,6 +199,49 @@ export default function Quotes() {
         </div>
       )}
 
+      {/* Filtros */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <Button 
+          variant={statusFilter === "todos" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setStatusFilter("todos")}
+        >
+          <Filter className="w-4 h-4 mr-1" /> Todos
+        </Button>
+        <Button 
+          variant={statusFilter === "rascunho" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setStatusFilter("rascunho")}
+          className="bg-slate-100 text-slate-700 hover:bg-slate-200"
+        >
+          <FileText className="w-4 h-4 mr-1" /> Rascunho
+        </Button>
+        <Button 
+          variant={statusFilter === "enviado" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setStatusFilter("enviado")}
+          className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-300"
+        >
+          <Send className="w-4 h-4 mr-1" /> Enviado
+        </Button>
+        <Button 
+          variant={statusFilter === "aceito" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setStatusFilter("aceito")}
+          className="bg-green-100 text-green-700 hover:bg-green-200 border-green-300"
+        >
+          <CheckCircle className="w-4 h-4 mr-1" /> Aceito
+        </Button>
+        <Button 
+          variant={statusFilter === "rejeitado" ? "default" : "outline"} 
+          size="sm"
+          onClick={() => setStatusFilter("rejeitado")}
+          className="bg-red-100 text-red-700 hover:bg-red-200 border-red-300"
+        >
+          <XCircle className="w-4 h-4 mr-1" /> Rejeitado
+        </Button>
+      </div>
+
       <div className="bg-white rounded-lg shadow">
         <table className="w-full">
           <thead className="bg-slate-100">
@@ -180,29 +250,115 @@ export default function Quotes() {
               <th className="p-3 text-left">Produtos</th>
               <th className="p-3 text-right">Total</th>
               <th className="p-3 text-left">Data</th>
-              <th className="p-3 text-center">Ações</th>
+              <th className="p-3 text-center">Status / Ações</th>
             </tr>
           </thead>
           <tbody>
             {orcamentosNuvem.length === 0 ? (
               <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum orçamento</td></tr>
             ) : (
-              orcamentosNuvem.map((o: any) => (
-                <tr key={o.id} className="border-t hover:bg-slate-50">
-                  <td className="p-3"><div className="font-medium">{o.clienteNome}</div>{o.clienteEmail && <div className="text-sm text-slate-500">{o.clienteEmail}</div>}</td>
-                  <td className="p-3">{o.produtos?.length || 0} itens</td>
-                  <td className="p-3 text-right font-bold">R$ {Number(o.total).toFixed(2)}</td>
-                  <td className="p-3 text-sm text-slate-500">{new Date(o.criadoEm).toLocaleDateString("pt-BR")}</td>
-                  <td className="p-3 text-center">
-                    <div className="flex justify-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openViewDialog(o)} title="Visualizar"><Eye className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(o)} title="Editar"><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => openSendDialog(o)} disabled={!o.clienteEmail} title={o.clienteEmail ? "Enviar por email" : "Sem email"}><Send className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => openDeleteDialog(o)} title="Excluir"><Trash2 className="w-4 h-4" /></Button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              (() => {
+                const orcamentosFiltrados = statusFilter === "todos" 
+                  ? orcamentosNuvem 
+                  : orcamentosNuvem.filter((o: any) => o.status === statusFilter);
+                return orcamentosFiltrados.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum orçamento com este status</td></tr>
+                ) : (
+                  orcamentosFiltrados.map((o: any) => (
+                    <tr key={o.id} className="border-t hover:bg-slate-50">
+                      <td className="p-3"><div className="font-medium">{o.clienteNome}</div>{o.clienteEmail && <div className="text-sm text-slate-500">{o.clienteEmail}</div>}</td>
+                      <td className="p-3">{o.produtos?.length || 0} itens</td>
+                      <td className="p-3 text-right font-bold">R$ {Number(o.total).toFixed(2)}</td>
+                      <td className="p-3 text-sm text-slate-500">{new Date(o.criadoEm).toLocaleDateString("pt-BR")}</td>
+                      <td className="p-3 text-center">
+                        <div className="flex flex-col items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Badge de Status */}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(o.status)}`}
+                          >
+                            {getStatusLabel(o.status)}
+                          </span>
+                          
+                          {/* Botões de Ação */}
+                          <div className="flex justify-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openViewDialog(o)} title="Visualizar">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(o)} title="Editar">
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            
+                            {/* Workflow de Status */}
+                            {o.status === "rascunho" && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => changeStatus(o.id, "enviado")}
+                                title="Marcar como Enviado"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <Send className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {o.status === "enviado" && (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => changeStatus(o.id, "aceito")}
+                                  title="Marcar como Aceito"
+                                  className="text-green-600 hover:text-green-800"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => changeStatus(o.id, "rejeitado")}
+                                  title="Marcar como Rejeitado"
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                            {(o.status === "aceito" || o.status === "rejeitado") && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => changeStatus(o.id, "rascunho")}
+                                title="Voltar para Rascunho"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </Button>
+                            )}
+                            
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => openSendDialog(o)} 
+                              disabled={!o.clienteEmail} 
+                              title={o.clienteEmail ? "Enviar por email" : "Sem email"}
+                            >
+                              <Send className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-500 hover:text-red-700" 
+                              onClick={() => openDeleteDialog(o)} 
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                );
+              })()
             )}
           </tbody>
         </table>
@@ -215,9 +371,17 @@ export default function Quotes() {
           {selectedOrcamento && (
             <div className="space-y-4 py-2">
               <div className="bg-slate-50 p-4 rounded-lg">
-                <p className="text-sm text-slate-500">Cliente</p>
-                <p className="font-semibold text-lg">{selectedOrcamento.clienteNome}</p>
-                {selectedOrcamento.clienteEmail && <p className="text-sm text-slate-600">{selectedOrcamento.clienteEmail}</p>}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm text-slate-500">Cliente</p>
+                    <p className="font-semibold text-lg">{selectedOrcamento.clienteNome}</p>
+                    {selectedOrcamento.clienteEmail && <p className="text-sm text-slate-600">{selectedOrcamento.clienteEmail}</p>}
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(selectedOrcamento.status)}`}
+                  >
+                    {getStatusLabel(selectedOrcamento.status)}
+                  </span>
+                </div>
               </div>
               <div>
                 <p className="text-sm font-medium mb-2">Produtos:</p>
