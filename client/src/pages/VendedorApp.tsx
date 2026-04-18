@@ -2,11 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
   MapPin, Clock, Users, Target, TrendingUp, CheckCircle, 
   Phone, Navigation, Calendar, DollarSign, AlertCircle,
-  Play, Square, Camera, Mic, Send, RefreshCw
+  Play, Square, Camera, Mic, Send, RefreshCw, UserPlus, Trash2, 
+  Building2, MapPinned
 } from "lucide-react";
 import { formatDateBR, formatCurrencyBR } from "@/lib/dateUtils";
 
@@ -56,6 +59,17 @@ export default function VendedorApp() {
   const [horaInicio, setHoraInicio] = useState<string | null>(null);
   const [notaVisita, setNotaVisita] = useState("");
   const [showCamera, setShowCamera] = useState(false);
+  const [rcs, setRcs] = useState<any[]>([]);
+  const [showNewRcDialog, setShowNewRcDialog] = useState(false);
+  const [showRcDetail, setShowRcDetail] = useState(false);
+  const [selectedRc, setSelectedRc] = useState<any>(null);
+  const [newRcData, setNewRcData] = useState({
+    nome: "",
+    telefone: "",
+    endereco: "",
+    cidade: "",
+    observacao: "",
+  });
 
   // Verificar conexão
   useEffect(() => {
@@ -194,6 +208,51 @@ export default function VendedorApp() {
     // Aqui enviaria para o servidor via trpc.sync.mutate(...)
     toast.success("Dados sincronizados!");
   };
+
+  // Carregar RCs do localStorage
+  useEffect(() => {
+    const savedRcs = localStorage.getItem("vendedorApp_rcs");
+    if (savedRcs) {
+      setRcs(JSON.parse(savedRcs));
+    }
+  }, []);
+
+  // Salvar RCs no localStorage
+  useEffect(() => {
+    localStorage.setItem("vendedorApp_rcs", JSON.stringify(rcs));
+  }, [rcs]);
+
+  function adicionarRc() {
+    if (!newRcData.nome || !newRcData.telefone) {
+      toast.error("Nome e telefone são obrigatórios");
+      return;
+    }
+
+    const novoRc = {
+      id: Date.now().toString(),
+      ...newRcData,
+      criadoEm: new Date().toISOString(),
+      status: "novo",
+      criadoPor: "vendedor",
+    };
+
+    setRcs(prev => [novoRc, ...prev]);
+    setNewRcData({ nome: "", telefone: "", endereco: "", cidade: "", observacao: "" });
+    setShowNewRcDialog(false);
+    toast.success("RC adicionado com sucesso!");
+  }
+
+  function deletarRc(rcId: string) {
+    setRcs(prev => prev.filter(rc => rc.id !== rcId));
+    toast.success("RC removido!");
+    setShowRcDetail(false);
+    setSelectedRc(null);
+  }
+
+  function openRcDetail(rc: any) {
+    setSelectedRc(rc);
+    setShowRcDetail(true);
+  }
 
   // Renderizar tabs
   const renderInicio = () => (
@@ -376,6 +435,63 @@ export default function VendedorApp() {
     </div>
   );
 
+  const renderRcs = () => (
+    <div className="p-4 space-y-3">
+      <div className="flex justify-between items-center">
+        <h3 className="font-bold text-lg">Registros de Contato ({rcs.length})</h3>
+        <Button size="sm" onClick={() => setShowNewRcDialog(true)} className="gap-1">
+          <UserPlus className="w-4 h-4" /> Novo
+        </Button>
+      </div>
+
+      {rcs.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Building2 className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+            <p className="text-slate-500">Nenhum RC cadastrado</p>
+            <Button 
+              variant="outline" 
+              className="mt-3" 
+              onClick={() => setShowNewRcDialog(true)}
+            >
+              Adicionar primeiro RC
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        rcs.map((rc) => (
+          <Card key={rc.id} className="cursor-pointer" onClick={() => openRcDetail(rc)}>
+            <CardContent className="p-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-semibold">{rc.nome}</p>
+                  <p className="text-sm text-slate-500 flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> {rc.telefone}
+                  </p>
+                  {rc.cidade && (
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <MapPinned className="w-3 h-3" /> {rc.cidade}
+                    </p>
+                  )}
+                </div>
+                <Badge className={
+                  rc.status === "novo" ? "bg-blue-100 text-blue-700" :
+                  rc.status === "visitado" ? "bg-green-100 text-green-700" :
+                  "bg-slate-100 text-slate-700"
+                }>
+                  {rc.status === "novo" ? "Novo" : rc.status === "visitado" ? "Visitado" : "Pendente"}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Cadastrado em: {formatDateBR(rc.criadoEm)}
+              </p>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
@@ -393,6 +509,7 @@ export default function VendedorApp() {
       <div className="mt-2">
         {activeTab === "inicio" && renderInicio()}
         {activeTab === "rota" && renderRota()}
+        {activeTab === "rcs" && renderRcs()}
         {activeTab === "historico" && renderHistorico()}
       </div>
 
@@ -413,6 +530,13 @@ export default function VendedorApp() {
           <span className="text-xs">Rota</span>
         </button>
         <button 
+          onClick={() => setActiveTab("rcs")}
+          className={`flex flex-col items-center p-2 ${activeTab === "rcs" ? "text-blue-600" : "text-slate-400"}`}
+        >
+          <Building2 className="w-6 h-6" />
+          <span className="text-xs">RCs</span>
+        </button>
+        <button 
           onClick={() => setActiveTab("historico")}
           className={`flex flex-col items-center p-2 ${activeTab === "historico" ? "text-blue-600" : "text-slate-400"}`}
         >
@@ -420,6 +544,127 @@ export default function VendedorApp() {
           <span className="text-xs">Histórico</span>
         </button>
       </div>
+
+      {/* Dialog de Novo RC */}
+      <Dialog open={showNewRcDialog} onOpenChange={setShowNewRcDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Novo Registro de Contato
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-sm font-medium">Nome *</label>
+              <Input
+                value={newRcData.nome}
+                onChange={(e) => setNewRcData({ ...newRcData, nome: e.target.value })}
+                placeholder="Nome do cliente"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Telefone *</label>
+              <Input
+                value={newRcData.telefone}
+                onChange={(e) => setNewRcData({ ...newRcData, telefone: e.target.value })}
+                placeholder="(00) 00000-0000"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Endereço</label>
+              <Input
+                value={newRcData.endereco}
+                onChange={(e) => setNewRcData({ ...newRcData, endereco: e.target.value })}
+                placeholder="Rua, número, bairro"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Cidade</label>
+              <Input
+                value={newRcData.cidade}
+                onChange={(e) => setNewRcData({ ...newRcData, cidade: e.target.value })}
+                placeholder="Cidade/UF"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Observação</label>
+              <textarea
+                value={newRcData.observacao}
+                onChange={(e) => setNewRcData({ ...newRcData, observacao: e.target.value })}
+                placeholder="Informações adicionais..."
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewRcDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={adicionarRc}>Salvar RC</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Detalhes do RC */}
+      <Dialog open={showRcDetail} onOpenChange={setShowRcDetail}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedRc?.nome}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedRc && (
+            <div className="space-y-3 py-2">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-slate-400" />
+                <span>{selectedRc.telefone}</span>
+              </div>
+              
+              {selectedRc.endereco && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                  <span>{selectedRc.endereco}</span>
+                </div>
+              )}
+              
+              {selectedRc.cidade && (
+                <div className="flex items-center gap-2">
+                  <MapPinned className="w-4 h-4 text-slate-400" />
+                  <span>{selectedRc.cidade}</span>
+                </div>
+              )}
+              
+              {selectedRc.observacao && (
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-sm text-slate-600">{selectedRc.observacao}</p>
+                </div>
+              )}
+              
+              <p className="text-xs text-slate-400">
+                Cadastrado em: {formatDateBR(selectedRc.criadoEm)}
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter className="flex justify-between">
+            <Button 
+              variant="destructive" 
+              onClick={() => deletarRc(selectedRc?.id)}
+              className="gap-1"
+            >
+              <Trash2 className="w-4 h-4" /> Deletar
+            </Button>
+            <Button variant="outline" onClick={() => setShowRcDetail(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
