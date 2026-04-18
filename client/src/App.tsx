@@ -22,6 +22,7 @@ import Interactions from "@/pages/Interactions";
 import Planning from "@/pages/Planning";
 import SuperAdmin from "@/pages/SuperAdmin";
 import ManagerDashboard from "./pages/ManagerDashboard";
+import Representantes from "./pages/Representantes";
 
 function Router() {
   return (
@@ -124,6 +125,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <ManagerDashboard />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/representantes"}>
+        {() => (
+          <DashboardLayout>
+            <Representantes />
           </DashboardLayout>
         )}
       </Route>

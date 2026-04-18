@@ -93,12 +93,14 @@ export default function Dashboard() {
             <Input type="date" value={dateRange.startDate}
               onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
               className="h-8 text-sm w-36" />
+            <span className="text-xs text-slate-400">{new Date(dateRange.startDate).toLocaleDateString("pt-BR")}</span>
           </div>
           <div>
             <label className="text-xs font-medium text-slate-500">Até</label>
             <Input type="date" value={dateRange.endDate}
               onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
               className="h-8 text-sm w-36" />
+            <span className="text-xs text-slate-400">{new Date(dateRange.endDate).toLocaleDateString("pt-BR")}</span>
           </div>
         </div>
       </div>

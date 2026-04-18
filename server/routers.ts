@@ -61,6 +61,8 @@ import {
   updateOrcamentoSimples,
   deleteOrcamentoSimples,
   getManagerStats,
+  getUsersByCompany,
+  updateUser,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -644,6 +646,22 @@ export const appRouter = router({
       const countMap = Object.fromEntries(counts.map((c: any) => [c.assignedTo, c.count]));
       return userList.map((u: any) => ({ ...u, clientCount: countMap[u.id] || 0 }));
     }),
+    listByCompany: protectedProcedure.query(async ({ ctx }) => {
+      return getUsersByCompany(ctx.user.companyId);
+    }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        email: z.string().email().optional(),
+        role: z.enum(["admin", "vendedor", "gerente"]).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "superadmin" && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão" });
+        }
+        return updateUser(input.id, { name: input.name, email: input.email, role: input.role });
+      }),
     updateRole: protectedProcedure
       .input(z.object({ id: z.number(), role: z.enum(["admin", "vendedor"]) }))
       .mutation(async ({ input, ctx }) => {

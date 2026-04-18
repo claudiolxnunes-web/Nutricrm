@@ -1182,6 +1182,19 @@ export async function getClientsCount(filters?: { search?: string; animalType?: 
 }
 
 
+// ===== USUÁRIOS / REPRESENTANTES =====
+export async function getUsersByCompany(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(users).where(eq(users.companyId, companyId));
+}
+
+export async function updateUser(id: number, data: { name?: string; email?: string; role?: string; active?: boolean }) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  return db.update(users).set(data).where(eq(users.id, id)).returning();
+}
+
 // ===== ORÇAMENTOS SIMPLES =====
 export async function getOrcamentosSimples(companyId?: number, userId?: number) {
   const db = await getDb();

@@ -150,6 +150,7 @@ const menuItems = [
   { icon: MessageSquare, label: "Interacoes", path: "/interactions" },
   { icon: CalendarDays, label: "Planejamento", path: "/planning" },
   { icon: TrendingUp, label: "Dashboard Gestor", path: "/gestor" },
+  { icon: Users, label: "Representantes", path: "/representantes" },
   { icon: ShieldCheck, label: "Superadmin", path: "/superadmin" },
   { icon: Shield, label: "Usuarios", path: "/users" },
 ];
