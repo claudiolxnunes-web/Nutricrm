@@ -60,6 +60,7 @@ import {
   createOrcamentoSimples,
   updateOrcamentoSimples,
   deleteOrcamentoSimples,
+  getManagerStats,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -558,6 +559,15 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await scheduleNextVisit(input.interactionId, new Date(input.nextVisitDate), input.visitResult);
         return { success: true };
+      }),
+
+    managerStats: protectedProcedure
+      .input(z.object({ fromDate: z.string().optional(), toDate: z.string().optional() }))
+      .query(async ({ input, ctx }) => {
+        return getManagerStats(ctx.user.companyId, 
+          input.fromDate ? new Date(input.fromDate) : undefined,
+          input.toDate ? new Date(input.toDate) : undefined
+        );
       }),
   }),
 

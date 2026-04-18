@@ -1241,3 +1241,70 @@ export async function deleteOrcamentoSimples(id: number) {
   return db.delete(orcamentosSimples).where(eq(orcamentosSimples.id, id)).returning();
 }
 
+// ===== DASHBOARD GESTOR =====
+export async function getManagerStats(companyId: number, fromDate?: Date, toDate?: Date) {
+  const db = await getDb();
+  if (!db) throw new Error('Database not available');
+  
+  const conditions: any[] = [eq(interactions.companyId, companyId)];
+  if (fromDate) conditions.push(gte(interactions.date, fromDate));
+  if (toDate) conditions.push(lte(interactions.date, toDate));
+  
+  // Buscar todas as interações do período com info do usuário
+  const allInteractions = await db.select({
+    id: interactions.id,
+    type: interactions.type,
+    title: interactions.title,
+    date: interactions.date,
+    duration: interactions.duration,
+    visitResult: interactions.visitResult,
+    createdBy: interactions.createdBy,
+    clientId: interactions.clientId,
+    clientName: clients.farmName,
+  })
+  .from(interactions)
+  .leftJoin(clients, eq(interactions.clientId, clients.id))
+  .where(and(...conditions))
+  .orderBy(desc(interactions.date));
+  
+  // Buscar usuários da empresa
+  const companyUsers = await db.select().from(users).where(eq(users.companyId, companyId));
+  
+  // Buscar oportunidades por usuário
+  const oppsConditions: any[] = [eq(opportunities.companyId, companyId)];
+  if (fromDate) oppsConditions.push(gte(opportunities.createdAt, fromDate));
+  if (toDate) oppsConditions.push(lte(opportunities.createdAt, toDate));
+  
+  const allOpportunities = await db.select({
+    id: opportunities.id,
+    stage: opportunities.stage,
+    value: opportunities.value,
+    createdBy: opportunities.createdBy,
+    clientId: opportunities.clientId,
+  })
+  .from(opportunities)
+  .where(and(...oppsConditions));
+  
+  // Buscar orçamentos do período
+  const orcConditions: any[] = [eq(orcamentosSimples.companyId, companyId)];
+  if (fromDate) orcConditions.push(gte(orcamentosSimples.criadoEm, fromDate));
+  if (toDate) orcConditions.push(lte(orcamentosSimples.criadoEm, toDate));
+  
+  const allOrcamentos = await db.select({
+    id: orcamentosSimples.id,
+    total: orcamentosSimples.total,
+    status: orcamentosSimples.status,
+    userId: orcamentosSimples.userId,
+    clienteNome: orcamentosSimples.clienteNome,
+  })
+  .from(orcamentosSimples)
+  .where(and(...orcConditions));
+  
+  return {
+    interactions: allInteractions,
+    users: companyUsers,
+    opportunities: allOpportunities,
+    orcamentos: allOrcamentos,
+  };
+}
+

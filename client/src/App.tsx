@@ -21,6 +21,7 @@ import Tutorial from "@/pages/Tutorial";
 import Interactions from "@/pages/Interactions";
 import Planning from "@/pages/Planning";
 import SuperAdmin from "@/pages/SuperAdmin";
+import ManagerDashboard from "./pages/ManagerDashboard";
 
 function Router() {
   return (
@@ -116,6 +117,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <Users />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/gestor"}>
+        {() => (
+          <DashboardLayout>
+            <ManagerDashboard />
           </DashboardLayout>
         )}
       </Route>

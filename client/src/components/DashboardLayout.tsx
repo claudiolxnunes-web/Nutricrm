@@ -62,6 +62,7 @@ const menuItems = [
   { icon: BookOpen, label: "Tutorial", path: "/tutorial" },
   { icon: MessageSquare, label: "Interacoes", path: "/interactions" },
   { icon: CalendarDays, label: "Planejamento", path: "/planning" },
+  { icon: TrendingUp, label: "Dashboard Gestor", path: "/gestor" },
   { icon: ShieldCheck, label: "Superadmin", path: "/superadmin" },
   { icon: Shield, label: "Usuarios", path: "/users" },
 ];
