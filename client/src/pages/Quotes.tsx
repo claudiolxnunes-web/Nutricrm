@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter, Copy, FileDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+// @ts-ignore
 import { jsPDF } from "jspdf";
 
 type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
