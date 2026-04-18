@@ -44,11 +44,96 @@ import {
   ShieldCheck,
   MoreHorizontal,
   ShoppingCart,
+  Bell,
+  AlertCircle,
+  Phone,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { trpc } from "@/lib/trpc";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+function AlertasFollowUp() {
+  const [open, setOpen] = useState(false);
+  const { data: alertas = [] } = trpc.interactions.followUpAlerts.useQuery();
+  
+  const alertasUrgentes = alertas.filter((a: any) => a.urgencia === 'alta');
+  const totalAlertas = alertas.length;
+  
+  useEffect(() => {
+    if (alertasUrgentes.length > 0) {
+      toast.warning(`Você tem ${alertasUrgentes.length} alerta(s) urgente(s) de follow-up!`, {
+        duration: 5000,
+      });
+    }
+  }, [alertasUrgentes.length]);
+  
+  if (totalAlertas === 0) return null;
+  
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="relative">
+          <Bell className="w-5 h-5" />
+          {totalAlertas > 0 && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            >
+              {totalAlertas}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="p-3 border-b bg-slate-50">
+          <h4 className="font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            Alertas de Follow-up
+          </h4>
+        </div>
+        <div className="max-h-[300px] overflow-y-auto">
+          {alertas.map((alerta: any, idx: number) => (
+            <div 
+              key={idx} 
+              className={`p-3 border-b last:border-0 hover:bg-slate-50 ${
+                alerta.urgencia === 'alta' ? 'bg-red-50' : 
+                alerta.urgencia === 'media' ? 'bg-yellow-50' : ''
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                {alerta.tipo === 'followup' && <Phone className="w-4 h-4 mt-0.5 text-blue-500" />}
+                {alerta.tipo === 'orcamento' && <FileText className="w-4 h-4 mt-0.5 text-purple-500" />}
+                {alerta.tipo === 'oportunidade' && <TrendingUp className="w-4 h-4 mt-0.5 text-orange-500" />}
+                <div className="flex-1">
+                  <p className="text-sm font-medium">
+                    {alerta.tipo === 'followup' && `Retornar contato: ${alerta.clienteNome}`}
+                    {alerta.tipo === 'orcamento' && `Orçamento sem resposta: ${alerta.clienteNome}`}
+                    {alerta.tipo === 'oportunidade' && `Oportunidade parada: ${alerta.titulo}`}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {alerta.tipo === 'followup' && `Sem contato há ${alerta.diasSemContato} dias`}
+                    {alerta.tipo === 'orcamento' && `Enviado há ${alerta.diasSemResposta} dias`}
+                    {alerta.tipo === 'oportunidade' && `Parada há ${alerta.diasParado} dias`}
+                  </p>
+                  {alerta.valor && (
+                    <p className="text-xs font-medium text-green-600 mt-1">
+                      R$ {Number(alerta.valor).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -409,6 +494,7 @@ function DashboardLayoutContent({
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <AlertasFollowUp />
             <Avatar className="h-7 w-7 ring-2 ring-primary/20">
               <AvatarFallback className="text-[10px] font-bold bg-primary text-primary-foreground">
                 {user?.name?.charAt(0).toUpperCase()}

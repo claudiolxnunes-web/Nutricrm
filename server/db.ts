@@ -1308,3 +1308,104 @@ export async function getManagerStats(companyId: number, fromDate?: Date, toDate
   };
 }
 
+// ===== ALERTAS DE FOLLOW-UP =====
+export async function getFollowUpAlerts(companyId: number, userId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const hoje = new Date();
+  const ha7Dias = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const ha15Dias = new Date(hoje.getTime() - 15 * 24 * 60 * 60 * 1000);
+  
+  // Buscar clientes sem interação há mais de 7 dias
+  const clientesRecentes = await db.select({
+    clientId: interactions.clientId,
+    ultimaData: sql`MAX(${interactions.date})`.as('ultimaData'),
+  })
+  .from(interactions)
+  .where(eq(interactions.companyId, companyId))
+  .groupBy(interactions.clientId);
+  
+  const clientesRecentesMap = new Map(clientesRecentes.map((c: any) => [c.clientId, new Date(c.ultimaData)]));
+  
+  // Buscar todos os clientes da empresa
+  let clientesQuery = db.select().from(clients).where(eq(clients.companyId, companyId));
+  if (userId) {
+    clientesQuery = clientesQuery.where(eq(clients.assignedTo, userId));
+  }
+  const todosClientes = await clientesQuery;
+  
+  const alertas = [];
+  
+  for (const cliente of todosClientes) {
+    const ultimaInteracao = clientesRecentesMap.get(cliente.id);
+    
+    if (!ultimaInteracao || ultimaInteracao < ha7Dias) {
+      const diasSemContato = ultimaInteracao 
+        ? Math.floor((hoje.getTime() - ultimaInteracao.getTime()) / (24 * 60 * 60 * 1000))
+        : 999;
+      
+      alertas.push({
+        tipo: 'followup',
+        clienteId: cliente.id,
+        clienteNome: cliente.farmName || cliente.producerName,
+        diasSemContato,
+        urgencia: diasSemContato > 15 ? 'alta' : diasSemContato > 7 ? 'media' : 'baixa',
+        ultimaInteracao: ultimaInteracao?.toISOString() || null,
+      });
+    }
+  }
+  
+  // Buscar orçamentos enviados há mais de 5 dias sem resposta
+  const orcamentosPendentes = await db.select()
+    .from(orcamentosSimples)
+    .where(
+      and(
+        eq(orcamentosSimples.companyId, companyId),
+        eq(orcamentosSimples.status, 'enviado'),
+        lte(orcamentosSimples.criadoEm, new Date(hoje.getTime() - 5 * 24 * 60 * 60 * 1000))
+      )
+    );
+  
+  for (const orc of orcamentosPendentes) {
+    const diasEnviado = Math.floor((hoje.getTime() - new Date(orc.criadoEm).getTime()) / (24 * 60 * 60 * 1000));
+    alertas.push({
+      tipo: 'orcamento',
+      orcamentoId: orc.id,
+      clienteNome: orc.clienteNome,
+      diasSemResposta: diasEnviado,
+      urgencia: diasEnviado > 10 ? 'alta' : 'media',
+      valor: orc.total,
+    });
+  }
+  
+  // Buscar oportunidades paradas em negociação há mais de 10 dias
+  const oportunidadesParadas = await db.select()
+    .from(opportunities)
+    .where(
+      and(
+        eq(opportunities.companyId, companyId),
+        eq(opportunities.stage, 'negociacao'),
+        lte(opportunities.updatedAt, new Date(hoje.getTime() - 10 * 24 * 60 * 60 * 1000))
+      )
+    );
+  
+  for (const opp of oportunidadesParadas) {
+    const diasParado = Math.floor((hoje.getTime() - new Date(opp.updatedAt).getTime()) / (24 * 60 * 60 * 1000));
+    alertas.push({
+      tipo: 'oportunidade',
+      oportunidadeId: opp.id,
+      titulo: opp.title,
+      clienteId: opp.clientId,
+      diasParado,
+      urgencia: diasParado > 20 ? 'alta' : 'media',
+      valor: opp.value,
+    });
+  }
+  
+  return alertas.sort((a: any, b: any) => {
+    const urgenciaOrder = { alta: 0, media: 1, baixa: 2 };
+    return urgenciaOrder[a.urgencia as keyof typeof urgenciaOrder] - urgenciaOrder[b.urgencia as keyof typeof urgenciaOrder];
+  });
+}
+

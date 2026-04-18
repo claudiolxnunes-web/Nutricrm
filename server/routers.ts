@@ -569,6 +569,12 @@ export const appRouter = router({
           input.toDate ? new Date(input.toDate) : undefined
         );
       }),
+
+    followUpAlerts: protectedProcedure
+      .query(async ({ ctx }) => {
+        const db = await import("./db");
+        return db.getFollowUpAlerts(ctx.user.companyId, ctx.user.id);
+      }),
   }),
 
   // ========== SALES ==========
