@@ -9,7 +9,7 @@ import {
   MapPin, Clock, Users, Target, TrendingUp, CheckCircle, 
   Phone, Navigation, Calendar, DollarSign, AlertCircle,
   Play, Square, Camera, Mic, Send, RefreshCw, UserPlus, Trash2, 
-  Building2, MapPinned
+  Building2, MapPinned, User
 } from "lucide-react";
 import { formatDateBR, formatCurrencyBR } from "@/lib/dateUtils";
 
@@ -65,6 +65,8 @@ export default function VendedorApp() {
   const [selectedRc, setSelectedRc] = useState<any>(null);
   const [newRcData, setNewRcData] = useState({
     nome: "",
+    cnpj: "",
+    core: "",
     telefone: "",
     endereco: "",
     cidade: "",
@@ -237,7 +239,7 @@ export default function VendedorApp() {
     };
 
     setRcs(prev => [novoRc, ...prev]);
-    setNewRcData({ nome: "", telefone: "", endereco: "", cidade: "", observacao: "" });
+    setNewRcData({ nome: "", cnpj: "", core: "", telefone: "", endereco: "", cidade: "", observacao: "" });
     setShowNewRcDialog(false);
     toast.success("RC adicionado com sucesso!");
   }
@@ -465,6 +467,9 @@ export default function VendedorApp() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-semibold">{rc.nome}</p>
+                  {rc.core && (
+                    <p className="text-xs text-slate-500">Resp.: {rc.core}</p>
+                  )}
                   <p className="text-sm text-slate-500 flex items-center gap-1">
                     <Phone className="w-3 h-3" /> {rc.telefone}
                   </p>
@@ -564,6 +569,27 @@ export default function VendedorApp() {
                 className="mt-1"
               />
             </div>
+            
+            <div>
+              <label className="text-sm font-medium">CNPJ</label>
+              <Input
+                value={newRcData.cnpj}
+                onChange={(e) => setNewRcData({ ...newRcData, cnpj: e.target.value })}
+                placeholder="00.000.000/0000-00"
+                className="mt-1"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Core (Responsável)</label>
+              <Input
+                value={newRcData.core}
+                onChange={(e) => setNewRcData({ ...newRcData, core: e.target.value })}
+                placeholder="Nome do responsável/contato"
+                className="mt-1"
+              />
+            </div>
+            
             <div>
               <label className="text-sm font-medium">Telefone *</label>
               <Input
@@ -624,6 +650,20 @@ export default function VendedorApp() {
                 <Phone className="w-4 h-4 text-slate-400" />
                 <span>{selectedRc.telefone}</span>
               </div>
+              
+              {selectedRc.cnpj && (
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm">CNPJ: {selectedRc.cnpj}</span>
+                </div>
+              )}
+              
+              {selectedRc.core && (
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm">Core/Resp.: {selectedRc.core}</span>
+                </div>
+              )}
               
               {selectedRc.endereco && (
                 <div className="flex items-center gap-2">
