@@ -47,6 +47,8 @@ import {
   Bell,
   AlertCircle,
   Phone,
+  Menu,
+  X,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -253,6 +255,7 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { loading, user } = useAuth();
   const isTablet = useIsTablet();
 
@@ -300,7 +303,11 @@ export default function DashboardLayout({
         } as CSSProperties
       }
     >
-      <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>
+      <DashboardLayoutContent 
+        setSidebarWidth={setSidebarWidth}
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+      >
         {children}
       </DashboardLayoutContent>
     </SidebarProvider>
@@ -310,11 +317,15 @@ export default function DashboardLayout({
 type DashboardLayoutContentProps = {
   children: React.ReactNode;
   setSidebarWidth: (width: number) => void;
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
 };
 
 function DashboardLayoutContent({
   children,
   setSidebarWidth,
+  mobileMenuOpen,
+  setMobileMenuOpen,
 }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
@@ -358,7 +369,7 @@ function DashboardLayoutContent({
 
   return (
     <>
-      {/* Sidebar — oculta em mobile (< 640px) */}
+      {/* Sidebar Desktop */}
       <div className="relative max-sm:hidden" ref={sidebarRef}>
         <Sidebar
           collapsible="icon"
@@ -473,6 +484,67 @@ function DashboardLayoutContent({
         />
       </div>
 
+      {/* Sidebar Mobile */}
+      <div
+        className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform duration-200 ease-in-out`}
+      >
+        <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-black text-xs">NC</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm">NutriCRM</p>
+              <p className="text-xs text-slate-400">Nutricao Animal</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="p-2 hover:bg-slate-800 rounded-lg"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <nav className="p-4">
+          <ul className="space-y-2">
+            {menuItems.filter((item) => {
+              if (item.path === "/superadmin") {
+                return user?.role === "superadmin" || user?.email === "claudiolx.nunes@gmail.com";
+              }
+              return true;
+            }).map((item) => {
+              const isActive = location === item.path;
+              return (
+                <li key={item.path}>
+                  <button
+                    onClick={() => {
+                      setLocation(item.path);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </div>
+
+      {/* Overlay para mobile */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       <SidebarInset className="bg-background">
         {/* Topbar desktop/tablet */}
         <div className="flex border-b border-border/60 h-14 items-center justify-between bg-white/80 px-4 sm:px-6 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
@@ -481,6 +553,15 @@ function DashboardLayoutContent({
             <span className="max-sm:hidden">
               <SidebarTrigger className="h-9 w-9 rounded-lg" />
             </span>
+            {/* Botão hamburguer mobile */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden mr-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
             {/* Logo — mobile */}
             <div className="sm:hidden flex items-center gap-2">
               <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center">
