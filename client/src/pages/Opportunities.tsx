@@ -409,63 +409,36 @@ export default function Opportunities() {
             <DialogTitle>{editingId ? "Editar Oportunidade" : "Nova Oportunidade"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            <div>
+           <div>
               <label className="text-sm font-medium">Cliente *</label>
-              {formData.clientId > 0 && !editingId ? (
-                <div className="flex items-center gap-2 mt-1 p-2 border border-green-300 rounded-md bg-green-50">
-                  <span className="flex-1 text-sm font-medium text-green-800">{clientSearch}</span>
-                  <button type="button" className="text-xs text-slate-500 hover:text-red-500 underline" onClick={() => { setClientSearch(""); setFormData({ ...formData, clientId: 0 }); }}>Trocar</button>
-                </div>
-              ) : (
-                <div className="mt-1 space-y-1">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={clientSearch}
-                      onChange={(e) => setClientSearch(e.target.value)}
-                      placeholder="Digite o nome da fazenda ou produtor..."
-                      className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      readOnly={!!editingId}
-                      autoComplete="off"
-                    />
-                  </div>
-                  {!editingId && (
-                    <div className="border border-slate-200 rounded-md bg-white max-h-48 overflow-y-auto">
-                      {clientsLoading ? (
-                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400 text-sm">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                          Carregando clientes...
-                        </div>
-                      ) : (() => {
-                        const q = clientSearch.trim().toLowerCase();
-                        const filtered = (clients ?? []).filter((c: any) =>
-                          !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q)
-                        ).slice(0, 30);
-                        if (filtered.length === 0) return (
-                          <p className="px-3 py-4 text-sm text-slate-400 text-center">
-                            {q ? `Nenhum cliente encontrado para "${q}"` : "Nenhum cliente cadastrado"}
-                          </p>
-                        );
-                        return filtered.map((c: any) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setFormData({ ...formData, clientId: c.id });
-                              setClientSearch(c.farmName || c.producerName || "");
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 active:bg-blue-100 flex justify-between items-center border-b border-slate-100 last:border-0"
-                          >
-                            <span className="font-medium text-slate-800">{c.farmName || c.producerName}</span>
-                            {c.farmName && c.producerName && <span className="text-slate-400 text-xs ml-2 truncate max-w-[120px]">{c.producerName}</span>}
-                          </button>
-                        ));
-                      })()}
-                    </div>
-                  )}
-                </div>
+              <select 
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.clientId || ""}
+                onChange={(e) => {
+                  const clientId = Number(e.target.value);
+                  const c = clients.find((x: any) => x.id === clientId);
+                  if (c) {
+                    setFormData({ ...formData, clientId: c.id });
+                    setClientSearch(c.farmName || c.producerName || "");
+                  }
+                }}
+                disabled={!!editingId}
+              >
+                <option value="">Selecione o cliente...</option>
+                {clientsLoading ? (
+                  <option disabled>Carregando clientes...</option>
+                ) : (
+                  clients.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.farmName || c.producerName} {c.producerName && c.farmName ? `- ${c.producerName}` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+              {formData.clientId > 0 && (
+                <p className="mt-1 text-sm text-green-600">
+                  Cliente selecionado: {clientSearch}
+                </p>
               )}
             </div>
             <div>
@@ -533,40 +506,103 @@ export default function Opportunities() {
                 <p className="text-sm text-slate-600">Valor: {fmt(selectedQuote.totalValue)}</p>
               </div>
             )}
-            <div>
-              <label className="text-sm font-medium">Email do Destinatario *</label>
-              <Input type="email" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="cliente@email.com" className="mt-1" />
+             <div>
+              <label className="text-sm font-medium">Cliente *</label>
+              {formData.clientId > 0 && !editingId ? (
+                <div className="flex items-center gap-2 mt-1 p-2 border border-green-300 rounded-md bg-green-50">
+                  <span className="flex-1 text-sm font-medium text-green-800">{clientSearch}</span>
+                  <button type="button" className="text-xs text-slate-500 hover:text-red-500 underline" onClick={() => { setClientSearch(""); setFormData({ ...formData, clientId: 0 }); }}>Trocar</button>
+                </div>
+              ) : (
+                <div className="mt-1 space-y-1">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      placeholder="Digite o nome da fazenda ou produtor..."
+                      className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      readOnly={!!editingId}
+                      autoComplete="off"
+                    />
+                  </div>
+                  {!editingId && (
+                    <div className="border border-slate-200 rounded-md bg-white max-h-48 overflow-y-auto">
+                      {clientsLoading ? (
+                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400 text-sm">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                          Carregando clientes...
+                        </div>
+                      ) : (() => {
+                        const q = clientSearch.trim().toLowerCase();
+                        const filtered = (clients ?? []).filter((c: any) =>
+                          !q || (c.farmName ?? "").toLowerCase().includes(q) || (c.producerName ?? "").toLowerCase().includes(q)
+                        ).slice(0, 30);
+                        if (filtered.length === 0) return (
+                          <p className="px-3 py-4 text-sm text-slate-400 text-center">
+                            {q ? `Nenhum cliente encontrado para "${q}"` : "Nenhum cliente cadastrado"}
+                          </p>
+                        );
+                        return filtered.map((c: any) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setFormData({ ...formData, clientId: c.id });
+                              setClientSearch(c.farmName || c.producerName || "");
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 active:bg-blue-100 flex justify-between items-center border-b border-slate-100 last:border-0"
+                          >
+                            <span className="font-medium text-slate-800">{c.farmName || c.producerName}</span>
+                            {c.farmName && c.producerName && <span className="text-slate-400 text-xs ml-2 truncate max-w-[120px]">{c.producerName}</span>}
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+'@
+
+$newClientSection = @'
             <div>
-              <label className="text-sm font-medium">Mensagem Personalizada (opcional)</label>
-              <textarea value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} placeholder="Digite uma mensagem para o cliente..." className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm mt-1" rows={3} />
+              <label className="text-sm font-medium">Cliente *</label>
+              <select 
+                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.clientId || ""}
+                onChange={(e) => {
+                  const clientId = Number(e.target.value);
+                  const c = clients.find((x: any) => x.id === clientId);
+                  if (c) {
+                    setFormData({ ...formData, clientId: c.id });
+                    setClientSearch(c.farmName || c.producerName || "");
+                  }
+                }}
+                disabled={!!editingId}
+              >
+                <option value="">Selecione o cliente...</option>
+                {clientsLoading ? (
+                  <option disabled>Carregando clientes...</option>
+                ) : (
+                  clients.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.farmName || c.producerName} {c.producerName && c.farmName ? `- ${c.producerName}` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+              {formData.clientId > 0 && (
+                <p className="mt-1 text-sm text-green-600">
+                  Cliente selecionado: {clientSearch}
+                </p>
+              )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowSendQuoteDialog(false)}>Cancelar</Button>
-              <Button onClick={handleSendQuote} disabled={sendEmailMutation.isPending || !emailTo}>
-                {sendEmailMutation.isPending ? "Enviando..." : "Enviar Email"}
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
+'@
 
-      {/* Dialog: excluir */}
-      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir oportunidade?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acao nao pode ser desfeita.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate({ id: deleteId })} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
+$content = $content -replace [regex]::Escape($oldClientSection), $newClientSection
 
-
-
+$content | Set-Content client/src/pages/Opportunities.tsx -Encoding UTF8
+Write-Host "Atualizado para select dropdown"
