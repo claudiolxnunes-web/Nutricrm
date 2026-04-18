@@ -2,14 +2,17 @@ import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from "recharts";
 import { 
-  Calendar, DollarSign, TrendingUp, MapPin, 
-  FileText, AlertCircle, CheckCircle
+  Users, Calendar, DollarSign, TrendingUp, Phone, MapPin, 
+  FileText, AlertCircle, CheckCircle, Clock, Activity, Eye, User
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -22,6 +25,8 @@ export default function ManagerDashboard() {
     toDate: format(new Date(), "yyyy-MM-dd"),
   });
   const [activeTab, setActiveTab] = useState("resumo");
+  const [selectedVendedor, setSelectedVendedor] = useState<any>(null);
+  const [showVendedorDetail, setShowVendedorDetail] = useState(false);
 
   const { data: stats, isLoading } = trpc.interactions.managerStats.useQuery({
     fromDate: dateRange.fromDate,
@@ -30,6 +35,8 @@ export default function ManagerDashboard() {
 
   const { data: allClients } = trpc.clients.list.useQuery({ limit: 2000 });
   const clientsList = (allClients as any)?.data ?? (allClients as any) ?? [];
+
+  const { data: allInteractions } = trpc.interactions?.all?.useQuery({}) || { data: [] };
 
   // Calcular métricas por vendedor
   const vendedorStats = useMemo(() => {
@@ -122,6 +129,26 @@ export default function ManagerDashboard() {
     { name: "Perdidas", value: vendedorStats.reduce((s, v) => s + v.visitasPerdidas, 0) },
     { name: "Pendentes", value: vendedorStats.reduce((s, v) => s + v.visitas - v.visitasConcluidas - v.visitasPerdidas, 0) },
   ];
+
+  function formatDateBR(dateStr: string) {
+    try {
+      return format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function openVendedorDetail(vendedor: any) {
+    setSelectedVendedor(vendedor);
+    setShowVendedorDetail(true);
+  }
+
+  function getVendedorActivities(vendedorId: number) {
+    return (allInteractions as any[] || [])
+      .filter((i: any) => i.createdBy === vendedorId)
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 50);
+  }
 
   if (isLoading) {
     return (
@@ -229,6 +256,7 @@ export default function ManagerDashboard() {
                       <th className="p-3 text-center">Orçamentos</th>
                       <th className="p-3 text-right">Valor Total</th>
                       <th className="p-3 text-center">Taxa Sucesso</th>
+                      <th className="p-3 text-center">Detalhes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -256,6 +284,16 @@ export default function ManagerDashboard() {
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
+                        </td>
+                        <td className="p-3 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openVendedorDetail(v)}
+                            title="Ver atividades"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -395,6 +433,119 @@ export default function ManagerDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Detalhes do Vendedor */}
+      <Dialog open={showVendedorDetail} onOpenChange={setShowVendedorDetail}>
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Atividades: {selectedVendedor?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedVendedor && (
+            <div className="space-y-4">
+              {/* Resumo do Vendedor */}
+              <div className="grid grid-cols-4 gap-3">
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <Phone className="w-5 h-5 mx-auto mb-1 text-blue-500" />
+                    <p className="text-xl font-bold">{selectedVendedor.totalInteractions}</p>
+                    <p className="text-xs text-slate-500">Interações</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <MapPin className="w-5 h-5 mx-auto mb-1 text-green-500" />
+                    <p className="text-xl font-bold">{selectedVendedor.visitas}</p>
+                    <p className="text-xs text-slate-500">Visitas</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <TrendingUp className="w-5 h-5 mx-auto mb-1 text-orange-500" />
+                    <p className="text-xl font-bold">{selectedVendedor.oportunidades}</p>
+                    <p className="text-xs text-slate-500">Oportunidades</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <DollarSign className="w-5 h-5 mx-auto mb-1 text-emerald-500" />
+                    <p className="text-xl font-bold">
+                      R$ {selectedVendedor.valorOrcamentos.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                    <p className="text-xs text-slate-500">Valor</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Lista de Atividades */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    Histórico de Atividades
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-[400px] overflow-y-auto">
+                  {getVendedorActivities(selectedVendedor.id).length === 0 ? (
+                    <p className="text-center text-slate-500 py-4">Nenhuma atividade registrada</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {getVendedorActivities(selectedVendedor.id).map((activity: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                          <div className={`w-2 h-2 rounded-full mt-2 ${
+                            activity.type === "visita" ? "bg-green-500" :
+                            activity.type === "ligacao" ? "bg-blue-500" :
+                            activity.type === "reuniao" ? "bg-purple-500" :
+                            "bg-slate-400"
+                          }`} />
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="font-medium capitalize">{activity.type}</span>
+                                <span className="text-slate-400 mx-2">•</span>
+                                <span className="text-slate-600">{activity.title}</span>
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                {formatDateBR(activity.date)}
+                              </span>
+                            </div>                            
+                            {activity.description && (
+                              <p className="text-sm text-slate-600 mt-1">{activity.description}</p>
+                            )}                            
+                            <div className="flex gap-2 mt-2">
+                              {activity.visitResult && (
+                                <Badge className={
+                                  activity.visitResult === "sucesso" ? "bg-green-100 text-green-700" :
+                                  activity.visitResult === "perdido" ? "bg-red-100 text-red-700" :
+                                  "bg-slate-100 text-slate-700"
+                                }>
+                                  {activity.visitResult}
+                                </Badge>
+                              )}                              
+                              {activity.clientName && (
+                                <span className="text-xs text-slate-500">
+                                  Cliente: {activity.clientName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button onClick={() => setShowVendedorDetail(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
