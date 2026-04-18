@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter } from "lucide-react";
+import { Send, Eye, Pencil, Trash2, CheckCircle, XCircle, FileText, RotateCcw, Filter, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type Produto = { nome: string; quantidade: number; unidade: string; preco: number; total: number };
@@ -105,6 +105,14 @@ export default function Quotes() {
     setClienteEmail(orcamento.clienteEmail || "");
     setProdutos(orcamento.produtos || [{ nome: "", quantidade: 1, unidade: "KG", preco: 0, total: 0 }]);
     setMostrarForm(true);
+  }
+  function duplicarOrcamento(orcamento: any) {
+    setEditingId(null);
+    setClienteNome(orcamento.clienteNome + " (Cópia)");
+    setClienteEmail(orcamento.clienteEmail || "");
+    setProdutos(orcamento.produtos?.map((p: any) => ({ ...p })) || [{ nome: "", quantidade: 1, unidade: "KG", preco: 0, total: 0 }]);
+    setMostrarForm(true);
+    toast.info("Orçamento duplicado! Revise e salve.");
   }
   function openDeleteDialog(orcamento: any) {
     setSelectedOrcamento(orcamento);
@@ -342,6 +350,14 @@ export default function Quotes() {
                               title={o.clienteEmail ? "Enviar por email" : "Sem email"}
                             >
                               <Send className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => duplicarOrcamento(o)}
+                              title="Duplicar Orçamento"
+                            >
+                              <Copy className="w-4 h-4" />
                             </Button>
                             <Button 
                               variant="ghost" 
