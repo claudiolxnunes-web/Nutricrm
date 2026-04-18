@@ -581,7 +581,7 @@ export default function VendedorApp() {
             </div>
             
             <div>
-              <label className="text-sm font-medium">Core (Responsável)</label>
+              <label className="text-sm font-medium">Core (Conselho Regional de Representantes Comerciais)</label>
               <Input
                 value={newRcData.core}
                 onChange={(e) => setNewRcData({ ...newRcData, core: e.target.value })}
