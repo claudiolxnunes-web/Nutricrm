@@ -47,14 +47,14 @@ export default function Quotes() {
   });
 
   const sendEmailMutation = trpc.orcamentosSimples?.sendEmail?.useMutation({
-    onSuccess: (data) => { 
-      toast.success(`Email enviado para ${data.sentTo}!`); 
+    onSuccess: (data: any) => { 
+      toast.success(`Email enviado para ${data?.sentTo || "cliente"}!`); 
       setShowSendDialog(false);
       setEmailTo("");
       setCustomMessage("");
       refetch?.();
     },
-    onError: (err: any) => toast.error("Erro ao enviar: " + err.message),
+    onError: (err: any) => toast.error("Erro ao enviar: " + (err?.message || "Erro desconhecido")),
   });
 
   const listaClientes = (clientes as any)?.data || clientes || [];
