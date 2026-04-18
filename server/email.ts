@@ -148,3 +148,89 @@ export async function enviarOrcamentoPorEmail(params: {
 
   return { sent: true, id: data?.id };
 }
+
+export async function enviarOrcamentoSimplesPorEmail(params: {
+  to: string;
+  fromName: string;
+  orcamento: any;
+  customMessage?: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping orcamento email");
+    return { skipped: true };
+  }
+
+  const { to, fromName, orcamento, customMessage } = params;
+  const subject = `Orçamento NutriCRM — ${orcamento.clienteNome}`;
+  const domainFrom = process.env.RESEND_DOMAIN || "onboarding@resend.dev";
+
+  const produtosHtml = (orcamento.produtos || []).map((prod: any) => `
+    <tr>
+      <td style="padding:10px;border-bottom:1px solid #eee;">${prod.nome || "-"}</td>
+      <td style="padding:10px;text-align:center;border-bottom:1px solid #eee;">${prod.quantidade} ${prod.unidade || "KG"}</td>
+      <td style="padding:10px;text-align:right;border-bottom:1px solid #eee;">R$ ${Number(prod.preco || 0).toFixed(2)}</td>
+      <td style="padding:10px;text-align:right;border-bottom:1px solid #eee;">R$ ${Number(prod.total || 0).toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#333;">
+      <div style="background:#2563eb;color:white;padding:24px 28px;border-radius:8px 8px 0 0;">
+        <h2 style="margin:0;font-size:22px;">Orçamento NutriCRM</h2>
+        <p style="margin:6px 0 0;opacity:0.85;font-size:14px;">Sistema de Gestão Comercial</p>
+      </div>
+
+      <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <p>Prezado(a) <strong>${orcamento.clienteNome}</strong>,</p>
+
+        ${customMessage ? `
+        <div style="background:#eff6ff;border-left:4px solid #2563eb;padding:14px 18px;border-radius:4px;margin:16px 0;">
+          <p style="margin:0;font-style:italic;color:#1e40af;">"${customMessage}"</p>
+          <p style="margin:8px 0 0;font-size:13px;color:#3b82f6;">— ${fromName}</p>
+        </div>` : ""}
+
+        <p>Segue o orçamento solicitado.</p>
+
+        <h3 style="color:#2563eb;margin-top:24px;">Itens do Orçamento</h3>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd;">Produto</th>
+              <th style="padding:10px;text-align:center;border-bottom:2px solid #ddd;">Qtd</th>
+              <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Unit.</th>
+              <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${produtosHtml}
+          </tbody>
+        </table>
+
+        <div style="background:#f9fafb;padding:18px 20px;border-radius:6px;margin-top:20px;">
+          <p style="margin:0;font-size:14px;color:#6b7280;">Valor Total</p>
+          <p style="margin:6px 0 0;font-size:26px;font-weight:bold;color:#111;">R$ ${Number(orcamento.total || 0).toFixed(2)}</p>
+        </div>
+
+        <p style="margin-top:24px;font-size:13px;color:#9ca3af;">Este orçamento é válido por 15 dias.</p>
+      </div>
+
+      <div style="padding:20px 28px;text-align:center;font-size:12px;color:#9ca3af;">
+        <p>Enviado por ${fromName} via NutriCRM</p>
+      </div>
+    </div>
+  `;
+
+  const { data, error } = await resend.emails.send({
+    from: `NutriCRM <${domainFrom}>`,
+    to: [to],
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send orcamento:", error);
+    throw new Error("Falha ao enviar orçamento por email");
+  }
+
+  return { sent: true, id: data?.id };
+}

@@ -46,6 +46,17 @@ export default function Quotes() {
     onError: () => toast.error("Erro ao atualizar status"),
   });
 
+  const sendEmailMutation = trpc.orcamentosSimples?.sendEmail?.useMutation({
+    onSuccess: (data) => { 
+      toast.success(`Email enviado para ${data.sentTo}!`); 
+      setShowSendDialog(false);
+      setEmailTo("");
+      setCustomMessage("");
+      refetch?.();
+    },
+    onError: (err: any) => toast.error("Erro ao enviar: " + err.message),
+  });
+
   const listaClientes = (clientes as any)?.data || clientes || [];
   const listaProdutos = (produtosDb as any)?.data || produtosDb || [];
 
@@ -252,12 +263,15 @@ export default function Quotes() {
   }
 
   function handleSendEmail() {
-    if (!selectedOrcamento || !emailTo) { toast.error("Informe o email"); return; }
-    const subject = encodeURIComponent(`Orçamento NutriCRM - ${selectedOrcamento.clienteNome}`);
-    const body = encodeURIComponent(`Prezado(a) ${selectedOrcamento.clienteNome},\n\nSegue orçamento:\n\n${selectedOrcamento.produtos?.map((p: any) => `- ${p.nome}: ${p.quantidade} ${p.unidade} x R$ ${Number(p.preco).toFixed(2)} = R$ ${Number(p.total).toFixed(2)}`).join("\n")}\n\nTOTAL: R$ ${Number(selectedOrcamento.total).toFixed(2)}\n\n${customMessage || ""}\n\nAtenciosamente,\nNutriCRM`);
-    window.open(`mailto:${emailTo}?subject=${subject}&body=${body}`);
-    toast.success("Email aberto! Envie o orçamento.");
-    setShowSendDialog(false);
+    if (!selectedOrcamento || !emailTo) { 
+      toast.error("Informe o email do destinatário"); 
+      return; 
+    }
+    sendEmailMutation.mutate({
+      id: selectedOrcamento.id,
+      toEmail: emailTo,
+      customMessage: customMessage || undefined,
+    });
   }
 
   return (
@@ -571,7 +585,13 @@ export default function Quotes() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowSendDialog(false)}>Cancelar</Button>
-              <Button onClick={handleSendEmail} disabled={!emailTo}><Send className="w-3 h-3 mr-1" /> Abrir Email</Button>
+              <Button onClick={handleSendEmail} disabled={!emailTo || sendEmailMutation.isPending}>
+                {sendEmailMutation.isPending ? (
+                  <>Enviando...</>
+                ) : (
+                  <><Send className="w-3 h-3 mr-1" /> Enviar Email</>
+                )}
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>

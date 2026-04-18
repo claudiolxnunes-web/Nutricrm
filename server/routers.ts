@@ -838,6 +838,36 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         return deleteOrcamentoSimples(input.id);
       }),
+    sendEmail: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        toEmail: z.string().email(),
+        customMessage: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const { enviarOrcamentoSimplesPorEmail } = await import("./email");
+        
+        // Buscar o orçamento
+        const db = await import("./db");
+        const orcamentos = await db.getOrcamentosSimples(ctx.user.companyId);
+        const orcamento = orcamentos.find((o: any) => o.id === input.id);
+        
+        if (!orcamento) throw new TRPCError({ code: "NOT_FOUND", message: "Orçamento não encontrado" });
+        
+        await enviarOrcamentoSimplesPorEmail({
+          to: input.toEmail,
+          fromName: (ctx.user as any).name || "NutriCRM",
+          orcamento,
+          customMessage: input.customMessage,
+        });
+        
+        // Atualizar status para enviado se estiver em rascunho
+        if (orcamento.status === "rascunho") {
+          await db.updateOrcamentoSimples(input.id, { status: "enviado" });
+        }
+        
+        return { success: true, sentTo: input.toEmail };
+      }),
   }),
 
 });
