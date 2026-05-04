@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, paymentProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, paymentProcedure, router, adminOrSuperadminProcedure, gerenteOrAboveProcedure, superadminProcedure } from "./_core/trpc";
 import { createCheckoutSession, PLANS } from "./stripe";
 import {
   createClient,
@@ -63,6 +63,10 @@ import {
   getManagerStats,
   getUsersByCompany,
   updateUser,
+  savePushSubscription,
+  deletePushSubscription,
+  getPushSubscriptionsByUser,
+  getUserPushEnabled,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -181,7 +185,7 @@ export const appRouter = router({
 
   // ========== PRODUCTS ==========
   products: router({
-    create: protectedProcedure
+    create: adminOrSuperadminProcedure
       .input(
         z.object({
           name: z.string().min(1),
@@ -224,7 +228,7 @@ export const appRouter = router({
         return getProductById(input.id);
       }),
 
-    update: protectedProcedure
+    update: adminOrSuperadminProcedure
       .input(
         z.object({
           id: z.number(),
@@ -249,13 +253,13 @@ export const appRouter = router({
         return updateProduct(id, data as any);
       }),
 
-    delete: protectedProcedure
+    delete: adminOrSuperadminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         return deleteProduct(input.id);
       }),
 
-    import: protectedProcedure
+    import: adminOrSuperadminProcedure
       .input(z.object({
         rows: z.array(z.object({
           productCode: z.string().optional(),
@@ -294,11 +298,26 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
-        return createOpportunity({
+        const opp = await createOpportunity({
           ...input,
           assignedTo: ctx.user.id,
           companyId: ctx.user.companyId,
         });
+        // Notificar o vendedor atribuído sobre a nova oportunidade
+        try {
+          const { sendPushToUsers } = await import("./pushNotifications");
+          const subs = await getPushSubscriptionsByUser(ctx.user.id);
+          if (subs.length > 0) {
+            sendPushToUsers(subs, {
+              title: "Nova Oportunidade",
+              body: `Oportunidade "${input.title}" foi criada para você.`,
+              url: "/opportunities",
+              type: "nova_oportunidade",
+              tag: `oportunidade-nova`,
+            }).catch(() => {});
+          }
+        } catch (_) {}
+        return opp;
       }),
 
     list: protectedProcedure
@@ -415,8 +434,27 @@ export const appRouter = router({
 
     updateStatus: protectedProcedure
       .input(z.object({ id: z.number(), status: z.enum(["rascunho","enviado","aceito","rejeitado","expirado"]) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         await updateQuoteStatus(input.id, input.status);
+        // Notificar o criador do orçamento quando ele for aceito
+        if (input.status === "aceito") {
+          try {
+            const quote = await getQuoteById(input.id);
+            if (quote) {
+              const { sendPushToUsers } = await import("./pushNotifications");
+              const subs = await getPushSubscriptionsByUser((quote as any).createdBy);
+              if (subs.length > 0) {
+                sendPushToUsers(subs, {
+                  title: "Orcamento Aprovado!",
+                  body: `O orcamento ${(quote as any).quoteNumber} foi aceito pelo cliente.`,
+                  url: "/quotes",
+                  type: "orcamento_aprovado",
+                  tag: `orcamento-${input.id}`,
+                }).catch(() => {});
+              }
+            }
+          } catch (_) {}
+        }
         return { success: true };
       }),
 
@@ -638,8 +676,7 @@ export const appRouter = router({
 
   // ========== USERS ==========
   users: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+    list: adminOrSuperadminProcedure.query(async ({ ctx }) => {
       const companyFilter = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;
       const userList = await listUsers(companyFilter);
       const counts = await getClientCountByUser();
@@ -649,7 +686,7 @@ export const appRouter = router({
     listByCompany: protectedProcedure.query(async ({ ctx }) => {
       return getUsersByCompany(ctx.user.companyId);
     }),
-    update: protectedProcedure
+    update: adminOrSuperadminProcedure
       .input(z.object({
         id: z.number(),
         name: z.string().optional(),
@@ -657,29 +694,20 @@ export const appRouter = router({
         role: z.enum(["admin", "vendedor", "gerente"]).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "superadmin" && ctx.user.role !== "admin") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão" });
-        }
         return updateUser(input.id, { name: input.name, email: input.email, role: input.role });
       }),
-    updateRole: protectedProcedure
+    updateRole: adminOrSuperadminProcedure
       .input(z.object({ id: z.number(), role: z.enum(["admin", "vendedor"]) }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         if (input.id === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Nao pode alterar seu proprio role" });
         await updateUserRole(input.id, input.role);
         return { success: true };
       }),
-    delete: protectedProcedure
+    delete: adminOrSuperadminProcedure
       .input(z.object({
         id: z.number(),
       }))
       .mutation(async ({ input, ctx }) => {
-        // Verificar permissão
-        if (ctx.user.role !== "superadmin" && ctx.user.role !== "admin") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão" });
-        }
-        
         // Não permitir excluir a si mesmo
         if (ctx.user.id === input.id) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Não pode excluir seu próprio usuário" });
@@ -688,18 +716,16 @@ export const appRouter = router({
         await deleteUser(input.id);
         return { success: true };
       }),
-    activate: protectedProcedure
+    activate: adminOrSuperadminProcedure
       .input(z.object({ id: z.number(), days: z.number().default(30) }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         return activateUser(input.id, input.days);
       }),
-    resetPassword: protectedProcedure
+    resetPassword: adminOrSuperadminProcedure
       .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
-        const cryptoMod = await import("crypto");
-        const passwordHash = cryptoMod.createHash("sha256").update(input.newPassword + "nutricrm-salt").digest("hex");
+        const bcrypt = await import("bcryptjs");
+        const passwordHash = await bcrypt.hash(input.newPassword, 12);
         const { getDb } = await import("./db");
         const { users } = await import("../drizzle/schema");
         const { eq } = await import("drizzle-orm");
@@ -708,7 +734,7 @@ export const appRouter = router({
         await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, input.userId));
         return { success: true };
       }),
-    create: protectedProcedure
+    create: adminOrSuperadminProcedure
       .input(z.object({
         name: z.string().min(1),
         email: z.string().email(),
@@ -716,7 +742,6 @@ export const appRouter = router({
         role: z.enum(["admin", "vendedor"]).default("vendedor"),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         if (ctx.user.role !== "superadmin") {
           const { PLAN_LIMITS } = await import("./stripe");
           const plan = await getCompanyPlan(ctx.user.companyId);
@@ -724,8 +749,8 @@ export const appRouter = router({
           const current = await countUsersByCompany(ctx.user.companyId);
           if (current >= limit) throw new TRPCError({ code: "FORBIDDEN", message: `Limite do plano ${plan} atingido (${limit} usuarios). Faca upgrade para adicionar mais representantes.` });
         }
-        const cryptoMod = await import("crypto");
-        const passwordHash = cryptoMod.createHash("sha256").update(input.password + "nutricrm-salt").digest("hex");
+        const bcrypt = await import("bcryptjs");
+        const passwordHash = await bcrypt.hash(input.password, 12);
         const existing = await getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Email ja cadastrado" });
         const user = await createUserWithPassword({ name: input.name, email: input.email, passwordHash, companyId: ctx.user.companyId });
@@ -748,8 +773,7 @@ export const appRouter = router({
 
   // ========== COMPANIES ==========
   companies: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+    list: superadminProcedure.query(async ({ ctx }) => {
       return listCompanies();
     }),
   }),
@@ -781,27 +805,23 @@ export const appRouter = router({
 
   // ========== SUPERADMIN ==========
   superadmin: router({
-    listUsers: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+    listUsers: superadminProcedure.query(async ({ ctx }) => {
       return listAllUsers();
     }),
-    grantAccess: protectedProcedure
+    grantAccess: superadminProcedure
       .input(z.object({ userId: z.number(), days: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         return grantAccess(input.userId, input.days);
       }),
-    revokeAccess: protectedProcedure
+    revokeAccess: superadminProcedure
       .input(z.object({ userId: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         await revokeAccess(input.userId);
         return { success: true };
       }),
-    setUntil: protectedProcedure
+    setUntil: superadminProcedure
       .input(z.object({ userId: z.number(), until: z.string() }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
         await setAccessUntil(input.userId, new Date(input.until));
         return { success: true };
       }),
@@ -926,6 +946,66 @@ export const appRouter = router({
 
       return { success: true, sincronizados: input.visitas.length };
     }),
+
+  // ========== PUSH NOTIFICATIONS ==========
+  push: router({
+    getVapidKey: publicProcedure.query(async () => {
+      const { getVapidPublicKey } = await import("./pushNotifications");
+      return { publicKey: getVapidPublicKey() };
+    }),
+
+    subscribe: protectedProcedure
+      .input(z.object({
+        endpoint: z.string(),
+        p256dh: z.string(),
+        auth: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        return savePushSubscription({
+          userId: ctx.user.id,
+          companyId: ctx.user.companyId,
+          endpoint: input.endpoint,
+          p256dh: input.p256dh,
+          auth: input.auth,
+        });
+      }),
+
+    unsubscribe: protectedProcedure
+      .input(z.object({ endpoint: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        return deletePushSubscription(ctx.user.id, input.endpoint);
+      }),
+
+    getStatus: protectedProcedure.query(async ({ ctx }) => {
+      const enabled = await getUserPushEnabled(ctx.user.id);
+      return { enabled };
+    }),
+
+    // Endpoint para admins enviarem notificações manuais
+    sendToUser: protectedProcedure
+      .input(z.object({
+        userId: z.number(),
+        title: z.string(),
+        body: z.string(),
+        url: z.string().optional(),
+        type: z.enum(["nova_oportunidade", "followup_pendente", "orcamento_aprovado", "geral"]).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Acesso negado" });
+        }
+        const { sendPushToUsers } = await import("./pushNotifications");
+        const subscriptions = await getPushSubscriptionsByUser(input.userId);
+        if (subscriptions.length === 0) return { sent: 0, failed: 0, message: "Usuário sem subscription" };
+        const result = await sendPushToUsers(subscriptions, {
+          title: input.title,
+          body: input.body,
+          url: input.url,
+          type: input.type || "geral",
+        });
+        return result;
+      }),
+  }),
 
 });
 

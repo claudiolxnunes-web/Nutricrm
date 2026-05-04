@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nutricrm-v1';
+const CACHE_NAME = 'nutricrm-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -34,25 +34,21 @@ self.addEventListener('activate', (event) => {
 // Interceptação de requisições
 self.addEventListener('fetch', (event) => {
   // Não cachear requisições da API
-  if (event.request.url.includes('/trpc')) {
+  if (event.request.url.includes('/api/') || event.request.url.includes('/trpc')) {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // Retorna do cache se encontrou
       if (response) {
         return response;
       }
 
-      // Senão, faz a requisição normal
       return fetch(event.request).then((fetchResponse) => {
-        // Não cachear se não for GET
         if (event.request.method !== 'GET') {
           return fetchResponse;
         }
 
-        // Cachear a resposta
         const responseToCache = fetchResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
@@ -64,21 +60,82 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Notificações push (para futuras implementações)
+// ===== PUSH NOTIFICATIONS =====
 self.addEventListener('push', (event) => {
-  const options = {
-    body: event.data?.text() || 'Nova notificação do NutriCRM',
+  let data = {
+    title: 'NutriCRM',
+    body: 'Nova notificação',
     icon: '/icon-192x192.png',
     badge: '/icon-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      url: '/'
+    url: '/',
+    tag: 'nutricrm',
+    type: 'geral'
+  };
+
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      data = { ...data, ...parsed };
+    } catch (e) {
+      data.body = event.data.text();
     }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    vibrate: [100, 50, 100],
+    tag: data.tag,
+    renotify: true,
+    data: {
+      url: data.url,
+      type: data.type,
+    },
+    actions: getActionsForType(data.type),
   };
 
   event.waitUntil(
-    self.registration.showNotification('NutriCRM', options)
+    self.registration.showNotification(data.title, options)
   );
+});
+
+function getActionsForType(type) {
+  switch (type) {
+    case 'nova_oportunidade':
+      return [{ action: 'open', title: 'Ver Oportunidade' }];
+    case 'followup_pendente':
+      return [{ action: 'open', title: 'Ver Follow-up' }];
+    case 'orcamento_aprovado':
+      return [{ action: 'open', title: 'Ver Orcamento' }];
+    default:
+      return [{ action: 'open', title: 'Abrir NutriCRM' }];
+  }
+}
+
+// Clique na notificação
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url || '/';
+
+  if (event.action === 'open' || !event.action) {
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        // Se já tem uma aba aberta, focar nela
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(url);
+            return client.focus();
+          }
+        }
+        // Senão, abrir nova aba
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
+    );
+  }
 });
 
 // Sync em background
@@ -128,7 +185,7 @@ async function syncVendedorDados() {
   const dados = await getDadosPendentes();
   for (const dado of dados) {
     try {
-      await fetch('/trpc/sync', {
+      await fetch('/api/trpc/sync', {
         method: 'POST',
         body: JSON.stringify(dado),
         headers: { 'Content-Type': 'application/json' }

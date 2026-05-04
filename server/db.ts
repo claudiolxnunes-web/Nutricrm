@@ -13,6 +13,7 @@ import {
   sales,
   monthlyGoals,
   companies,
+  pushSubscriptions,
   type Client,
   type Product,
   type Opportunity,
@@ -169,6 +170,12 @@ export async function listUsers(companyId?: number) {
     return query.where(eq(users.companyId, companyId)).orderBy(users.createdAt);
   }
   return query.orderBy(users.createdAt);
+}
+
+export async function updateUserPasswordHash(id: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));
 }
 
 export async function updateUserRole(id: number, role: string) {
@@ -1420,5 +1427,80 @@ export async function getFollowUpAlerts(companyId: number, userId?: number) {
     const urgenciaOrder = { alta: 0, media: 1, baixa: 2 };
     return urgenciaOrder[a.urgencia as keyof typeof urgenciaOrder] - urgenciaOrder[b.urgencia as keyof typeof urgenciaOrder];
   });
+}
+
+// ========== PUSH SUBSCRIPTIONS ==========
+
+export async function savePushSubscription(data: {
+  userId: number;
+  companyId: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .insert(pushSubscriptions)
+    .values({ ...data, enabled: true, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: {
+        userId: data.userId,
+        companyId: data.companyId,
+        p256dh: data.p256dh,
+        auth: data.auth,
+        enabled: true,
+        updatedAt: new Date(),
+      },
+    });
+  return { success: true };
+}
+
+export async function deletePushSubscription(userId: number, endpoint: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .delete(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)));
+  return { success: true };
+}
+
+export async function getPushSubscriptionsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.enabled, true)));
+}
+
+export async function getPushSubscriptionsByCompany(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.companyId, companyId), eq(pushSubscriptions.enabled, true)));
+}
+
+export async function disablePushSubscription(endpoint: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(pushSubscriptions)
+    .set({ enabled: false, updatedAt: new Date() })
+    .where(eq(pushSubscriptions.endpoint, endpoint));
+}
+
+export async function getUserPushEnabled(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: pushSubscriptions.id })
+    .from(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.enabled, true)))
+    .limit(1);
+  return rows.length > 0;
 }
 

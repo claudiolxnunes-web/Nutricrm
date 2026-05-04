@@ -11,6 +11,9 @@
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
   appUrl: process.env.APP_URL ?? "https://nutricrm.onrender.com",
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? "",
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? "",
+  vapidEmail: process.env.VAPID_EMAIL ?? "mailto:admin@nutricrm.com.br",
 };
 
 

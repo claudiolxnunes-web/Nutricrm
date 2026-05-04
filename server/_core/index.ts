@@ -36,6 +36,70 @@ async function startServer() {
   const server = createServer(app);
 
   // Stripe webhook - MUST be registered before express.json() to receive raw body
+  app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+
+    if (!ENV.stripeWebhookSecret) {
+      console.warn("[Stripe] STRIPE_WEBHOOK_SECRET not configured - rejecting webhook");
+      res.status(400).send("Webhook secret not configured");
+      return;
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, ENV.stripeWebhookSecret);
+    } catch (err: any) {
+      console.error("[Stripe] Webhook signature verification failed:", err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
+    }
+
+    try {
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = parseInt(session.metadata?.userId || "0");
+        const days = parseInt(session.metadata?.days || "30");
+        if (userId) {
+          await activateUser(userId, days);
+          console.log(`[Stripe] checkout.session.completed: activated user ${userId} for ${days} days`);
+        }
+      } else if (event.type === "invoice.paid") {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = (invoice as any).subscription as string | null;
+        const customerId = invoice.customer as string;
+        // Tenta recuperar userId pelo metadata da assinatura ou da sessão de checkout original
+        let userId: number | null = null;
+        let days = 30;
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          userId = parseInt(subscription.metadata?.userId || "0") || null;
+          days = parseInt(subscription.metadata?.days || "30");
+        }
+        if (!userId && customerId) {
+          // Busca via email do cliente Stripe
+          const customer = await stripe.customers.retrieve(customerId);
+          if (customer && !customer.deleted && (customer as Stripe.Customer).email) {
+            const { getUserByEmail } = await import("../db");
+            const user = await getUserByEmail((customer as Stripe.Customer).email!);
+            if (user) userId = user.id;
+          }
+        }
+        if (userId) {
+          await activateUser(userId, days);
+          console.log(`[Stripe] invoice.paid: extended access for user ${userId} by ${days} days`);
+        } else {
+          console.warn(`[Stripe] invoice.paid: could not resolve userId for invoice ${invoice.id}`);
+        }
+      }
+    } catch (handlerErr: any) {
+      console.error(`[Stripe] Error handling event ${event.type}:`, handlerErr.message);
+      // Retornar 200 para evitar reenvios desnecessários do Stripe
+    }
+
+    res.json({ received: true });
+  });
+
+  // Webhook legado mantido por compatibilidade
   app.post("/api/payments/webhook", express.raw({ type: "application/json" }), async (req, res) => {
     const sig = req.headers["stripe-signature"] as string;
 

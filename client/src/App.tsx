@@ -24,6 +24,8 @@ import SuperAdmin from "@/pages/SuperAdmin";
 import ManagerDashboard from "./pages/ManagerDashboard";
 import Representantes from "./pages/Representantes";
 import VendedorApp from "./pages/VendedorApp";
+import NotificationSettings from "./pages/NotificationSettings";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function Router() {
   return (
@@ -54,9 +56,11 @@ function Router() {
       </Route>
       <Route path={"/products"}>
         {() => (
-          <DashboardLayout>
-            <Products />
-          </DashboardLayout>
+          <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
+            <DashboardLayout>
+              <Products />
+            </DashboardLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path={"/quotes"}>
@@ -96,9 +100,11 @@ function Router() {
       </Route>
       <Route path={"/superadmin"}>
         {() => (
-          <DashboardLayout>
-            <SuperAdmin />
-          </DashboardLayout>
+          <ProtectedRoute allowedRoles={["superadmin"]}>
+            <DashboardLayout>
+              <SuperAdmin />
+            </DashboardLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path={"/interactions"}>
@@ -117,22 +123,35 @@ function Router() {
       </Route>
       <Route path={"/users"}>
         {() => (
-          <DashboardLayout>
-            <Users />
-          </DashboardLayout>
+          <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
+            <DashboardLayout>
+              <Users />
+            </DashboardLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path={"/gestor"}>
         {() => (
-          <DashboardLayout>
-            <ManagerDashboard />
-          </DashboardLayout>
+          <ProtectedRoute allowedRoles={["gerente", "admin", "superadmin"]}>
+            <DashboardLayout>
+              <ManagerDashboard />
+            </DashboardLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path={"/representantes"}>
         {() => (
+          <ProtectedRoute allowedRoles={["gerente", "admin", "superadmin"]}>
+            <DashboardLayout>
+              <Representantes />
+            </DashboardLayout>
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path={"/notifications"}>
+        {() => (
           <DashboardLayout>
-            <Representantes />
+            <NotificationSettings />
           </DashboardLayout>
         )}
       </Route>

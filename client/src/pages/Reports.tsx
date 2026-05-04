@@ -4,8 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { FileText, Download } from "lucide-react";
+import { FileText, FileSpreadsheet, Download } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+
+const EMPRESA = "NutriCRM";
+const VERDE = "#2d7a3a";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState({
@@ -60,8 +65,8 @@ export default function Reports() {
     },
   ];
 
+  // ── CSV legado ──────────────────────────────────────────────
   const handleExport = () => {
-    // Simple CSV export
     const headers = ["Data", "Número", "Cliente", "Valor", "Status Pagamento"];
     const rows = sales?.map((sale: any) => [
       new Date(sale.saleDate).toLocaleDateString("pt-BR"),
@@ -70,7 +75,6 @@ export default function Reports() {
       parseFloat(sale.totalValue).toLocaleString("pt-BR"),
       sale.paymentStatus,
     ]) || [];
-
     const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -78,80 +82,272 @@ export default function Reports() {
     a.href = url;
     a.download = `relatorio-vendas-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
-  };
-
-  const exportExcel = () => {
-    if (!sales || sales.length === 0) { toast.error("Nenhuma venda para exportar"); return; }
-    const rows = [
-      ["Data", "Cliente", "Valor (R$)", "Status Pagamento", "Número"],
-      ...(sales as any[]).map((sale: any) => [
-        new Date(sale.saleDate).toLocaleDateString("pt-BR"),
-        clientMap[sale.clientId] || `Cliente #${sale.clientId}`,
-        Number(sale.totalValue).toFixed(2),
-        sale.paymentStatus || "-",
-        sale.saleNumber || "-",
-      ]),
-      [],
-      ["TOTAIS"],
-      ["Total de Vendas", `R$ ${totalSales.toFixed(2)}`],
-      ["Nº Transações", totalTransactions],
-      ["Ticket Médio", `R$ ${averageSale.toFixed(2)}`],
-    ];
-    const csvContent = rows.map(r => r.join("\t")).join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: "application/vnd.ms-excel;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-vendas-${dateRange.startDate}-${dateRange.endDate}.xls`;
-    a.click();
     URL.revokeObjectURL(url);
   };
 
-  const exportPDF = () => {
-    if (!sales || sales.length === 0) { toast.error("Nenhuma venda para exportar"); return; }
-    const linhas = (sales as any[]).map((sale: any) => `
-      <tr>
-        <td>${new Date(sale.saleDate).toLocaleDateString("pt-BR")}</td>
-        <td>${clientMap[sale.clientId] || `#${sale.clientId}`}</td>
-        <td style="text-align:right">R$ ${Number(sale.totalValue).toFixed(2)}</td>
-        <td>${sale.paymentStatus || "-"}</td>
-      </tr>
-    `).join("");
-
-    const html = `
-      <html><head><title>Relatório de Vendas</title>
-      <style>
-        body { font-family: Arial; padding: 20px; color: #333; }
-        h2 { color: #2d7a3a; border-bottom: 2px solid #2d7a3a; padding-bottom: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th { background: #2d7a3a; color: white; padding: 10px; text-align: left; }
-        td { padding: 8px 10px; border-bottom: 1px solid #eee; }
-        tr:nth-child(even) td { background: #f9f9f9; }
-        .totais { margin-top: 24px; background: #f0fdf4; padding: 16px; border-radius: 8px; }
-        .totais p { margin: 4px 0; font-size: 14px; }
-        .totais .valor { font-size: 22px; font-weight: bold; color: #2d7a3a; }
-      </style></head>
-      <body>
-        <h2>📊 Relatório de Vendas — NutriCRM</h2>
-        <p style="color:#666;font-size:13px;">Período: ${dateRange.startDate} a ${dateRange.endDate}</p>
-        <table>
-          <thead><tr><th>Data</th><th>Cliente</th><th>Valor</th><th>Status</th></tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-        <div class="totais">
-          <p>Total de transações: <strong>${totalTransactions}</strong></p>
-          <p>Ticket médio: <strong>R$ ${averageSale.toFixed(2)}</strong></p>
-          <p class="valor">Total: R$ ${totalSales.toFixed(2)}</p>
-        </div>
-      </body></html>
-    `;
-
-    const win = window.open("", "_blank");
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      setTimeout(() => win.print(), 500);
+  // ── Exportar Excel (.xlsx real) ──────────────────────────────
+  const exportExcel = () => {
+    if (!sales || sales.length === 0) {
+      toast.error("Nenhuma venda para exportar");
+      return;
     }
+
+    const wb = XLSX.utils.book_new();
+
+    // ---- Aba de Resumo ----
+    const resumoData = [
+      [EMPRESA + " — Relatório de Vendas"],
+      [`Período: ${dateRange.startDate} a ${dateRange.endDate}`],
+      [`Gerado em: ${new Date().toLocaleString("pt-BR")}`],
+      [],
+      ["Resumo"],
+      ["Total de Vendas (R$)", totalSales],
+      ["Número de Transações", totalTransactions],
+      ["Ticket Médio (R$)", averageSale],
+      [],
+      ["Status de Pagamento", "Quantidade"],
+      ...paymentStatusData.map((p) => [p.name, p.value]),
+    ];
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+    wsResumo["!cols"] = [{ wch: 30 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+    // ---- Aba de Vendas ----
+    const vendasHeader = [
+      "Data",
+      "Número",
+      "Cliente",
+      "Valor (R$)",
+      "Status Pagamento",
+    ];
+    const vendasRows = (sales as any[]).map((sale: any, i: number) => [
+      new Date(sale.saleDate).toLocaleDateString("pt-BR"),
+      sale.saleNumber || `#${i + 1}`,
+      clientMap[sale.clientId] || `Cliente #${sale.clientId}`,
+      Number(sale.totalValue),
+      sale.paymentStatus || "-",
+    ]);
+    const wsVendas = XLSX.utils.aoa_to_sheet([vendasHeader, ...vendasRows]);
+    wsVendas["!cols"] = [
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 30 },
+      { wch: 14 },
+      { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsVendas, "Vendas");
+
+    // ---- Aba de Top Clientes ----
+    const byClient: Record<string, number> = {};
+    (sales as any[]).forEach((s: any) => {
+      const name = clientMap[s.clientId] || `Cliente #${s.clientId}`;
+      byClient[name] = (byClient[name] || 0) + parseFloat(s.totalValue || "0");
+    });
+    const topClients = Object.entries(byClient)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20);
+    const wsClientes = XLSX.utils.aoa_to_sheet([
+      ["Cliente", "Total (R$)"],
+      ...topClients.map(([name, val]) => [name, val]),
+    ]);
+    wsClientes["!cols"] = [{ wch: 35 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsClientes, "Top Clientes");
+
+    XLSX.writeFile(
+      wb,
+      `${EMPRESA}-relatorio-${dateRange.startDate}-${dateRange.endDate}.xlsx`
+    );
+    toast.success("Excel exportado com sucesso!");
+  };
+
+  // ── Exportar PDF (jsPDF) ─────────────────────────────────────
+  const exportPDF = () => {
+    if (!sales || sales.length === 0) {
+      toast.error("Nenhuma venda para exportar");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const marginL = 14;
+    const marginR = pageW - 14;
+    let y = 0;
+
+    // ---- Cabeçalho ----
+    doc.setFillColor(45, 122, 58); // verde
+    doc.rect(0, 0, pageW, 28, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(EMPRESA, marginL, 12);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text("Relatório de Vendas", marginL, 20);
+
+    doc.setFontSize(9);
+    doc.text(
+      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+      marginR,
+      12,
+      { align: "right" }
+    );
+    doc.text(
+      `Período: ${dateRange.startDate} a ${dateRange.endDate}`,
+      marginR,
+      20,
+      { align: "right" }
+    );
+
+    y = 36;
+
+    // ---- KPIs ----
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo do Período", marginL, y);
+    y += 6;
+
+    const kpis = [
+      ["Total de Vendas", `R$ ${totalSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`],
+      ["Número de Transações", String(totalTransactions)],
+      ["Ticket Médio", `R$ ${averageSale.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`],
+    ];
+
+    const kpiW = (pageW - marginL * 2) / 3;
+    kpis.forEach(([label, value], i) => {
+      const x = marginL + i * kpiW;
+      doc.setFillColor(240, 253, 244);
+      doc.roundedRect(x, y, kpiW - 3, 16, 2, 2, "F");
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(label, x + 3, y + 6);
+      doc.setTextColor(45, 122, 58);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(value, x + 3, y + 13);
+    });
+    y += 22;
+
+    // ---- Status de Pagamento ----
+    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Status de Pagamento", marginL, y);
+    y += 5;
+
+    const statusColors: Record<string, [number, number, number]> = {
+      Pago: [34, 197, 94],
+      Parcial: [234, 179, 8],
+      Pendente: [239, 68, 68],
+    };
+    paymentStatusData.forEach((item) => {
+      const [r, g, b] = statusColors[item.name] ?? [150, 150, 150];
+      doc.setFillColor(r, g, b);
+      doc.circle(marginL + 3, y + 1.5, 2, "F");
+      doc.setTextColor(60, 60, 60);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${item.name}: ${item.value} pedido(s)`, marginL + 8, y + 3);
+      y += 7;
+    });
+    y += 4;
+
+    // ---- Tabela de Vendas ----
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60, 60, 60);
+    doc.text("Detalhamento de Vendas", marginL, y);
+    y += 5;
+
+    // cabeçalho da tabela
+    const cols = [
+      { label: "Data", x: marginL, w: 22 },
+      { label: "Número", x: marginL + 22, w: 22 },
+      { label: "Cliente", x: marginL + 44, w: 72 },
+      { label: "Valor (R$)", x: marginL + 116, w: 32 },
+      { label: "Status", x: marginL + 148, w: 28 },
+    ];
+
+    doc.setFillColor(45, 122, 58);
+    doc.rect(marginL, y, pageW - marginL * 2, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    cols.forEach((col) => doc.text(col.label, col.x + 1, y + 5));
+    y += 7;
+
+    // linhas da tabela
+    (sales as any[]).forEach((sale: any, i: number) => {
+      if (y > pageH - 20) {
+        doc.addPage();
+        y = 14;
+        // re-cabeçalho
+        doc.setFillColor(45, 122, 58);
+        doc.rect(marginL, y, pageW - marginL * 2, 7, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        cols.forEach((col) => doc.text(col.label, col.x + 1, y + 5));
+        y += 7;
+      }
+
+      const rowH = 6;
+      if (i % 2 === 0) {
+        doc.setFillColor(245, 250, 245);
+        doc.rect(marginL, y, pageW - marginL * 2, rowH, "F");
+      }
+
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+
+      const clientName = clientMap[sale.clientId] || `#${sale.clientId}`;
+      const truncClient = doc.getStringUnitWidth(clientName) * 8 / doc.internal.scaleFactor > cols[2].w - 2
+        ? clientName.substring(0, 28) + "…"
+        : clientName;
+
+      doc.text(new Date(sale.saleDate).toLocaleDateString("pt-BR"), cols[0].x + 1, y + 4);
+      doc.text(sale.saleNumber || `#${i + 1}`, cols[1].x + 1, y + 4);
+      doc.text(truncClient, cols[2].x + 1, y + 4);
+      doc.text(
+        Number(sale.totalValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+        cols[3].x + cols[3].w - 1,
+        y + 4,
+        { align: "right" }
+      );
+
+      const statusLabel =
+        sale.paymentStatus === "pago" ? "Pago" :
+        sale.paymentStatus === "parcial" ? "Parcial" : "Pendente";
+      const [sr, sg, sb] = statusColors[statusLabel] ?? [150, 150, 150];
+      doc.setTextColor(sr, sg, sb);
+      doc.setFont("helvetica", "bold");
+      doc.text(statusLabel, cols[4].x + 1, y + 4);
+
+      y += rowH;
+    });
+
+    // ---- Rodapé ----
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `${EMPRESA} — Relatório gerado em ${new Date().toLocaleString("pt-BR")} — Página ${p}/${totalPages}`,
+        pageW / 2,
+        pageH - 6,
+        { align: "center" }
+      );
+    }
+
+    doc.save(
+      `${EMPRESA}-relatorio-${dateRange.startDate}-${dateRange.endDate}.pdf`
+    );
+    toast.success("PDF exportado com sucesso!");
   };
 
   return (
@@ -162,15 +358,27 @@ export default function Reports() {
           <p className="text-slate-600">Análise de vendas e performance</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handleExport} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
             <Download className="w-4 h-4" />
-            Exportar CSV
+            CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={exportExcel} className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-green-600" /> Excel
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportExcel}
+            className="flex items-center gap-2 border-green-600 text-green-700 hover:bg-green-50"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Exportar Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={exportPDF} className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-red-500" /> PDF
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportPDF}
+            className="flex items-center gap-2 border-red-500 text-red-600 hover:bg-red-50"
+          >
+            <FileText className="h-4 w-4" />
+            Exportar PDF
           </Button>
         </div>
       </div>

@@ -151,6 +151,7 @@ const menuItems = [
   { icon: CalendarDays, label: "Planejamento", path: "/planning" },
   { icon: TrendingUp, label: "Dashboard Gestor", path: "/gestor" },
   { icon: Users, label: "Representantes", path: "/representantes" },
+  { icon: Bell, label: "Notificacoes", path: "/notifications" },
   { icon: ShieldCheck, label: "Superadmin", path: "/superadmin" },
   { icon: Shield, label: "Usuarios", path: "/users" },
 ];

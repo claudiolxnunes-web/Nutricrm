@@ -58,6 +58,7 @@ export default function VendedorApp() {
   const [realizado, setRealizado] = useState({ visitas: 0, vendas: 0 });
   const [horaInicio, setHoraInicio] = useState<string | null>(null);
   const [notaVisita, setNotaVisita] = useState("");
+  const [valorVenda, setValorVenda] = useState("");
   const [showCamera, setShowCamera] = useState(false);
   const [rcs, setRcs] = useState<any[]>([]);
   const [showNewRcDialog, setShowNewRcDialog] = useState(false);
@@ -109,6 +110,14 @@ export default function VendedorApp() {
 
   // Buscar clientes da API
   const { data: clientesAPI } = trpc.clients.list.useQuery({ limit: 200 });
+  const syncMutation = trpc.sync.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.sincronizados} visita(s) sincronizada(s) com sucesso!`);
+    },
+    onError: () => {
+      toast.error("Erro ao sincronizar. Tente novamente.");
+    },
+  });
   
   useEffect(() => {
     if (clientesAPI && clientesRota.length === 0) {
@@ -180,36 +189,57 @@ export default function VendedorApp() {
   const finalizarVisita = (resultado: "sucesso" | "perdido" | "retornar") => {
     if (!visitaAtual) return;
 
+    const valorNumerico = resultado === "sucesso" ? parseFloat(valorVenda.replace(",", ".")) || 0 : 0;
+
     const visitaFinalizada: VisitaDia = {
       ...visitaAtual,
       endTime: new Date().toISOString(),
       status: resultado === "sucesso" ? "concluida" : resultado === "perdido" ? "cancelada" : "pendente",
       notes: notaVisita,
+      pedido: resultado === "sucesso" ? { produtos: [], total: valorNumerico } : undefined,
     };
 
     setVisitasHoje(prev => [...prev, visitaFinalizada]);
     setVisitaAtual(null);
     setNotaVisita("");
+    setValorVenda("");
 
     setRealizado(prev => ({
       visitas: prev.visitas + 1,
-      vendas: resultado === "sucesso" ? prev.vendas + 1000 : prev.vendas,
+      vendas: resultado === "sucesso" ? prev.vendas + valorNumerico : prev.vendas,
     }));
 
     toast.success("Visita finalizada!");
   };
 
   // Sincronizar dados
-  const sincronizarDados = async () => {
+  const sincronizarDados = () => {
     if (!isOnline) {
       toast.warning("Sem conexão. Dados salvos localmente.");
       return;
     }
 
+    const visitasParaSync = visitasHoje.filter(v => v.status !== "pendente");
+    if (visitasParaSync.length === 0 && !horaInicio) {
+      toast.info("Nenhum dado novo para sincronizar.");
+      return;
+    }
+
     toast.info("Sincronizando...");
-    // Aqui enviaria para o servidor via trpc.sync.mutate(...)
-    toast.success("Dados sincronizados!");
+    syncMutation.mutate({
+      visitas: visitasParaSync,
+      jornada: horaInicio
+        ? { inicio: horaInicio, fim: new Date().toISOString() }
+        : undefined,
+    });
   };
+
+  // Sincronizar automaticamente ao recuperar conexão
+  useEffect(() => {
+    if (isOnline) {
+      sincronizarDados();
+    }
+  }, [isOnline]);
 
   // Carregar RCs do localStorage
   useEffect(() => {
@@ -329,6 +359,19 @@ export default function VendedorApp() {
               className="w-full mt-2 p-2 border rounded text-sm"
               rows={2}
             />
+
+            <div className="flex items-center gap-2 mt-2">
+              <DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" />
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={valorVenda}
+                onChange={(e) => setValorVenda(e.target.value)}
+                placeholder="Valor da venda (R$)"
+                className="text-sm"
+              />
+            </div>
             
             <div className="flex gap-2 mt-3">
               <Button size="sm" variant="outline" onClick={() => setShowCamera(true)}>

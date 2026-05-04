@@ -204,4 +204,19 @@ export const monthlyGoals = pgTable("monthly_goals", {
   createdAt: timestamp("createdAt").defaultNow(),
 }, (t) => [index("monthly_goals_idx").on(t.companyId, t.month)]);
 
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  companyId: integer("company_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [index("push_subs_user_idx").on(t.userId), index("push_subs_company_idx").on(t.companyId)]);
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
+
 
