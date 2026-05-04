@@ -47,7 +47,20 @@ export function registerOAuthRoutes(app: Express) {
         res.status(401).json({ error: "Email ou senha invalidos" });
         return;
       }
-      const sessionToken = await sdk.createSessionToken(user.openId, {
+
+      // Garantir que openId nunca seja null (usuários legados podem não ter openId no banco)
+      let openId = user.openId as string | null | undefined;
+      if (!openId) {
+        openId = `local_${user.id}_${Date.now()}`;
+        console.log("[Auth] User missing openId, generating:", openId, "for userId:", user.id);
+        try {
+          await db.updateUserOpenId(user.id, openId);
+        } catch (e) {
+          console.warn("[Auth] Could not persist generated openId, continuing anyway:", e);
+        }
+      }
+      console.log("[Auth] createSessionToken for openId:", openId, "userId:", user.id);
+      const sessionToken = await sdk.createSessionToken(openId, {
         name: user.name || "",
         expiresInMs: ONE_YEAR_MS,
       });

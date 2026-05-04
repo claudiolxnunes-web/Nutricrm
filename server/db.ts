@@ -183,6 +183,12 @@ export async function updateUserPasswordHash(id: number, passwordHash: string) {
   await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));
 }
 
+export async function updateUserOpenId(id: number, openId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ openId, updatedAt: new Date() }).where(eq(users.id, id));
+}
+
 export async function updateUserRole(id: number, role: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
