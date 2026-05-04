@@ -26,21 +26,65 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _dbInitialized = false;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DATABASE_URL.includes("localhost") ? false : { rejectUnauthorized: false },
-      });
-      _db = drizzle(pool);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-    }
+  if (_dbInitialized) return _db;
+
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.error("[Database] DATABASE_URL is not defined in environment variables");
+    _dbInitialized = true;
+    return null;
   }
+
+  console.log("[Database] Initializing connection pool...");
+  console.log("[Database] DATABASE_URL starts with:", dbUrl.substring(0, 30) + "...");
+
+  try {
+    const isLocalhost = dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1");
+    const pool = new Pool({
+      connectionString: dbUrl,
+      ssl: isLocalhost ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 5,
+    });
+
+    // Test the connection before accepting it as valid
+    try {
+      const client = await pool.connect();
+      await client.query("SELECT 1");
+      client.release();
+      console.log("[Database] Connection test passed - database is reachable");
+    } catch (connErr: any) {
+      console.error("[Database] Connection test FAILED:", connErr.message);
+      console.error("[Database] Error code:", connErr.code);
+      console.error("[Database] Full error:", JSON.stringify(connErr, null, 2));
+      await pool.end().catch(() => {});
+      _dbInitialized = true;
+      _db = null;
+      return null;
+    }
+
+    _db = drizzle(pool);
+    _dbInitialized = true;
+    console.log("[Database] Pool initialized successfully");
+  } catch (error: any) {
+    console.error("[Database] Failed to create pool:", error.message);
+    console.error("[Database] Full error:", JSON.stringify(error, null, 2));
+    _dbInitialized = true;
+    _db = null;
+  }
+
   return _db;
+}
+
+// Allow resetting the connection (e.g., after a transient failure)
+export function resetDb() {
+  _db = null;
+  _dbInitialized = false;
+  console.log("[Database] Connection reset requested");
 }
 
 export async function createCompany(data: { name: string; email?: string }) {

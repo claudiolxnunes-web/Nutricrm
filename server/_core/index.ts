@@ -35,6 +35,58 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  // Health check endpoint - diagnoses DB connectivity
+  app.get("/api/health", async (_req, res) => {
+    const status: Record<string, unknown> = {
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        DATABASE_URL_defined: !!process.env.DATABASE_URL,
+        DATABASE_URL_prefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 30) + "..." : null,
+      },
+    };
+
+    try {
+      const { Pool } = await import("pg");
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) {
+        status.database = { ok: false, error: "DATABASE_URL not defined" };
+      } else {
+        const testPool = new Pool({
+          connectionString: dbUrl,
+          ssl: dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1")
+            ? false
+            : { rejectUnauthorized: false },
+          connectionTimeoutMillis: 5000,
+          max: 1,
+        });
+        try {
+          const client = await testPool.connect();
+          const result = await client.query("SELECT version()");
+          client.release();
+          await testPool.end();
+          status.database = { ok: true, version: result.rows[0]?.version ?? "unknown" };
+        } catch (err: any) {
+          await testPool.end().catch(() => {});
+          status.database = { ok: false, error: err.message, code: err.code };
+        }
+      }
+    } catch (importErr: any) {
+      status.database = { ok: false, error: "pg import failed: " + importErr.message };
+    }
+
+    const httpStatus = (status.database as any)?.ok ? 200 : 503;
+    res.status(httpStatus).json(status);
+  });
+
+  // Reset DB connection (useful to recover after transient errors)
+  app.post("/api/health/reset-db", async (_req, res) => {
+    const { resetDb } = await import("../db");
+    resetDb();
+    res.json({ ok: true, message: "DB connection reset - will reconnect on next query" });
+  });
+
   // Stripe webhook - MUST be registered before express.json() to receive raw body
   app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
     const sig = req.headers["stripe-signature"] as string;
