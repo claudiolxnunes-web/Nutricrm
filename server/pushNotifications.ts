@@ -11,14 +11,10 @@ function getVapidKeys() {
     return { publicKey, privateKey, email };
   }
 
-  // Fallback: gerar chaves temporárias (somente dev - em produção use variáveis de ambiente)
-  if (!ENV.isProduction) {
-    const keys = webpush.generateVAPIDKeys();
-    console.warn("[Push] VAPID keys not set. Generated temporary keys for dev. Set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL in production.");
-    return { publicKey: keys.publicKey, privateKey: keys.privateKey, email };
-  }
-
-  throw new Error("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set in production.");
+  // Fallback: gerar chaves temporárias (dev e produção sem VAPID configurado)
+  const keys = webpush.generateVAPIDKeys();
+  console.warn("[Push] VAPID keys not set. Generated temporary keys. Set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL in production for persistent push notifications.");
+  return { publicKey: keys.publicKey, privateKey: keys.privateKey, email };
 }
 
 let vapidKeys: { publicKey: string; privateKey: string; email: string } | null = null;
