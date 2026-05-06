@@ -100,9 +100,9 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
       res.json({ success: true, user: { id: user.id, name: user.name, email: user.email } });
-    } catch (error) {
-      console.error("[Auth] Register failed", error);
-      res.status(500).json({ error: "Erro interno" });
+    } catch (error: any) {
+      console.error("[Auth] Register failed:", error?.message ?? error, error?.stack ?? "");
+      res.status(500).json({ error: "Erro interno", detail: error?.message });
     }
   });
 }
