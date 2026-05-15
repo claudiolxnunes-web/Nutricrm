@@ -49,6 +49,7 @@ import {
   Phone,
   Menu,
   X,
+  Upload,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -152,6 +153,7 @@ const menuItems = [
   { icon: TrendingUp, label: "Dashboard Gestor", path: "/gestor" },
   { icon: Users, label: "Representantes", path: "/representantes" },
   { icon: Bell, label: "Notificacoes", path: "/notifications" },
+  { icon: Upload, label: "Importacoes", path: "/importacoes" },
   { icon: ShieldCheck, label: "Superadmin", path: "/superadmin" },
   { icon: Shield, label: "Usuarios", path: "/users" },
 ];

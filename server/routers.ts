@@ -68,6 +68,7 @@ import {
   getPushSubscriptionsByUser,
   getUserPushEnabled,
   clearCompanyData,
+  importSalesData,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -777,6 +778,35 @@ export const appRouter = router({
         const companyId = ctx.user.companyId;
         const result = await clearCompanyData(companyId, input.entities, ctx.user.id);
         return { success: true, deleted: result.deleted };
+      }),
+    importSales: adminOrSuperadminProcedure
+      .input(z.object({
+        data: z.array(z.object({
+          dataNF: z.union([z.date(), z.string()]).transform(v => v instanceof Date ? v : new Date(v)),
+          dataPedido: z.union([z.date(), z.string()]).optional().transform(v => v ? (v instanceof Date ? v : new Date(v)) : undefined),
+          codCliente: z.string(),
+          nomeCliente: z.string(),
+          codProduto: z.string(),
+          nomeProduto: z.string(),
+          qtdeSacos: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v) || 0 : v),
+          precoSaco: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
+          representante: z.string(),
+          municipio: z.string(),
+          uf: z.string(),
+          notaFiscal: z.string().optional(),
+          pedido: z.string().optional(),
+          segmentacao: z.string().optional(),
+          categoria: z.string().optional(),
+          precoKg: z.union([z.number(), z.string()]).optional().transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
+          descontoPct: z.union([z.number(), z.string()]).optional().transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
+          faturamento: z.union([z.number(), z.string()]).optional().transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
+          linha: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const result = await importSalesData(input.data as any, companyId, ctx.user.id);
+        return result;
       }),
   }),
 

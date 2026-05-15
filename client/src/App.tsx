@@ -25,6 +25,7 @@ import ManagerDashboard from "./pages/ManagerDashboard";
 import Representantes from "./pages/Representantes";
 import VendedorApp from "./pages/VendedorApp";
 import NotificationSettings from "./pages/NotificationSettings";
+import Importacoes from "./pages/Importacoes";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function Router() {
@@ -153,6 +154,15 @@ function Router() {
           <DashboardLayout>
             <NotificationSettings />
           </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/importacoes"}>
+        {() => (
+          <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
+            <DashboardLayout>
+              <Importacoes />
+            </DashboardLayout>
+          </ProtectedRoute>
         )}
       </Route>
       <Route path={"/app"} component={VendedorApp} />
