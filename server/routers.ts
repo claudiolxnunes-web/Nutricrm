@@ -67,6 +67,7 @@ import {
   deletePushSubscription,
   getPushSubscriptionsByUser,
   getUserPushEnabled,
+  clearCompanyData,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -756,6 +757,26 @@ export const appRouter = router({
         const user = await createUserWithPassword({ name: input.name, email: input.email, passwordHash, companyId: ctx.user.companyId });
         if (input.role !== "vendedor") await updateUserRole(user.id, input.role);
         return { success: true };
+      }),
+  }),
+
+  // ========== ADMIN DATA MANAGEMENT ==========
+  admin: router({
+    clearData: adminOrSuperadminProcedure
+      .input(z.object({
+        entities: z.array(z.enum([
+          "clients", "users", "products", "quotes", "quoteItems", "sales",
+          "interactions", "opportunities", "monthlyGoals", "pushSubscriptions", "orcamentosSimples"
+        ])),
+        confirmText: z.string().min(1),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.confirmText !== "LIMPAR") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Texto de confirmacao invalido. Digite LIMPAR." });
+        }
+        const companyId = ctx.user.companyId;
+        const result = await clearCompanyData(companyId, input.entities, ctx.user.id);
+        return { success: true, deleted: result.deleted };
       }),
   }),
 

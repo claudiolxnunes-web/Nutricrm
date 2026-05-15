@@ -1559,3 +1559,122 @@ export async function getUserPushEnabled(userId: number): Promise<boolean> {
   return rows.length > 0;
 }
 
+export type ClearDataEntity =
+  | "quoteItems"
+  | "quotes"
+  | "sales"
+  | "interactions"
+  | "opportunities"
+  | "clients"
+  | "products"
+  | "monthlyGoals"
+  | "pushSubscriptions"
+  | "orcamentosSimples"
+  | "users";
+
+export async function clearCompanyData(
+  companyId: number,
+  entities: ClearDataEntity[],
+  excludeUserId: number
+): Promise<{ deleted: Record<ClearDataEntity, number> }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result: Record<ClearDataEntity, number> = {
+    quoteItems: 0,
+    quotes: 0,
+    sales: 0,
+    interactions: 0,
+    opportunities: 0,
+    clients: 0,
+    products: 0,
+    monthlyGoals: 0,
+    pushSubscriptions: 0,
+    orcamentosSimples: 0,
+    users: 0,
+  };
+
+  const pool = (db as any).session?.client ?? (db as any).client;
+  const client = await (pool as Pool).connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Ordem de deleção respeitando dependências lógicas (filhos antes dos pais)
+    const entityOrder: ClearDataEntity[] = [
+      "quoteItems",
+      "quotes",
+      "sales",
+      "interactions",
+      "opportunities",
+      "orcamentosSimples",
+      "clients",
+      "products",
+      "monthlyGoals",
+      "pushSubscriptions",
+      "users",
+    ];
+
+    for (const entity of entityOrder) {
+      if (!entities.includes(entity)) continue;
+
+      let res;
+      switch (entity) {
+        case "quoteItems":
+          // Deletar items de orçamentos da empresa
+          res = await client.query(
+            `DELETE FROM "quoteItems" qi USING "quotes" q WHERE qi."quoteId" = q.id AND q."companyId" = $1`,
+            [companyId]
+          );
+          break;
+        case "quotes":
+          res = await client.query(`DELETE FROM "quotes" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "sales":
+          res = await client.query(`DELETE FROM "sales" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "interactions":
+          res = await client.query(`DELETE FROM "interactions" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "opportunities":
+          res = await client.query(`DELETE FROM "opportunities" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "orcamentosSimples":
+          res = await client.query(`DELETE FROM "orcamentos_simples" WHERE "company_id" = $1`, [companyId]);
+          break;
+        case "clients":
+          res = await client.query(`DELETE FROM "clients" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "products":
+          res = await client.query(`DELETE FROM "products" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "monthlyGoals":
+          res = await client.query(`DELETE FROM "monthly_goals" WHERE "companyId" = $1`, [companyId]);
+          break;
+        case "pushSubscriptions":
+          res = await client.query(`DELETE FROM "push_subscriptions" WHERE "company_id" = $1`, [companyId]);
+          break;
+        case "users":
+          // Preservar o usuário que está executando a ação
+          res = await client.query(
+            `DELETE FROM "users" WHERE "companyId" = $1 AND id <> $2`,
+            [companyId, excludeUserId]
+          );
+          break;
+      }
+      if (res) {
+        result[entity] = res.rowCount ?? 0;
+      }
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return { deleted: result };
+}
+

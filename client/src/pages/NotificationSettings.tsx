@@ -2,13 +2,94 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Bell, BellOff, BellRing, ShieldAlert, Smartphone } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Bell, BellOff, BellRing, ShieldAlert, Smartphone, Trash2, AlertTriangle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { useState } from "react";
+import { toast } from "sonner";
+
+type EntityKey =
+  | "clients"
+  | "users"
+  | "products"
+  | "quotes"
+  | "quoteItems"
+  | "sales"
+  | "interactions"
+  | "opportunities"
+  | "monthlyGoals"
+  | "pushSubscriptions"
+  | "orcamentosSimples";
+
+const ENTITY_OPTIONS: { key: EntityKey; label: string }[] = [
+  { key: "clients", label: "Clientes" },
+  { key: "users", label: "Representantes/Usuários (exceto você)" },
+  { key: "products", label: "Produtos" },
+  { key: "quotes", label: "Orçamentos" },
+  { key: "quoteItems", label: "Itens de Orçamento" },
+  { key: "sales", label: "Vendas" },
+  { key: "interactions", label: "Interações" },
+  { key: "opportunities", label: "Oportunidades" },
+  { key: "monthlyGoals", label: "Metas Mensais" },
+  { key: "pushSubscriptions", label: "Assinaturas Push" },
+  { key: "orcamentosSimples", label: "Orçamentos Simples" },
+];
 
 export default function NotificationSettings() {
   const { isSupported, permission, isSubscribed, isLoading, subscribe, unsubscribe } =
     usePushNotifications();
   const { data: me } = trpc.auth.me.useQuery();
+
+  const [selectedEntities, setSelectedEntities] = useState<Record<EntityKey, boolean>>({
+    clients: false,
+    users: false,
+    products: false,
+    quotes: false,
+    quoteItems: false,
+    sales: false,
+    interactions: false,
+    opportunities: false,
+    monthlyGoals: false,
+    pushSubscriptions: false,
+    orcamentosSimples: false,
+  });
+  const [confirmText, setConfirmText] = useState("");
+  const [showDialog, setShowDialog] = useState(false);
+
+  const clearMutation = trpc.admin.clearData.useMutation({
+    onSuccess: (data) => {
+      const total = Object.values(data.deleted).reduce((a, b) => a + b, 0);
+      toast.success(`Dados limpos com sucesso! ${total} registros removidos.`);
+      setShowDialog(false);
+      setConfirmText("");
+      setSelectedEntities({
+        clients: false,
+        users: false,
+        products: false,
+        quotes: false,
+        quoteItems: false,
+        sales: false,
+        interactions: false,
+        opportunities: false,
+        monthlyGoals: false,
+        pushSubscriptions: false,
+        orcamentosSimples: false,
+      });
+    },
+    onError: (err) => {
+      toast.error(err.message || "Erro ao limpar dados");
+    },
+  });
 
   const handleToggle = () => {
     if (isSubscribed) {
@@ -16,6 +97,28 @@ export default function NotificationSettings() {
     } else {
       subscribe();
     }
+  };
+
+  const toggleEntity = (key: EntityKey) => {
+    setSelectedEntities((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const selectedCount = Object.values(selectedEntities).filter(Boolean).length;
+  const canSubmit = confirmText === "LIMPAR" && selectedCount > 0 && !clearMutation.isPending;
+
+  const handleOpenDialog = () => {
+    if (selectedCount === 0) {
+      toast.error("Selecione pelo menos uma entidade para limpar.");
+      return;
+    }
+    setShowDialog(true);
+  };
+
+  const handleConfirmClear = () => {
+    const entities = (Object.entries(selectedEntities)
+      .filter(([, v]) => v)
+      .map(([k]) => k) as EntityKey[]);
+    clearMutation.mutate({ entities, confirmText });
   };
 
   return (
@@ -162,6 +265,96 @@ export default function NotificationSettings() {
           </CardContent>
         </Card>
       )}
+
+      {/* Zona de Perigo - Limpar Dados */}
+      {(me?.role === "admin" || me?.role === "superadmin") && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-800 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Zona de Perigo — Limpar Dados da Empresa
+            </CardTitle>
+            <CardDescription className="text-red-700">
+              Atenção: esta ação é irreversível. Selecione os dados que deseja apagar permanentemente.
+              Sua conta e a empresa serão preservadas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {ENTITY_OPTIONS.map((opt) => (
+                <div key={opt.key} className="flex items-start gap-2">
+                  <Checkbox
+                    id={opt.key}
+                    checked={selectedEntities[opt.key]}
+                    onCheckedChange={() => toggleEntity(opt.key)}
+                  />
+                  <Label htmlFor={opt.key} className="text-sm text-red-900 cursor-pointer">
+                    {opt.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-red-200">
+              <Label htmlFor="confirm" className="text-sm font-medium text-red-800">
+                Digite LIMPAR para confirmar:
+              </Label>
+              <Input
+                id="confirm"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="Digite LIMPAR"
+                className="mt-1 bg-white border-red-300"
+              />
+            </div>
+
+            <Button
+              variant="destructive"
+              className="gap-2"
+              disabled={!canSubmit}
+              onClick={handleOpenDialog}
+            >
+              <Trash2 className="w-4 h-4" />
+              Limpar dados selecionados
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dialog de confirmação final */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="w-5 h-5" />
+              Confirmar exclusão permanente
+            </DialogTitle>
+            <DialogDescription>
+              Você está prestes a apagar os seguintes dados da empresa:
+              <ul className="mt-2 space-y-1 text-sm">
+                {ENTITY_OPTIONS.filter((o) => selectedEntities[o.key]).map((o) => (
+                  <li key={o.key}>• {o.label}</li>
+                ))}
+              </ul>
+              <p className="mt-3 text-red-600 font-medium">
+                Esta ação não pode ser desfeita. Tem certeza?
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmClear}
+              disabled={clearMutation.isPending}
+            >
+              {clearMutation.isPending ? "Limpando..." : "Sim, limpar tudo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
