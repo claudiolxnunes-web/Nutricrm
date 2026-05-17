@@ -831,6 +831,43 @@ export const appRouter = router({
         const result = await importSalesData(input.data as any, companyId, ctx.user.id);
         return result;
       }),
+    importPedidos: adminOrSuperadminProcedure
+      .input(z.object({
+        data: z.array(z.object({
+          dataPedido: z.union([z.date(), z.string()]).optional().transform(v => {
+            if (!v) return new Date();
+            return v instanceof Date ? v : new Date(v);
+          }),
+          dataPrevFaturamento: z.union([z.date(), z.string()]).optional().transform(v => v ? (v instanceof Date ? v : new Date(v)) : undefined),
+          codCliente: z.union([z.string(), z.number()]).transform(v => String(v)),
+          nomeCliente: z.string(),
+          codProduto: z.union([z.string(), z.number()]).transform(v => String(v)),
+          nomeProduto: z.string(),
+          qtdeSacos: z.union([z.number(), z.string()]).transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          precoSaco: z.union([z.number(), z.string()]).transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          representante: z.string().optional().default('Sem Representante'),
+          municipio: z.string().optional().default(''),
+          uf: z.string().optional().default(''),
+          pedidoNumber: z.union([z.string(), z.number()]).transform(v => String(v)),
+          notaFiscal: z.union([z.string(), z.number()]).optional().transform(v => v ? String(v) : undefined),
+          segmentacao: z.string().optional(),
+          categoria: z.string().optional(),
+          linha: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const result = await importPedidosData(input.data as any, companyId, ctx.user.id);
+        return result;
+      }),
   }),
 
   // ========== PAYMENTS ==========

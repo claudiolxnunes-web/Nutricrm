@@ -15,6 +15,7 @@ import {
   monthlyGoals,
   companies,
   pushSubscriptions,
+  pedidosCarteira,
   type Client,
   type Product,
   type Opportunity,
@@ -22,6 +23,7 @@ import {
   type QuoteItem,
   type Interaction,
   type Sale,
+  type PedidoCarteira,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -1978,6 +1980,150 @@ export async function importSalesData(
 
       // Criar venda (usa nota fiscal como identificador)
       await createSaleFromImport(row, companyId, userId, clienteId, produtoId);
+      result.details.vendas.created++;
+      result.imported++;
+    } catch (err: any) {
+      result.errors++;
+      result.errorDetails.push(`Linha ${i + 1}: ${err.message || String(err)}`);
+    }
+  }
+
+  result.success = result.errors === 0;
+  return result;
+}
+
+// ========== IMPORTAÇÃO DE PEDIDOS EM CARTEIRA ==========
+
+export interface ImportPedidoRow {
+  dataPedido: Date;
+  dataPrevFaturamento?: Date;
+  codCliente: string;
+  nomeCliente: string;
+  codProduto: string;
+  nomeProduto: string;
+  qtdeSacos: number;
+  precoSaco: number;
+  representante?: string;
+  municipio?: string;
+  uf?: string;
+  pedidoNumber: string;
+  notaFiscal?: string;
+  segmentacao?: string;
+  categoria?: string;
+  linha?: string;
+}
+
+export async function createPedidoFromImport(
+  data: ImportPedidoRow,
+  companyId: number,
+  userId: number,
+  clientId: number
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const totalValue = data.qtdeSacos * data.precoSaco;
+
+  await db.insert(pedidosCarteira).values({
+    companyId,
+    clientId,
+    pedidoNumber: data.pedidoNumber,
+    status: "pendente",
+    totalValue: totalValue.toString(),
+    qtdeSacos: data.qtdeSacos,
+    precoSaco: data.precoSaco.toString(),
+    dataPedido: data.dataPedido,
+    dataPrevFaturamento: data.dataPrevFaturamento,
+    representante: data.representante,
+    notaFiscal: data.notaFiscal,
+    observacoes: `Produto: ${data.nomeProduto} | Cód: ${data.codProduto} | Segmentação: ${data.segmentacao || "N/A"}`,
+    createdBy: userId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+export async function importPedidosData(
+  rows: ImportPedidoRow[],
+  companyId: number,
+  userId: number
+): Promise<ImportResult> {
+  const result: ImportResult = {
+    success: true,
+    imported: 0,
+    errors: 0,
+    details: {
+      representantes: { created: 0, existing: 0 },
+      clientes: { created: 0, existing: 0 },
+      produtos: { created: 0, existing: 0 },
+      vendas: { created: 0 },
+    },
+    errorDetails: [],
+  };
+
+  const representantesCache = new Map<string, number>();
+  const clientesCache = new Map<string, number>();
+  const produtosCache = new Map<string, number>();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      // Representante (sempre cria novo)
+      let representanteId: number;
+      const repCacheKey = `${companyId}_${row.representante}`;
+      if (representantesCache.has(repCacheKey)) {
+        representanteId = representantesCache.get(repCacheKey)!;
+      } else {
+        const rep = await createRepresentante(row.representante || 'Sem Representante', companyId);
+        representanteId = rep.id;
+        representantesCache.set(repCacheKey, rep.id);
+        result.details.representantes.created++;
+      }
+
+      // Cliente (sempre cria novo)
+      let clienteId: number;
+      const cliCacheKey = `${companyId}_${row.codCliente}`;
+      if (clientesCache.has(cliCacheKey)) {
+        clienteId = clientesCache.get(cliCacheKey)!;
+      } else {
+        const cli = await createCliente(
+          {
+            codigo: row.codCliente,
+            nome: row.nomeCliente,
+            municipio: row.municipio || '',
+            uf: row.uf || '',
+            segmentacao: row.segmentacao,
+          },
+          companyId,
+          userId
+        );
+        clienteId = cli.id;
+        clientesCache.set(cliCacheKey, cli.id);
+        result.details.clientes.created++;
+      }
+
+      // Produto (sempre cria novo)
+      let produtoId: number;
+      const prodCacheKey = `${companyId}_${row.codProduto}`;
+      if (produtosCache.has(prodCacheKey)) {
+        produtoId = produtosCache.get(prodCacheKey)!;
+      } else {
+        const prod = await createProduto(
+          {
+            codigo: row.codProduto,
+            nome: row.nomeProduto,
+            preco: row.precoSaco,
+            linha: row.linha,
+          },
+          companyId
+        );
+        produtoId = prod.id;
+        produtosCache.set(prodCacheKey, prod.id);
+        result.details.produtos.created++;
+      }
+
+      // Criar pedido em carteira
+      await createPedidoFromImport(row, companyId, userId, clienteId);
       result.details.vendas.created++;
       result.imported++;
     } catch (err: any) {

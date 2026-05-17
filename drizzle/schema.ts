@@ -219,4 +219,31 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
 
+// Tabela para pedidos em carteira (separado de vendas faturadas)
+export const pedidosCarteira = pgTable("pedidos_carteira", {
+  id: serial("id").primaryKey(),
+  companyId: integer("companyId").notNull().default(1),
+  clientId: integer("clientId").notNull(),
+  pedidoNumber: varchar("pedidoNumber", { length: 50 }).notNull(),
+  status: text("status").default("pendente").notNull(), // pendente, faturado, cancelado
+  totalValue: decimal("totalValue", { precision: 12, scale: 2 }).notNull(),
+  qtdeSacos: integer("qtdeSacos").default(0),
+  precoSaco: decimal("precoSaco", { precision: 10, scale: 2 }),
+  dataPedido: timestamp("dataPedido").notNull(),
+  dataPrevFaturamento: timestamp("dataPrevFaturamento"),
+  representante: text("representante"),
+  notaFiscal: varchar("notaFiscal", { length: 50 }),
+  observacoes: text("observacoes"),
+  createdBy: integer("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+}, (t) => [
+  index("pedcart_client_idx").on(t.clientId),
+  index("pedcart_status_idx").on(t.status),
+  index("pedcart_pedido_idx").on(t.pedidoNumber),
+]);
+
+export type PedidoCarteira = typeof pedidosCarteira.$inferSelect;
+export type InsertPedidoCarteira = typeof pedidosCarteira.$inferInsert;
+
 

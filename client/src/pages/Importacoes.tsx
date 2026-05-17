@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -30,19 +31,38 @@ interface ImportResult {
 }
 
 // Mapeamento flexível de colunas - detecta vários nomes possíveis
-const COLUMN_MAPPING: Record<string, string[]> = {
-  dataNF: ["Data da NF", "dt Prev. Fat.", "Data", "Dt NF", "Faturame", "Data Fatura", "Dt Fatura", "PREV.FATUR.", "Prev. Fat.", "Inclusão", "Dt Pedido", "Data Pedido"],
-  codCliente: ["Cód. Cliente", "Cod Cliente", "Código Cliente", "Cod. Cliente", "Cod Cliente", "Cód Cliente", "CLIENTE", "Cliente"],
+const COLUMN_MAPPING_VENDAS: Record<string, string[]> = {
+  dataNF: ["Data da NF", "dt Prev. Fat.", "Data", "Dt NF", "Faturame", "Data Fatura", "Dt Fatura", "PREV.FATUR.", "Prev. Fat.", "Inclusão", "Dt Pedido", "Data Pedido", "Data da Nota"],
+  codCliente: ["Cód. Cliente", "Cod Cliente", "Código Cliente", "Cod. Cliente", "Cod Cliente", "Cód Cliente", "CLIENTE", "Cliente", "Cód.Cli", "Cod.Cli"],
+  nomeCliente: ["Nome do Cliente", "Cliente", "Razão Social", "Nome Cliente", "NOME", "Nome", "CLIENTE", "Nome Cliente"],
+  codProduto: ["Cód. Produto", "Cod. Produto", "Código Produto", "Cod Produto", "Cód Produto", "PRODUTO", "Produto", "Codigo Produto", "Cód.Prod", "Cod.Prod"],
+  nomeProduto: ["Nome do Produto", "Produto", "Descrição", "Descricao", "Nome Produto", "PRODUTO", "Produto", "Descrição Produto"],
+  qtdeSacos: ["Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Pedido Val", "QTD", "Qtde", "Quant.", "Quant", "Volume", "VOL", "Qtde Pedido"],
+  precoSaco: ["Preço por Saco", "Preço", "Valor Unitário", "Unitário", "Pedido Vc", "PREÇO", "Preco", "Valor", "Vl. Unit", "Unit", "Preço Unit"],
+  representante: ["Representante", "ERC", "Vendedor", "RC", "Rep", "REPRESENTANTE", "VENDEDOR", "RCA", "Representante", "Nome Representante"],
+  municipio: ["Município", "Cidade", "Mun", "MUNICIPIO", "CIDADE", "Cidade", "Município"],
+  uf: ["UF", "Estado", "ESTADO", "U.F.", "Uf", "UF"],
+  notaFiscal: ["Nota Fiscal", "Pedido", "OC", "Nota", "NF", "N.F.", "NFe", "Pedido", "ORDEM", "Ordem", "OC", "Número Pedido", "No Pedido"],
+  pedido: ["Pedido", "OC", "Ordem", "PEDIDO", "Cod Pedido", "Código Pedido", "Pedido", "Ordem de Compra"],
+  segmentacao: ["Segmentação", "Seg.", "Segmento", "SEGMENTAÇÃO", "SEG", "Seg", "Segmentação Cliente"],
+  categoria: ["Categoria", "CAT", "Categ", "CATEGORIA", "Categoria Cliente"],
+  linha: ["Linha", "LINE", "LINHA", "Linha Produto", "Linha de Produto"],
+};
+
+const COLUMN_MAPPING_PEDIDOS: Record<string, string[]> = {
+  dataPedido: ["Data do Pedido", "Dt Pedido", "Data Pedido", "Dt. Pedido", "Pedido Data", "Inclusão", "Data Inclusão"],
+  dataPrevFaturamento: ["dt Prev. Fat.", "Prev. Fat.", "Previsão Faturamento", "Data Prevista", "Prev Faturamento", "PREV.FATUR.", "Data Fatura"],
+  codCliente: ["Cód. Cliente", "Cod Cliente", "Código Cliente", "Cod. Cliente", "Cod Cliente", "Cód Cliente", "CLIENTE", "Cliente", "Cód.Cli"],
   nomeCliente: ["Nome do Cliente", "Cliente", "Razão Social", "Nome Cliente", "NOME", "Nome", "CLIENTE"],
   codProduto: ["Cód. Produto", "Cod. Produto", "Código Produto", "Cod Produto", "Cód Produto", "PRODUTO", "Produto", "Codigo Produto"],
   nomeProduto: ["Nome do Produto", "Produto", "Descrição", "Descricao", "Nome Produto", "PRODUTO", "Produto"],
-  qtdeSacos: ["Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Pedido Val", "QTD", "Qtde", "Quant.", "Quant", "Volume", "VOL"],
+  qtdeSacos: ["Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Pedido Val", "QTD", "Qtde", "Quant.", "Quant", "Volume", "VOL", "Qtde Pedido"],
   precoSaco: ["Preço por Saco", "Preço", "Valor Unitário", "Unitário", "Pedido Vc", "PREÇO", "Preco", "Valor", "Vl. Unit", "Unit"],
   representante: ["Representante", "ERC", "Vendedor", "RC", "Rep", "REPRESENTANTE", "VENDEDOR", "RCA", "Representante"],
   municipio: ["Município", "Cidade", "Mun", "MUNICIPIO", "CIDADE", "Cidade"],
   uf: ["UF", "Estado", "ESTADO", "U.F.", "Uf"],
-  notaFiscal: ["Nota Fiscal", "Pedido", "OC", "Nota", "NF", "N.F.", "NFe", "Pedido", "ORDEM", "Ordem", "OC"],
-  pedido: ["Pedido", "OC", "Ordem", "PEDIDO", "Cod Pedido", "Código Pedido"],
+  pedidoNumber: ["Pedido", "Número Pedido", "No Pedido", "Cod Pedido", "Código Pedido", "PEDIDO", "Ordem", "OC", "Ordem de Compra"],
+  notaFiscal: ["Nota Fiscal", "NF", "N.F.", "NFe", "Nota", "NF-e"],
   segmentacao: ["Segmentação", "Seg.", "Segmento", "SEGMENTAÇÃO", "SEG", "Seg"],
   categoria: ["Categoria", "CAT", "Categ", "CATEGORIA"],
   linha: ["Linha", "LINE", "LINHA", "Linha Produto"],
@@ -61,10 +81,10 @@ function findColumnName(headers: string[], possibleNames: string[]): string | nu
 }
 
 // Função para mapear dados do arquivo para o formato esperado
-function mapRowData(rowData: Record<string, any>, headers: string[]): Record<string, any> {
+function mapRowData(rowData: Record<string, any>, headers: string[], columnMapping: Record<string, string[]>): Record<string, any> {
   const mapped: Record<string, any> = {};
   
-  for (const [key, possibleNames] of Object.entries(COLUMN_MAPPING)) {
+  for (const [key, possibleNames] of Object.entries(columnMapping)) {
     const columnName = findColumnName(headers, possibleNames);
     if (columnName && rowData[columnName] !== undefined) {
       mapped[key] = rowData[columnName];
@@ -74,7 +94,19 @@ function mapRowData(rowData: Record<string, any>, headers: string[]): Record<str
   return mapped;
 }
 
-export default function Importacoes() {
+function ImportSection({ 
+  title, 
+  description, 
+  columnMapping,
+  importMutation,
+  tipo 
+}: { 
+  title: string; 
+  description: string;
+  columnMapping: Record<string, string[]>;
+  importMutation: any;
+  tipo: 'vendas' | 'pedidos';
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -82,23 +114,6 @@ export default function Importacoes() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [detectedColumns, setDetectedColumns] = useState<Record<string, string>>({});
-
-  const importMutation = trpc.admin.importSales.useMutation({
-    onSuccess: (data) => {
-      setResult(data);
-      setIsImporting(false);
-      setProgress(100);
-      if (data.success) {
-        toast.success(`Importação concluída! ${data.imported} registros importados.`);
-      } else {
-        toast.error(`Importação concluída com erros. ${data.errors} falhas.`);
-      }
-    },
-    onError: (err) => {
-      setIsImporting(false);
-      toast.error(err.message || "Erro na importação");
-    },
-  });
 
   const analyzeFile = useCallback(async (selectedFile: File) => {
     setIsAnalyzing(true);
@@ -121,14 +136,17 @@ export default function Importacoes() {
       
       // Detectar colunas
       const detected: Record<string, string> = {};
-      for (const [key, possibleNames] of Object.entries(COLUMN_MAPPING)) {
+      for (const [key, possibleNames] of Object.entries(columnMapping)) {
         const found = findColumnName(headers, possibleNames);
         if (found) detected[key] = found;
       }
       setDetectedColumns(detected);
       
       // Validar colunas obrigatórias mínimas
-      const requiredKeys = ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos', 'precoSaco'];
+      const requiredKeys = tipo === 'vendas' 
+        ? ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos', 'precoSaco']
+        : ['dataPedido', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos', 'precoSaco', 'pedidoNumber'];
+      
       const missingColumns = requiredKeys.filter(key => !detected[key]);
       
       if (missingColumns.length > 0) {
@@ -144,7 +162,7 @@ export default function Importacoes() {
           rowData[header] = row[i];
         });
 
-        const mappedData = mapRowData(rowData, headers);
+        const mappedData = mapRowData(rowData, headers, columnMapping);
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -154,6 +172,7 @@ export default function Importacoes() {
         if (!mappedData.codProduto) errors.push("Código do produto ausente");
         if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
         if (!mappedData.precoSaco) errors.push("Preço ausente");
+        if (tipo === 'pedidos' && !mappedData.pedidoNumber) errors.push("Número do pedido ausente");
 
         return { data: mappedData, errors, warnings };
       });
@@ -166,7 +185,7 @@ export default function Importacoes() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, []);
+  }, [columnMapping, tipo]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -209,7 +228,7 @@ export default function Importacoes() {
         headers.forEach((header, i) => {
           rowData[header] = row[i];
         });
-        return mapRowData(rowData, headers);
+        return mapRowData(rowData, headers, columnMapping);
       });
 
       setProgress(50);
@@ -266,24 +285,13 @@ export default function Importacoes() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Importações</h1>
-        <p className="text-slate-600 mt-1">
-          Importe vendas e pedidos em carteira a partir de arquivos Excel ou CSV.
-          Representantes, clientes e produtos serão cadastrados automaticamente.
-        </p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="w-5 h-5 text-blue-600" />
-            Upload de Arquivo
+            {title}
           </CardTitle>
-          <CardDescription>
-            Selecione um arquivo Excel (.xlsx, .xls) ou CSV com os dados de vendas.
-            O sistema detectará automaticamente as colunas.
-          </CardDescription>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
@@ -319,9 +327,7 @@ export default function Importacoes() {
         <Card>
           <CardHeader>
             <CardTitle>Colunas Detectadas</CardTitle>
-            <CardDescription>
-              Mapeamento automático das colunas do arquivo
-            </CardDescription>
+            <CardDescription>Mapeamento automático das colunas do arquivo</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
@@ -340,9 +346,7 @@ export default function Importacoes() {
         <Card>
           <CardHeader>
             <CardTitle>Preview dos Dados</CardTitle>
-            <CardDescription>
-              Primeiras 10 linhas do arquivo. Verifique se os dados estão corretos antes de importar.
-            </CardDescription>
+            <CardDescription>Primeiras 10 linhas do arquivo</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -403,7 +407,7 @@ export default function Importacoes() {
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    Importar Dados
+                    Importar {tipo === 'vendas' ? 'Vendas' : 'Pedidos'}
                   </>
                 )}
               </Button>
@@ -445,7 +449,7 @@ export default function Importacoes() {
                 <p className="text-lg font-bold">+{result.details.produtos.created} novos</p>
               </div>
               <div className="bg-white p-4 rounded-lg border">
-                <p className="text-sm text-slate-600">Vendas</p>
+                <p className="text-sm text-slate-600">{tipo === 'vendas' ? 'Vendas' : 'Pedidos'}</p>
                 <p className="text-2xl font-bold text-blue-600">{result.details.vendas.created}</p>
               </div>
             </div>
@@ -463,6 +467,50 @@ export default function Importacoes() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+export default function Importacoes() {
+  const importVendasMutation = trpc.admin.importSales.useMutation();
+  const importPedidosMutation = trpc.admin.importPedidos.useMutation();
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Importações</h1>
+        <p className="text-slate-600 mt-1">
+          Importe vendas faturadas e pedidos em carteira a partir de arquivos Excel ou CSV.
+          Representantes, clientes e produtos serão cadastrados automaticamente.
+        </p>
+      </div>
+
+      <Tabs defaultValue="vendas" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="vendas">Vendas Faturadas</TabsTrigger>
+          <TabsTrigger value="pedidos">Pedidos em Carteira</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="vendas">
+          <ImportSection
+            title="Importar Vendas Faturadas"
+            description="Selecione um arquivo Excel ou CSV com dados de vendas já faturadas (Notas Fiscais emitidas)."
+            columnMapping={COLUMN_MAPPING_VENDAS}
+            importMutation={importVendasMutation}
+            tipo="vendas"
+          />
+        </TabsContent>
+        
+        <TabsContent value="pedidos">
+          <ImportSection
+            title="Importar Pedidos em Carteira"
+            description="Selecione um arquivo Excel ou CSV com pedidos em carteira (pendentes de faturamento)."
+            columnMapping={COLUMN_MAPPING_PEDIDOS}
+            importMutation={importPedidosMutation}
+            tipo="pedidos"
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
