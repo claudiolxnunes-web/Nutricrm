@@ -786,11 +786,26 @@ export const appRouter = router({
     importSales: adminOrSuperadminProcedure
       .input(z.object({
         data: z.array(z.object({
-          dataNF: z.union([z.date(), z.string()]).optional().transform(v => {
+          dataNF: z.union([z.date(), z.string(), z.number()]).optional().transform(v => {
             if (!v) return new Date();
-            return v instanceof Date ? v : new Date(v);
+            if (v instanceof Date) return v;
+            // Converter número do Excel (dias desde 01/01/1900) para Date
+            if (typeof v === 'number') {
+              const excelEpoch = new Date(1900, 0, 1);
+              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+            }
+            return new Date(v);
           }),
-          dataPedido: z.union([z.date(), z.string()]).optional().transform(v => v ? (v instanceof Date ? v : new Date(v)) : undefined),
+          dataPedido: z.union([z.date(), z.string(), z.number()]).optional().transform(v => {
+            if (!v) return undefined;
+            if (v instanceof Date) return v;
+            // Converter número do Excel (dias desde 01/01/1900) para Date
+            if (typeof v === 'number') {
+              const excelEpoch = new Date(1900, 0, 1);
+              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+            }
+            return new Date(v);
+          }),
           codCliente: z.union([z.string(), z.number()]).transform(v => String(v)),
           nomeCliente: z.string(),
           codProduto: z.union([z.string(), z.number()]).transform(v => String(v)),
@@ -857,11 +872,26 @@ export const appRouter = router({
     importPedidos: adminOrSuperadminProcedure
       .input(z.object({
         data: z.array(z.object({
-          dataPedido: z.union([z.date(), z.string()]).optional().transform(v => {
+          dataPedido: z.union([z.date(), z.string(), z.number()]).optional().transform(v => {
             if (!v) return new Date();
-            return v instanceof Date ? v : new Date(v);
+            if (v instanceof Date) return v;
+            // Converter número do Excel (dias desde 01/01/1900) para Date
+            if (typeof v === 'number') {
+              const excelEpoch = new Date(1900, 0, 1);
+              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+            }
+            return new Date(v);
           }),
-          dataPrevFaturamento: z.union([z.date(), z.string()]).optional().transform(v => v ? (v instanceof Date ? v : new Date(v)) : undefined),
+          dataPrevFaturamento: z.union([z.date(), z.string(), z.number()]).optional().transform(v => {
+            if (!v) return undefined;
+            if (v instanceof Date) return v;
+            // Converter número do Excel (dias desde 01/01/1900) para Date
+            if (typeof v === 'number') {
+              const excelEpoch = new Date(1900, 0, 1);
+              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+            }
+            return new Date(v);
+          }),
           codCliente: z.union([z.string(), z.number()]).transform(v => String(v)),
           nomeCliente: z.string(),
           codProduto: z.union([z.string(), z.number()]).transform(v => String(v)),
