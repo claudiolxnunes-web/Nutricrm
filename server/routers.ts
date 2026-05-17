@@ -815,8 +815,9 @@ export const appRouter = router({
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          precoSaco: z.union([z.number(), z.string()]).transform(v => {
+          precoSaco: z.union([z.number(), z.string(), z.null(), z.undefined()]).transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
@@ -827,8 +828,9 @@ export const appRouter = router({
           pedido: z.union([z.string(), z.number()]).optional().transform(v => v ? String(v) : undefined),
           segmentacao: z.string().optional(),
           categoria: z.string().optional(),
-          precoKg: z.union([z.number(), z.string()]).optional().transform(v => {
+          precoKg: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
@@ -901,8 +903,9 @@ export const appRouter = router({
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          precoSaco: z.union([z.number(), z.string()]).transform(v => {
+          precoSaco: z.union([z.number(), z.string(), z.null(), z.undefined()]).transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
