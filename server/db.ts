@@ -1715,25 +1715,14 @@ export interface ImportResult {
   errorDetails: string[];
 }
 
-export async function findOrCreateRepresentante(
+export async function createRepresentante(
   nome: string,
   companyId: number
-): Promise<{ id: number; created: boolean }> {
+): Promise<{ id: number }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // Buscar por nome (case insensitive)
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.companyId, companyId), sql`LOWER(${users.name}) = LOWER(${nome})`))
-    .limit(1);
-
-  if (existing.length > 0) {
-    return { id: existing[0].id, created: false };
-  }
-
-  // Criar novo representante
+  // Criar novo representante (sempre cria novo, sem deduplicar)
   const bcrypt = await import("bcryptjs");
   const tempPassword = Math.random().toString(36).slice(2, 10);
   const passwordHash = await bcrypt.hash(tempPassword, 12);
@@ -1744,7 +1733,7 @@ export async function findOrCreateRepresentante(
       companyId,
       openId: `rep_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       name: nome,
-      email: `temp_${Date.now()}@placeholder.com`, // Será atualizado depois
+      email: `temp_${Date.now()}@placeholder.com`,
       passwordHash,
       role: "vendedor",
       loginMethod: "email",
@@ -1754,10 +1743,10 @@ export async function findOrCreateRepresentante(
     })
     .returning({ id: users.id });
 
-  return { id: result[0].id, created: true };
+  return { id: result[0].id };
 }
 
-export async function findOrCreateCliente(
+export async function createCliente(
   data: {
     codigo: string;
     nome: string;
@@ -1769,30 +1758,11 @@ export async function findOrCreateCliente(
   },
   companyId: number,
   createdBy: number
-): Promise<{ id: number; created: boolean }> {
+): Promise<{ id: number }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // Buscar por código do cliente ou nome
-  const existing = await db
-    .select({ id: clients.id })
-    .from(clients)
-    .where(
-      and(
-        eq(clients.companyId, companyId),
-        or(
-          sql`${clients.notes} LIKE ${`%COD:${data.codigo}%`}`,
-          sql`LOWER(${clients.farmName}) = LOWER(${data.nome})`
-        )
-      )
-    )
-    .limit(1);
-
-  if (existing.length > 0) {
-    return { id: existing[0].id, created: false };
-  }
-
-  // Criar novo cliente
+  // Criar novo cliente (sempre cria novo, sem deduplicar)
   const result = await db
     .insert(clients)
     .values({
@@ -1814,7 +1784,39 @@ export async function findOrCreateCliente(
     })
     .returning({ id: clients.id });
 
-  return { id: result[0].id, created: true };
+  return { id: result[0].id };
+}
+
+export async function createProduto(
+  data: {
+    codigo: string;
+    nome: string;
+    preco?: number;
+    linha?: string;
+  },
+  companyId: number
+): Promise<{ id: number }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Criar novo produto (sempre cria novo, sem deduplicar)
+  const result = await db
+    .insert(products)
+    .values({
+      companyId,
+      name: data.nome,
+      category: data.linha || "Outros",
+      productCode: data.codigo,
+      price: data.preco?.toString() || "0",
+      description: `Importado em ${new Date().toISOString()}`,
+      unit: "saco",
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning({ id: products.id });
+
+  return { id: result[0].id };
 }
 
 export async function findOrCreateProduto(
@@ -1920,34 +1922,30 @@ export async function importSalesData(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     try {
-      // Representante
+      // Representante (sempre cria novo, sem deduplicar)
       let representanteId: number;
       const repCacheKey = `${companyId}_${row.representante}`;
       if (representantesCache.has(repCacheKey)) {
         representanteId = representantesCache.get(repCacheKey)!;
       } else {
-        const rep = await findOrCreateRepresentante(row.representante, companyId);
+        const rep = await createRepresentante(row.representante || 'Sem Representante', companyId);
         representanteId = rep.id;
         representantesCache.set(repCacheKey, rep.id);
-        if (rep.created) {
-          result.details.representantes.created++;
-        } else {
-          result.details.representantes.existing++;
-        }
+        result.details.representantes.created++;
       }
 
-      // Cliente
+      // Cliente (sempre cria novo, sem deduplicar)
       let clienteId: number;
       const cliCacheKey = `${companyId}_${row.codCliente}`;
       if (clientesCache.has(cliCacheKey)) {
         clienteId = clientesCache.get(cliCacheKey)!;
       } else {
-        const cli = await findOrCreateCliente(
+        const cli = await createCliente(
           {
             codigo: row.codCliente,
             nome: row.nomeCliente,
-            municipio: row.municipio,
-            uf: row.uf,
+            municipio: row.municipio || '',
+            uf: row.uf || '',
             segmentacao: row.segmentacao,
           },
           companyId,
@@ -1955,20 +1953,16 @@ export async function importSalesData(
         );
         clienteId = cli.id;
         clientesCache.set(cliCacheKey, cli.id);
-        if (cli.created) {
-          result.details.clientes.created++;
-        } else {
-          result.details.clientes.existing++;
-        }
+        result.details.clientes.created++;
       }
 
-      // Produto
+      // Produto (sempre cria novo, sem deduplicar)
       let produtoId: number;
       const prodCacheKey = `${companyId}_${row.codProduto}`;
       if (produtosCache.has(prodCacheKey)) {
         produtoId = produtosCache.get(prodCacheKey)!;
       } else {
-        const prod = await findOrCreateProduto(
+        const prod = await createProduto(
           {
             codigo: row.codProduto,
             nome: row.nomeProduto,
@@ -1979,14 +1973,10 @@ export async function importSalesData(
         );
         produtoId = prod.id;
         produtosCache.set(prodCacheKey, prod.id);
-        if (prod.created) {
-          result.details.produtos.created++;
-        } else {
-          result.details.produtos.existing++;
-        }
+        result.details.produtos.created++;
       }
 
-      // Criar venda
+      // Criar venda (usa nota fiscal como identificador)
       await createSaleFromImport(row, companyId, userId, clienteId, produtoId);
       result.details.vendas.created++;
       result.imported++;

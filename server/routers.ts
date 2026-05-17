@@ -782,24 +782,47 @@ export const appRouter = router({
     importSales: adminOrSuperadminProcedure
       .input(z.object({
         data: z.array(z.object({
-          dataNF: z.union([z.date(), z.string()]).transform(v => v instanceof Date ? v : new Date(v)),
+          dataNF: z.union([z.date(), z.string()]).optional().transform(v => {
+            if (!v) return new Date();
+            return v instanceof Date ? v : new Date(v);
+          }),
           dataPedido: z.union([z.date(), z.string()]).optional().transform(v => v ? (v instanceof Date ? v : new Date(v)) : undefined),
-          codCliente: z.string(),
+          codCliente: z.union([z.string(), z.number()]).transform(v => String(v)),
           nomeCliente: z.string(),
-          codProduto: z.string(),
+          codProduto: z.union([z.string(), z.number()]).transform(v => String(v)),
           nomeProduto: z.string(),
-          qtdeSacos: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v) || 0 : v),
-          precoSaco: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
-          representante: z.string(),
-          municipio: z.string(),
-          uf: z.string(),
-          notaFiscal: z.string().optional(),
-          pedido: z.string().optional(),
+          qtdeSacos: z.union([z.number(), z.string()]).transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          precoSaco: z.union([z.number(), z.string()]).transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          representante: z.string().optional().default('Sem Representante'),
+          municipio: z.string().optional().default(''),
+          uf: z.string().optional().default(''),
+          notaFiscal: z.union([z.string(), z.number()]).optional().transform(v => v ? String(v) : undefined),
+          pedido: z.union([z.string(), z.number()]).optional().transform(v => v ? String(v) : undefined),
           segmentacao: z.string().optional(),
           categoria: z.string().optional(),
-          precoKg: z.union([z.number(), z.string()]).optional().transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
-          descontoPct: z.union([z.number(), z.string()]).optional().transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
-          faturamento: z.union([z.number(), z.string()]).optional().transform(v => typeof v === 'string' ? parseFloat(v.replace(',', '.')) || 0 : v),
+          precoKg: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          descontoPct: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          faturamento: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
           linha: z.string().optional(),
         })),
       }))

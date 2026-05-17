@@ -1,0 +1,40 @@
+NUTRICRM - INFORMAÇÕES IMPORTANTES
+=====================================
+
+CHAVES VAPID (Notificações Push)
+----------------------------------
+Public Key:
+BDR3wGmD2Q34f0hJvfMCnBGXtxNWaAkvUGifbDiI8yV9rJ5jjBXflWdKRfOoKlhCo0LRCmIMp7pDt_OkiWCqz9I
+
+Private Key:
+S2dyn2ZHxKU-lSfmq-iV92hTxhXxB6fydM3OeS_LCMY
+
+Email: admin@nutricrm.com.br
+
+ATENÇÃO: Guarde a chave PRIVATE em local seguro!
+
+
+ACESSOS
+--------
+URL da aplicação: https://nutricrm.onrender.com
+
+Usuário admin: (seu usuário atual)
+
+
+O QUE FOI IMPLEMENTADO
+-----------------------
+✅ Botão de limpar dados (Configurações)
+✅ Aba de importações de vendas via Excel/CSV
+✅ Cadastro automático de representantes, clientes e produtos
+✅ Notificações push configuradas
+✅ Base de dados limpa (clientes, produtos, vendas, etc.)
+
+
+VARIÁVEIS DE AMBIENTE NO RENDER
+--------------------------------
+VAPID_PUBLIC_KEY=BDR3wGmD2Q34f0hJvfMCnBGXtxNWaAkvUGifbDiI8yV9rJ5jjBXflWdKRfOoKlhCo0LRCmIMp7pDt_OkiWCqz9I
+VAPID_PRIVATE_KEY=S2dyn2ZHxKU-lSfmq-iV92hTxhXxB6fydM3OeS_LCMY
+VAPID_EMAIL=admin@nutricrm.com.br
+
+
+Data: 15/05/2026

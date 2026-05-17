@@ -1,0 +1,7 @@
+chaves frontend do render - nutricrm
+
+VAPID_PUBLIC_KEY=BDR3wGmD2Q34f0hJvfMCnBGXtxNWaAkvUGifbDiI8yV9rJ5jjBXflWdKRfOoKlhCo0LRCmIMp7pDt_OkiWCqz9I
+
+VAPID_PRIVATE_KEY=S2dyn2ZHxKU-lSfmq-iV92hTxhXxB6fydM3OeS_LCMY
+
+VAPID_EMAIL=admin@nutricrm.com.br

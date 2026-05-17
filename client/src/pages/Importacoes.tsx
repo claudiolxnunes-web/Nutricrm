@@ -29,30 +29,50 @@ interface ImportResult {
   errorDetails?: string[];
 }
 
-const REQUIRED_COLUMNS = [
-  "Data da NF",
-  "Cód. Cliente",
-  "Nome do Cliente",
-  "Cód. Produto",
-  "Nome do Produto",
-  "Qtde. Sacos",
-  "Preço por Saco",
-  "Representante",
-  "Município",
-  "UF",
-];
+// Mapeamento flexível de colunas - detecta vários nomes possíveis
+const COLUMN_MAPPING: Record<string, string[]> = {
+  dataNF: ["Data da NF", "dt Prev. Fat.", "Data", "Dt NF", "Faturame", "Data Fatura", "Dt Fatura", "PREV.FATUR.", "Prev. Fat.", "Inclusão", "Dt Pedido", "Data Pedido"],
+  codCliente: ["Cód. Cliente", "Cod Cliente", "Código Cliente", "Cod. Cliente", "Cod Cliente", "Cód Cliente", "CLIENTE", "Cliente"],
+  nomeCliente: ["Nome do Cliente", "Cliente", "Razão Social", "Nome Cliente", "NOME", "Nome", "CLIENTE"],
+  codProduto: ["Cód. Produto", "Cod. Produto", "Código Produto", "Cod Produto", "Cód Produto", "PRODUTO", "Produto", "Codigo Produto"],
+  nomeProduto: ["Nome do Produto", "Produto", "Descrição", "Descricao", "Nome Produto", "PRODUTO", "Produto"],
+  qtdeSacos: ["Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Pedido Val", "QTD", "Qtde", "Quant.", "Quant", "Volume", "VOL"],
+  precoSaco: ["Preço por Saco", "Preço", "Valor Unitário", "Unitário", "Pedido Vc", "PREÇO", "Preco", "Valor", "Vl. Unit", "Unit"],
+  representante: ["Representante", "ERC", "Vendedor", "RC", "Rep", "REPRESENTANTE", "VENDEDOR", "RCA", "Representante"],
+  municipio: ["Município", "Cidade", "Mun", "MUNICIPIO", "CIDADE", "Cidade"],
+  uf: ["UF", "Estado", "ESTADO", "U.F.", "Uf"],
+  notaFiscal: ["Nota Fiscal", "Pedido", "OC", "Nota", "NF", "N.F.", "NFe", "Pedido", "ORDEM", "Ordem", "OC"],
+  pedido: ["Pedido", "OC", "Ordem", "PEDIDO", "Cod Pedido", "Código Pedido"],
+  segmentacao: ["Segmentação", "Seg.", "Segmento", "SEGMENTAÇÃO", "SEG", "Seg"],
+  categoria: ["Categoria", "CAT", "Categ", "CATEGORIA"],
+  linha: ["Linha", "LINE", "LINHA", "Linha Produto"],
+};
 
-const OPTIONAL_COLUMNS = [
-  "Data do Pedido",
-  "Nota Fiscal",
-  "Pedido",
-  "Segmentação",
-  "Categoria",
-  "Preço por KG",
-  "Desconto %",
-  "Faturamento Realizado",
-  "Linha",
-];
+// Função para encontrar o nome da coluna no arquivo
+function findColumnName(headers: string[], possibleNames: string[]): string | null {
+  for (const name of possibleNames) {
+    const found = headers.find(h => 
+      h.toLowerCase().trim() === name.toLowerCase().trim() ||
+      h.toLowerCase().trim().includes(name.toLowerCase().trim())
+    );
+    if (found) return found;
+  }
+  return null;
+}
+
+// Função para mapear dados do arquivo para o formato esperado
+function mapRowData(rowData: Record<string, any>, headers: string[]): Record<string, any> {
+  const mapped: Record<string, any> = {};
+  
+  for (const [key, possibleNames] of Object.entries(COLUMN_MAPPING)) {
+    const columnName = findColumnName(headers, possibleNames);
+    if (columnName && rowData[columnName] !== undefined) {
+      mapped[key] = rowData[columnName];
+    }
+  }
+  
+  return mapped;
+}
 
 export default function Importacoes() {
   const [file, setFile] = useState<File | null>(null);
@@ -61,6 +81,7 @@ export default function Importacoes() {
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [detectedColumns, setDetectedColumns] = useState<Record<string, string>>({});
 
   const importMutation = trpc.admin.importSales.useMutation({
     onSuccess: (data) => {
@@ -98,10 +119,20 @@ export default function Importacoes() {
       const headers = jsonData[0].map((h: any) => String(h).trim());
       const rows = jsonData.slice(1);
       
-      // Validar colunas obrigatórias
-      const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
+      // Detectar colunas
+      const detected: Record<string, string> = {};
+      for (const [key, possibleNames] of Object.entries(COLUMN_MAPPING)) {
+        const found = findColumnName(headers, possibleNames);
+        if (found) detected[key] = found;
+      }
+      setDetectedColumns(detected);
+      
+      // Validar colunas obrigatórias mínimas
+      const requiredKeys = ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos', 'precoSaco'];
+      const missingColumns = requiredKeys.filter(key => !detected[key]);
+      
       if (missingColumns.length > 0) {
-        toast.error(`Colunas obrigatórias ausentes: ${missingColumns.join(", ")}`);
+        toast.error(`Colunas obrigatórias não encontradas: ${missingColumns.join(", ")}. Verifique se o arquivo tem os cabeçalhos corretos.`);
         setIsAnalyzing(false);
         return;
       }
@@ -113,28 +144,23 @@ export default function Importacoes() {
           rowData[header] = row[i];
         });
 
+        const mappedData = mapRowData(rowData, headers);
         const errors: string[] = [];
         const warnings: string[] = [];
 
         // Validações básicas
-        if (!rowData["Cód. Cliente"]) errors.push("Código do cliente ausente");
-        if (!rowData["Nome do Cliente"]) errors.push("Nome do cliente ausente");
-        if (!rowData["Cód. Produto"]) errors.push("Código do produto ausente");
-        if (!rowData["Representante"]) errors.push("Representante ausente");
-        if (!rowData["Data da NF"]) errors.push("Data da NF ausente");
+        if (!mappedData.codCliente) errors.push("Código do cliente ausente");
+        if (!mappedData.nomeCliente) errors.push("Nome do cliente ausente");
+        if (!mappedData.codProduto) errors.push("Código do produto ausente");
+        if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
+        if (!mappedData.precoSaco) errors.push("Preço ausente");
 
-        // Verificar formato de data
-        const dataNF = rowData["Data da NF"];
-        if (dataNF && !(dataNF instanceof Date) && !String(dataNF).match(/^\d{4}-\d{2}-\d{2}/)) {
-          warnings.push("Formato de data pode estar incorreto (esperado: YYYY-MM-DD)");
-        }
-
-        return { data: rowData, errors, warnings };
+        return { data: mappedData, errors, warnings };
       });
 
       setPreview(previewRows);
       setFile(selectedFile);
-      toast.success(`Arquivo analisado: ${rows.length} linhas encontradas`);
+      toast.success(`Arquivo analisado: ${rows.length} linhas encontradas. Colunas detectadas: ${Object.keys(detected).length}`);
     } catch (err) {
       toast.error("Erro ao analisar arquivo: " + (err as Error).message);
     } finally {
@@ -177,13 +203,13 @@ export default function Importacoes() {
 
       setProgress(30);
 
-      // Converter para array de objetos
+      // Converter para array de objetos mapeados
       const data = rows.map(row => {
-        const obj: Record<string, any> = {};
+        const rowData: Record<string, any> = {};
         headers.forEach((header, i) => {
-          obj[header] = row[i];
+          rowData[header] = row[i];
         });
-        return obj;
+        return mapRowData(rowData, headers);
       });
 
       setProgress(50);
@@ -227,7 +253,7 @@ export default function Importacoes() {
         imported: totalImported,
         errors: totalErrors,
         details: aggregatedDetails,
-        errorDetails: allErrorDetails.slice(0, 20), // Limitar a 20 erros
+        errorDetails: allErrorDetails.slice(0, 20),
       });
 
       setIsImporting(false);
@@ -236,75 +262,6 @@ export default function Importacoes() {
       setIsImporting(false);
       toast.error("Erro na importação: " + (err as Error).message);
     }
-  };
-
-  const downloadTemplate = () => {
-    const template = [
-      [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS],
-      [
-        "2026-05-13", // Data da NF
-        "2026-04-28", // Data do Pedido
-        "-1", // Cód Grupo
-        "051819|NOME CLIENTE", // Grupo Cliente
-        "272163", // Nota Fiscal
-        "275886", // Pedido
-        "51819", // Cód. Cliente
-        "NOME DO CLIENTE", // Nome do Cliente
-        "C", // Segmentação
-        "PRODUTOR RURAL", // Categoria
-        "1647660", // Cód. Produto
-        "NOME DO PRODUTO", // Nome do Produto
-        "15", // Qtde. Sacos
-        "137.09", // Preço por Saco
-        "4.57", // Preço por KG
-        "50", // PMR
-        "0", // Desconto %
-        "CIDADE", // Município
-        "MG", // UF
-        "SUDESTE", // Região
-        "1360", // Cód. RC
-        "NOME REPRESENTANTE", // Representante
-        "Vendas", // Tipo de Operação
-        "10085", // Cód. Filial
-        "GRUPO PRODUTO", // Grupo Produto
-        "2056.28", // Faturamento Realizado
-        "1996.39", // Faturamento S/ Encargos
-        "0.41", // MB CB %
-        "826.79", // MB CB Total
-        "0.15", // ML CB %
-        "303.42", // ML CB Total
-        "450", // Volume
-        "450", // Volume + Bon.
-        "0", // Bonificação
-        "0", // ICMS
-        "33.93", // PIS
-        "156.28", // Cofins
-        "1169.60", // Custo
-        "82.25", // Desp Comercial
-        "86.41", // Frete
-        "450", // Volume Convertido
-        "LINHA", // Customizado
-        "1318", // Cód Grupo Produto
-        "SOLUÇÃO", // Solução
-        "SUBSOLUÇÃO", // Subsolução
-        "NUTRICAO RUMINANTES", // Linha
-        "GRV", // GRV
-        "GNV", // GNV
-        "MAI/2026", // Mês/Ano
-        "FILIAL", // Filial
-        "5101", // CFOP
-        "N", // FL_VEF
-        "0.08", // Comissão %
-        "164.50", // Comissão
-        "R", // Moeda
-        "2026", // Ano
-      ],
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Modelo");
-    XLSX.writeFile(wb, "modelo_importacao_vendas.xlsx");
   };
 
   return (
@@ -325,6 +282,7 @@ export default function Importacoes() {
           </CardTitle>
           <CardDescription>
             Selecione um arquivo Excel (.xlsx, .xls) ou CSV com os dados de vendas.
+            O sistema detectará automaticamente as colunas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -336,14 +294,6 @@ export default function Importacoes() {
               disabled={isAnalyzing || isImporting}
               className="flex-1"
             />
-            <Button
-              variant="outline"
-              onClick={downloadTemplate}
-              disabled={isAnalyzing || isImporting}
-            >
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Baixar Modelo
-            </Button>
           </div>
 
           {isAnalyzing && (
@@ -365,6 +315,27 @@ export default function Importacoes() {
         </CardContent>
       </Card>
 
+      {Object.keys(detectedColumns).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Colunas Detectadas</CardTitle>
+            <CardDescription>
+              Mapeamento automático das colunas do arquivo
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+              {Object.entries(detectedColumns).map(([key, value]) => (
+                <div key={key} className="flex justify-between bg-slate-50 p-2 rounded">
+                  <span className="font-medium">{key}:</span>
+                  <span className="text-slate-600">{value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {preview.length > 0 && (
         <Card>
           <CardHeader>
@@ -381,9 +352,8 @@ export default function Importacoes() {
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Produto</TableHead>
-                    <TableHead>Representante</TableHead>
-                    <TableHead>Data NF</TableHead>
                     <TableHead>Qtde</TableHead>
+                    <TableHead>Preço</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -392,29 +362,19 @@ export default function Importacoes() {
                     <TableRow key={idx}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell>
-                        {row.data["Nome do Cliente"] || "-"}
+                        {row.data.nomeCliente || "-"}
                         {row.errors.some(e => e.includes("cliente")) && (
                           <AlertCircle className="w-4 h-4 text-red-500 inline ml-1" />
                         )}
                       </TableCell>
-                      <TableCell>{row.data["Nome do Produto"] || "-"}</TableCell>
-                      <TableCell>{row.data["Representante"] || "-"}</TableCell>
-                      <TableCell>
-                        {row.data["Data da NF"]
-                          ? new Date(row.data["Data da NF"]).toLocaleDateString("pt-BR")
-                          : "-"}
-                      </TableCell>
-                      <TableCell>{row.data["Qtde. Sacos"] || "-"}</TableCell>
+                      <TableCell>{row.data.nomeProduto || "-"}</TableCell>
+                      <TableCell>{row.data.qtdeSacos || "-"}</TableCell>
+                      <TableCell>{row.data.precoSaco || "-"}</TableCell>
                       <TableCell>
                         {row.errors.length > 0 ? (
                           <span className="text-red-600 text-sm flex items-center gap-1">
                             <AlertCircle className="w-4 h-4" />
                             {row.errors.length} erro(s)
-                          </span>
-                        ) : row.warnings.length > 0 ? (
-                          <span className="text-yellow-600 text-sm flex items-center gap-1">
-                            <AlertCircle className="w-4 h-4" />
-                            {row.warnings.length} aviso(s)
                           </span>
                         ) : (
                           <span className="text-green-600 text-sm flex items-center gap-1">
@@ -471,39 +431,22 @@ export default function Importacoes() {
               </div>
               <div className="bg-white p-4 rounded-lg border">
                 <p className="text-sm text-slate-600">Representantes</p>
-                <p className="text-lg font-bold">
-                  +{result.details.representantes.created} novos
-                </p>
-                <p className="text-xs text-slate-500">
-                  {result.details.representantes.existing} existentes
-                </p>
+                <p className="text-lg font-bold">+{result.details.representantes.created} novos</p>
               </div>
               <div className="bg-white p-4 rounded-lg border">
                 <p className="text-sm text-slate-600">Clientes</p>
-                <p className="text-lg font-bold">
-                  +{result.details.clientes.created} novos
-                </p>
-                <p className="text-xs text-slate-500">
-                  {result.details.clientes.existing} existentes
-                </p>
+                <p className="text-lg font-bold">+{result.details.clientes.created} novos</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-lg border">
                 <p className="text-sm text-slate-600">Produtos</p>
-                <p className="text-lg font-bold">
-                  +{result.details.produtos.created} novos
-                </p>
-                <p className="text-xs text-slate-500">
-                  {result.details.produtos.existing} existentes
-                </p>
+                <p className="text-lg font-bold">+{result.details.produtos.created} novos</p>
               </div>
               <div className="bg-white p-4 rounded-lg border">
                 <p className="text-sm text-slate-600">Vendas</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {result.details.vendas.created}
-                </p>
+                <p className="text-2xl font-bold text-blue-600">{result.details.vendas.created}</p>
               </div>
             </div>
 
