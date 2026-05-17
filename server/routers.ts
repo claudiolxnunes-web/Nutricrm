@@ -834,32 +834,38 @@ export const appRouter = router({
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          descontoPct: z.union([z.number(), z.string()]).optional().transform(v => {
+          descontoPct: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          descontoValor: z.union([z.number(), z.string()]).optional().transform(v => {
+          descontoValor: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          faturamento: z.union([z.number(), z.string()]).optional().transform(v => {
+          faturamento: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          bonificacaoQtde: z.union([z.number(), z.string()]).optional().transform(v => {
+          bonificacaoQtde: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             return parseInt(String(v)) || 0;
           }),
-          bonificacaoValor: z.union([z.number(), z.string()]).optional().transform(v => {
+          bonificacaoValor: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          valorFinal: z.union([z.number(), z.string()]).optional().transform(v => {
+          valorFinal: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
+            if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
