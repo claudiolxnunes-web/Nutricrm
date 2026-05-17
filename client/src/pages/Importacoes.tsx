@@ -47,6 +47,11 @@ const COLUMN_MAPPING_VENDAS: Record<string, string[]> = {
   segmentacao: ["Segmentação", "Seg.", "Segmento", "SEGMENTAÇÃO", "SEG", "Seg", "Segmentação Cliente"],
   categoria: ["Categoria", "CAT", "Categ", "CATEGORIA", "Categoria Cliente"],
   linha: ["Linha", "LINE", "LINHA", "Linha Produto", "Linha de Produto"],
+  descontoPct: ["Desconto %", "Desc %", "Desconto", "DESC", "% Desc", "Percentual Desconto", "Desc. %"],
+  descontoValor: ["Desconto R$", "Valor Desconto", "Desc Valor", "Desc. R$", "Desconto Valor"],
+  bonificacaoQtde: ["Bonificação Qtd", "Bonif Qtd", "Qtd Bonificação", "Boni Qtd", "Qtde Bonif", "Quantidade Bonificada"],
+  bonificacaoValor: ["Bonificação Valor", "Bonif Valor", "Valor Bonificação", "Boni Valor", "Vl Bonif"],
+  valorFinal: ["Valor Final", "Total Líquido", "Líquido", "Valor Líquido", "Total Final", "Faturamento Líquido"],
 };
 
 const COLUMN_MAPPING_PEDIDOS: Record<string, string[]> = {

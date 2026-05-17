@@ -1700,7 +1700,11 @@ export interface ImportSaleRow {
   categoria?: string;
   precoKg?: number;
   descontoPct?: number;
+  descontoValor?: number;
   faturamento?: number;
+  bonificacaoQtde?: number;
+  bonificacaoValor?: number;
+  valorFinal?: number;
   linha?: string;
 }
 
@@ -1883,6 +1887,11 @@ export async function createSaleFromImport(
   if (!db) throw new Error("Database not available");
 
   const totalValue = data.faturamento || data.qtdeSacos * data.precoSaco;
+  const bonusValue = data.bonificacaoValor || 0;
+  const bonusQuantity = data.bonificacaoQtde || 0;
+  const discountPercent = data.descontoPct || 0;
+  const discountValue = data.descontoValor || (totalValue * discountPercent / 100);
+  const finalValue = data.valorFinal || (totalValue - discountValue);
   const saleNumber = `IMP_${data.notaFiscal || Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
   await db.insert(sales).values({
@@ -1890,9 +1899,14 @@ export async function createSaleFromImport(
     clientId,
     saleNumber,
     totalValue: totalValue.toString(),
+    discountValue: discountValue.toString(),
+    discountPercent: discountPercent.toString(),
+    bonusValue: bonusValue.toString(),
+    bonusQuantity,
+    finalValue: finalValue.toString(),
     paymentStatus: "pago",
     saleDate: data.dataNF,
-    notes: `Pedido: ${data.pedido || "N/A"} | Segmentação: ${data.segmentacao || "N/A"} | Categoria: ${data.categoria || "N/A"}`,
+    notes: `Pedido: ${data.pedido || "N/A"} | Segmentação: ${data.segmentacao || "N/A"} | Categoria: ${data.categoria || "N/A"} | Bonificação: ${bonusQuantity} un / R$ ${bonusValue}`,
     createdBy: userId,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -2132,6 +2146,115 @@ export async function importPedidosData(
     }
   }
 
+  result.success = result.errors === 0;
+  return result;
+}
+
+// ========== IMPORTAÇÃO AVULSA DE ENTIDADES ==========
+
+export interface ImportClienteRow {
+  codigo: string;
+  nome: string;
+  email?: string;
+  telefone?: string;
+  municipio?: string;
+  uf?: string;
+  endereco?: string;
+  segmentacao?: string;
+  categoria?: string;
+  status?: string;
+}
+
+export interface ImportProdutoRow {
+  codigo: string;
+  nome: string;
+  preco?: number;
+  categoria?: string;
+  linha?: string;
+  unidade?: string;
+  descricao?: string;
+}
+
+export interface ImportRepresentanteRow {
+  nome: string;
+  email?: string;
+  telefone?: string;
+  regiao?: string;
+}
+
+export async function importClientesAvulso(
+  rows: ImportClienteRow[],
+  companyId: number,
+  userId: number
+): Promise<{ success: boolean; imported: number; errors: number; errorDetails: string[] }> {
+  const result = { success: true, imported: 0, errors: 0, errorDetails: [] as string[] };
+  
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      await createCliente({
+        codigo: row.codigo,
+        nome: row.nome,
+        municipio: row.municipio || '',
+        uf: row.uf || '',
+        email: row.email,
+        telefone: row.telefone,
+        segmentacao: row.segmentacao,
+      }, companyId, userId);
+      result.imported++;
+    } catch (err: any) {
+      result.errors++;
+      result.errorDetails.push(`Linha ${i + 1}: ${err.message || String(err)}`);
+    }
+  }
+  
+  result.success = result.errors === 0;
+  return result;
+}
+
+export async function importProdutosAvulso(
+  rows: ImportProdutoRow[],
+  companyId: number
+): Promise<{ success: boolean; imported: number; errors: number; errorDetails: string[] }> {
+  const result = { success: true, imported: 0, errors: 0, errorDetails: [] as string[] };
+  
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      await createProduto({
+        codigo: row.codigo,
+        nome: row.nome,
+        preco: row.preco,
+        linha: row.linha,
+      }, companyId);
+      result.imported++;
+    } catch (err: any) {
+      result.errors++;
+      result.errorDetails.push(`Linha ${i + 1}: ${err.message || String(err)}`);
+    }
+  }
+  
+  result.success = result.errors === 0;
+  return result;
+}
+
+export async function importRepresentantesAvulso(
+  rows: ImportRepresentanteRow[],
+  companyId: number
+): Promise<{ success: boolean; imported: number; errors: number; errorDetails: string[] }> {
+  const result = { success: true, imported: 0, errors: 0, errorDetails: [] as string[] };
+  
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    try {
+      await createRepresentante(row.nome || 'Sem Nome', companyId);
+      result.imported++;
+    } catch (err: any) {
+      result.errors++;
+      result.errorDetails.push(`Linha ${i + 1}: ${err.message || String(err)}`);
+    }
+  }
+  
   result.success = result.errors === 0;
   return result;
 }

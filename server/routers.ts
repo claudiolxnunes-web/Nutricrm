@@ -69,6 +69,10 @@ import {
   getUserPushEnabled,
   clearCompanyData,
   importSalesData,
+  importPedidosData,
+  importClientesAvulso,
+  importProdutosAvulso,
+  importRepresentantesAvulso,
 } from "./db";
 export const appRouter = router({
   system: systemRouter,
@@ -818,7 +822,26 @@ export const appRouter = router({
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
+          descontoValor: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
           faturamento: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          bonificacaoQtde: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            return parseInt(String(v)) || 0;
+          }),
+          bonificacaoValor: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          valorFinal: z.union([z.number(), z.string()]).optional().transform(v => {
             if (typeof v === 'number') return v;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
@@ -866,6 +889,61 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const companyId = ctx.user.companyId;
         const result = await importPedidosData(input.data as any, companyId, ctx.user.id);
+        return result;
+      }),
+    importClientes: adminOrSuperadminProcedure
+      .input(z.object({
+        data: z.array(z.object({
+          codigo: z.union([z.string(), z.number()]).transform(v => String(v)),
+          nome: z.string(),
+          email: z.string().optional(),
+          telefone: z.string().optional(),
+          municipio: z.string().optional(),
+          uf: z.string().optional(),
+          endereco: z.string().optional(),
+          segmentacao: z.string().optional(),
+          categoria: z.string().optional(),
+          status: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const result = await importClientesAvulso(input.data as any, companyId, ctx.user.id);
+        return result;
+      }),
+    importProdutos: adminOrSuperadminProcedure
+      .input(z.object({
+        data: z.array(z.object({
+          codigo: z.union([z.string(), z.number()]).transform(v => String(v)),
+          nome: z.string(),
+          preco: z.union([z.number(), z.string()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          categoria: z.string().optional(),
+          linha: z.string().optional(),
+          unidade: z.string().optional(),
+          descricao: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const result = await importProdutosAvulso(input.data as any, companyId);
+        return result;
+      }),
+    importRepresentantes: adminOrSuperadminProcedure
+      .input(z.object({
+        data: z.array(z.object({
+          nome: z.string(),
+          email: z.string().optional(),
+          telefone: z.string().optional(),
+          regiao: z.string().optional(),
+        })),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const result = await importRepresentantesAvulso(input.data as any, companyId);
         return result;
       }),
   }),
