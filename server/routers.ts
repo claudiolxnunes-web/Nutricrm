@@ -928,6 +928,35 @@ export const appRouter = router({
           segmentacao: z.string().optional(),
           categoria: z.string().optional(),
           linha: z.string().optional(),
+          // Campos adicionais que podem vir do Excel de vendas
+          descontoPct: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            if (!v) return 0;
+            return parseFloat(String(v)) || 0;
+          }),
+          descontoValor: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            if (!v) return 0;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          bonificacaoQtde: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            if (!v) return 0;
+            return parseInt(String(v)) || 0;
+          }),
+          bonificacaoValor: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            if (!v) return 0;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
+          faturamento: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
+            if (typeof v === 'number') return v;
+            if (!v) return 0;
+            const cleaned = String(v).replace(/\./g, '').replace(',', '.');
+            return parseFloat(cleaned) || 0;
+          }),
         })),
       }))
       .mutation(async ({ input, ctx }) => {
