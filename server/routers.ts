@@ -74,6 +74,11 @@ import {
   importProdutosAvulso,
   importRepresentantesAvulso,
 } from "./db";
+import {
+  getMetricasPorPeriodo,
+  getVendasPorFiltro,
+  type MetricasVendas,
+} from "./db-metricas";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -984,6 +989,32 @@ export const appRouter = router({
         const companyId = ctx.user.companyId;
         const result = await importRepresentantesAvulso(input.data as any, companyId);
         return result;
+      }),
+    getMetricasVendas: adminOrSuperadminProcedure
+      .input(z.object({
+        mesAno: z.string(),
+      }))
+      .query(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const metricas = await getMetricasPorPeriodo(companyId, input.mesAno);
+        return metricas;
+      }),
+    getVendasPorFiltro: adminOrSuperadminProcedure
+      .input(z.object({
+        filtros: z.object({
+          mesAno: z.string().optional(),
+          representante: z.string().optional(),
+          clienteId: z.number().optional(),
+          produtoId: z.number().optional(),
+          ano: z.number().optional(),
+        }),
+        limit: z.number().default(100),
+        offset: z.number().default(0),
+      }))
+      .query(async ({ input, ctx }) => {
+        const companyId = ctx.user.companyId;
+        const vendas = await getVendasPorFiltro(companyId, input.filtros, input.limit, input.offset);
+        return vendas;
       }),
   }),
 

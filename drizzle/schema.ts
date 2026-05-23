@@ -184,12 +184,45 @@ export const sales = pgTable("sales", {
   clientId: integer("clientId").notNull(),
   quoteId: integer("quoteId"),
   saleNumber: varchar("saleNumber", { length: 50 }).notNull().unique(),
+  notaFiscal: varchar("notaFiscal", { length: 50 }),
+  pedidoNumber: varchar("pedidoNumber", { length: 50 }),
   totalValue: decimal("totalValue", { precision: 12, scale: 2 }).notNull(),
   discountValue: decimal("discountValue", { precision: 12, scale: 2 }).default("0"),
   discountPercent: decimal("discountPercent", { precision: 5, scale: 2 }).default("0"),
   bonusValue: decimal("bonusValue", { precision: 12, scale: 2 }).default("0"),
   bonusQuantity: integer("bonusQuantity").default(0),
   finalValue: decimal("finalValue", { precision: 12, scale: 2 }).notNull(),
+  // Campos de métricas financeiras
+  volumeSacos: decimal("volumeSacos", { precision: 12, scale: 2 }).default("0"),
+  volumeKg: decimal("volumeKg", { precision: 12, scale: 2 }).default("0"),
+  precoPorKg: decimal("precoPorKg", { precision: 10, scale: 2 }).default("0"),
+  custoTotal: decimal("custoTotal", { precision: 12, scale: 2 }).default("0"),
+  despesaComercial: decimal("despesaComercial", { precision: 12, scale: 2 }).default("0"),
+  frete: decimal("frete", { precision: 12, scale: 2 }).default("0"),
+  // Margens
+  margemBrutaPercent: decimal("margemBrutaPercent", { precision: 5, scale: 2 }).default("0"),
+  margemBrutaValor: decimal("margemBrutaValor", { precision: 12, scale: 2 }).default("0"),
+  margemLiquidaPercent: decimal("margemLiquidaPercent", { precision: 5, scale: 2 }).default("0"),
+  margemLiquidaValor: decimal("margemLiquidaValor", { precision: 12, scale: 2 }).default("0"),
+  // Comissões
+  comissaoPercent: decimal("comissaoPercent", { precision: 5, scale: 2 }).default("0"),
+  comissaoValor: decimal("comissaoValor", { precision: 12, scale: 2 }).default("0"),
+  // Impostos
+  icms: decimal("icms", { precision: 12, scale: 2 }).default("0"),
+  pis: decimal("pis", { precision: 12, scale: 2 }).default("0"),
+  cofins: decimal("cofins", { precision: 12, scale: 2 }).default("0"),
+  // Classificação
+  grupoProduto: text("grupoProduto"),
+  solucao: text("solucao"),
+  subsolucao: text("subsolucao"),
+  linha: text("linha"),
+  grv: text("grv"),
+  gnv: text("gnv"),
+  filial: text("filial"),
+  codigoCFOP: text("codigoCFOP"),
+  mesAno: text("mesAno"),
+  ano: integer("ano"),
+  // Status
   paymentStatus: text("paymentStatus").default("pendente").notNull(),
   saleDate: timestamp("saleDate").notNull(),
   deliveryDate: timestamp("deliveryDate"),
@@ -197,7 +230,14 @@ export const sales = pgTable("sales", {
   createdBy: integer("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-}, (t) => ({ salClientIdIdx: index("salClientIdIdx").on(t.clientId), salPaymentStatusIdx: index("salPaymentStatusIdx").on(t.paymentStatus) }));
+}, (t) => ({ 
+  salClientIdIdx: index("salClientIdIdx").on(t.clientId), 
+  salPaymentStatusIdx: index("salPaymentStatusIdx").on(t.paymentStatus),
+  salNotaFiscalIdx: index("salNotaFiscalIdx").on(t.notaFiscal),
+  salPedidoIdx: index("salPedidoIdx").on(t.pedidoNumber),
+  salMesAnoIdx: index("salMesAnoIdx").on(t.mesAno),
+  salAnoIdx: index("salAnoIdx").on(t.ano),
+}));
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = typeof sales.$inferInsert;
 export const monthlyGoals = pgTable("monthly_goals", {

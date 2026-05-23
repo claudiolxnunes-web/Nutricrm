@@ -1706,6 +1706,30 @@ export interface ImportSaleRow {
   bonificacaoValor?: number;
   valorFinal?: number;
   linha?: string;
+  // Campos adicionais de métricas
+  volumeSacos?: number;
+  volumeKg?: number;
+  custoTotal?: number;
+  despesaComercial?: number;
+  frete?: number;
+  margemBrutaPercent?: number;
+  margemBrutaValor?: number;
+  margemLiquidaPercent?: number;
+  margemLiquidaValor?: number;
+  comissaoPercent?: number;
+  comissaoValor?: number;
+  icms?: number;
+  pis?: number;
+  cofins?: number;
+  grupoProduto?: string;
+  solucao?: string;
+  subsolucao?: string;
+  grv?: string;
+  gnv?: string;
+  filial?: string;
+  codigoCFOP?: string;
+  mesAno?: string;
+  ano?: number;
 }
 
 export interface ImportResult {
@@ -1898,12 +1922,45 @@ export async function createSaleFromImport(
     companyId,
     clientId,
     saleNumber,
+    notaFiscal: data.notaFiscal || null,
+    pedidoNumber: data.pedido || null,
     totalValue: totalValue.toString(),
     discountValue: discountValue.toString(),
     discountPercent: discountPercent.toString(),
     bonusValue: bonusValue.toString(),
     bonusQuantity,
     finalValue: finalValue.toString(),
+    // Métricas de volume
+    volumeSacos: (data.volumeSacos || data.qtdeSacos).toString(),
+    volumeKg: (data.volumeKg || 0).toString(),
+    precoPorKg: (data.precoKg || 0).toString(),
+    // Custos
+    custoTotal: (data.custoTotal || 0).toString(),
+    despesaComercial: (data.despesaComercial || 0).toString(),
+    frete: (data.frete || 0).toString(),
+    // Margens
+    margemBrutaPercent: (data.margemBrutaPercent || 0).toString(),
+    margemBrutaValor: (data.margemBrutaValor || 0).toString(),
+    margemLiquidaPercent: (data.margemLiquidaPercent || 0).toString(),
+    margemLiquidaValor: (data.margemLiquidaValor || 0).toString(),
+    // Comissões
+    comissaoPercent: (data.comissaoPercent || 0).toString(),
+    comissaoValor: (data.comissaoValor || 0).toString(),
+    // Impostos
+    icms: (data.icms || 0).toString(),
+    pis: (data.pis || 0).toString(),
+    cofins: (data.cofins || 0).toString(),
+    // Classificação
+    grupoProduto: data.grupoProduto || null,
+    solucao: data.solucao || null,
+    subsolucao: data.subsolucao || null,
+    linha: data.linha || null,
+    grv: data.grv || null,
+    gnv: data.gnv || null,
+    filial: data.filial || null,
+    codigoCFOP: data.codigoCFOP || null,
+    mesAno: data.mesAno || null,
+    ano: data.ano || null,
     paymentStatus: "pago",
     saleDate: data.dataNF,
     notes: `Pedido: ${data.pedido || "N/A"} | Segmentação: ${data.segmentacao || "N/A"} | Categoria: ${data.categoria || "N/A"} | Bonificação: ${bonusQuantity} un / R$ ${bonusValue}`,
