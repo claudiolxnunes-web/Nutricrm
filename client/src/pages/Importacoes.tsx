@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2, BarChart3 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import DashboardMetricas from "@/components/DashboardMetricas";
 
 interface PreviewRow {
   data: Record<string, any>;
@@ -479,6 +480,8 @@ function ImportSection({
 export default function Importacoes() {
   const importVendasMutation = trpc.admin.importSales.useMutation();
   const importPedidosMutation = trpc.admin.importPedidos.useMutation();
+  const { data: user } = trpc.auth.me.useQuery();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   return (
     <div className="space-y-6">
@@ -491,9 +494,15 @@ export default function Importacoes() {
       </div>
 
       <Tabs defaultValue="vendas" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={isAdmin ? "grid w-full grid-cols-3" : "grid w-full grid-cols-2"}>
           <TabsTrigger value="vendas">Vendas Faturadas</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos em Carteira</TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Dashboard Métricas
+            </TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value="vendas">
@@ -515,6 +524,12 @@ export default function Importacoes() {
             tipo="pedidos"
           />
         </TabsContent>
+        
+        {isAdmin && (
+          <TabsContent value="dashboard">
+            <DashboardMetricas />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
