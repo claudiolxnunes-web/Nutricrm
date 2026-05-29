@@ -33,45 +33,71 @@ interface ImportResult {
 
 // Mapeamento flexível de colunas - detecta vários nomes possíveis
 const COLUMN_MAPPING_VENDAS: Record<string, string[]> = {
-  dataNF: ["Data da NF", "dt Prev. Fat.", "Data", "Dt NF", "Faturame", "Data Fatura", "Dt Fatura", "PREV.FATUR.", "Prev. Fat.", "Inclusão", "Dt Pedido", "Data Pedido", "Data da Nota"],
-  codCliente: ["Cód. Cliente", "Cod Cliente", "Código Cliente", "Cod. Cliente", "Cod Cliente", "Cód Cliente", "CLIENTE", "Cliente", "Cód.Cli", "Cod.Cli"],
-  nomeCliente: ["Nome do Cliente", "Cliente", "Razão Social", "Nome Cliente", "NOME", "Nome", "CLIENTE", "Nome Cliente"],
-  codProduto: ["Cód. Produto", "Cod. Produto", "Código Produto", "Cod Produto", "Cód Produto", "PRODUTO", "Produto", "Codigo Produto", "Cód.Prod", "Cod.Prod"],
-  nomeProduto: ["Nome do Produto", "Produto", "Descrição", "Descricao", "Nome Produto", "PRODUTO", "Produto", "Descrição Produto"],
-  qtdeSacos: ["Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Pedido Val", "QTD", "Qtde", "Quant.", "Quant", "Volume", "VOL", "Qtde Pedido"],
-  precoSaco: ["Preço por Saco", "Preço", "Valor Unitário", "Unitário", "Pedido Vc", "PREÇO", "Preco", "Valor", "Vl. Unit", "Unit", "Preço Unit"],
-  representante: ["Representante", "ERC", "Vendedor", "RC", "Rep", "REPRESENTANTE", "VENDEDOR", "RCA", "Representante", "Nome Representante"],
-  municipio: ["Município", "Cidade", "Mun", "MUNICIPIO", "CIDADE", "Cidade", "Município"],
-  uf: ["UF", "Estado", "ESTADO", "U.F.", "Uf", "UF"],
-  notaFiscal: ["Nota Fiscal", "Pedido", "OC", "Nota", "NF", "N.F.", "NFe", "Pedido", "ORDEM", "Ordem", "OC", "Número Pedido", "No Pedido"],
-  pedido: ["Pedido", "OC", "Ordem", "PEDIDO", "Cod Pedido", "Código Pedido", "Pedido", "Ordem de Compra"],
-  segmentacao: ["Segmentação", "Seg.", "Segmento", "SEGMENTAÇÃO", "SEG", "Seg", "Segmentação Cliente"],
-  categoria: ["Categoria", "CAT", "Categ", "CATEGORIA", "Categoria Cliente"],
-  linha: ["Linha", "LINE", "LINHA", "Linha Produto", "Linha de Produto"],
-  descontoPct: ["Desconto %", "Desc %", "Desconto", "DESC", "% Desc", "Percentual Desconto", "Desc. %"],
-  descontoValor: ["Desconto R$", "Valor Desconto", "Desc Valor", "Desc. R$", "Desconto Valor"],
-  bonificacaoQtde: ["Bonificação Qtd", "Bonif Qtd", "Qtd Bonificação", "Boni Qtd", "Qtde Bonif", "Quantidade Bonificada"],
-  bonificacaoValor: ["Bonificação Valor", "Bonif Valor", "Valor Bonificação", "Boni Valor", "Vl Bonif"],
-  valorFinal: ["Valor Final", "Total Líquido", "Líquido", "Valor Líquido", "Total Final", "Faturamento Líquido"],
+  dataNF: ["Data da NF", "Dt NF", "Data Fatura", "Data da Nota"],
+  codCliente: ["Cód. Cliente", "Cód Cliente", "Cod. Cliente", "Cod Cliente", "Código Cliente", "Cód.Cli", "Cod.Cli"],
+  nomeCliente: ["Nome do Cliente", "Razão Social", "Nome Cliente"],
+  codProduto: ["Cód. Produto", "Cód Produto", "Cod. Produto", "Cod Produto", "Código Produto", "Cód.Prod", "Cod.Prod"],
+  nomeProduto: ["Nome do Produto", "Descrição", "Descricao", "Nome Produto"],
+  qtdeSacos: ["Qtde. Sacos", "Qtde Sacos", "Quantidade", "Qtd", "Qtde"],
+  precoSaco: ["Preço por Saco", "Preco por Saco", "Valor Unitário", "Vl. Unit", "Preço Unit"],
+  precoKg: ["Preço por KG", "Preco por KG", "Preço/KG"],
+  representante: ["Representante", "ERC", "Vendedor", "RCA"],
+  municipio: ["Município", "Municipio", "Cidade"],
+  uf: ["UF", "Estado", "U.F."],
+  notaFiscal: ["Nota Fiscal", "NF", "N.F.", "NFe"],
+  pedido: ["Pedido", "OC", "Ordem de Compra"],
+  segmentacao: ["Segmentação", "Segmentacao", "Seg.", "Segmento"],
+  categoria: ["Categoria"],
+  linha: ["Linha"],
+  descontoPct: ["Desconto %", "Desc %", "Desc. %"],
+  descontoValor: ["Desconto R$", "Valor Desconto", "Desc. R$"],
+  // "Bonificação" é coluna de volume numérico no arquivo real
+  bonificacaoQtde: ["Bonificação", "Bonificacao", "Bonif Qtd", "Qtd Bonificação", "Quantidade Bonificada"],
+  bonificacaoValor: ["Bonificação Valor", "Bonif Valor", "Valor Bonificação"],
+  faturamento: ["Faturamento Realizado", "Faturamento", "Faturamento S/ Encargos"],
+  valorFinal: ["Valor Final", "Total Líquido", "Faturamento Líquido"],
+  volumeSacos: ["Volume (Vendas)", "Volume (Vendas + Bon.)", "Volume Vendas"],
+  custoTotal: ["Custo Brill Total", "Custo Total"],
+  despesaComercial: ["Desp Comercial", "Despesa Comercial"],
+  frete: ["Frete Carga Realizado", "Frete"],
+  margemBrutaPercent: ["MB CB %", "Margem Bruta %"],
+  margemBrutaValor: ["MB CB Total", "Margem Bruta Total"],
+  margemLiquidaPercent: ["ML CB % (Estimada)", "Margem Líquida %"],
+  margemLiquidaValor: ["ML CB Total (Estimada)", "Margem Líquida Total"],
+  comissaoPercent: ["Comissão Realizado %", "Comissão %"],
+  comissaoValor: ["Comissão Realizado", "Comissão Valor"],
+  icms: ["ICMS Total", "ICMS"],
+  pis: ["PIS Total", "PIS"],
+  cofins: ["Cofins Total", "Cofins"],
+  grupoProduto: ["Grupo Produto", "Cód Grupo Produto"],
+  solucao: ["Solução", "Solucao"],
+  subsolucao: ["Subsolução", "Subsolucao"],
+  grv: ["GRV"],
+  gnv: ["GNV"],
+  filial: ["Filial"],
+  codigoCFOP: ["Cód CFOP", "Cod CFOP", "CFOP"],
+  mesAno: ["Mês/Ano", "Mes/Ano", "Mês Ano"],
+  ano: ["Ano"],
 };
 
 const COLUMN_MAPPING_PEDIDOS: Record<string, string[]> = {
-  dataPedido: ["Data do Pedido", "Dt Pedido", "Data Pedido", "Dt. Pedido", "Pedido Data", "Inclusão", "Data Inclusão"],
-  dataPrevFaturamento: ["dt Prev. Fat.", "Prev. Fat.", "Previsão Faturamento", "Data Prevista", "Prev Faturamento", "PREV.FATUR.", "Data Fatura"],
-  codCliente: ["Cód. Cliente", "Cod Cliente", "Código Cliente", "Cod. Cliente", "Cod Cliente", "Cód Cliente", "CLIENTE", "Cliente", "Cód.Cli"],
-  nomeCliente: ["Nome do Cliente", "Cliente", "Razão Social", "Nome Cliente", "NOME", "Nome", "CLIENTE"],
-  codProduto: ["Cód. Produto", "Cod. Produto", "Código Produto", "Cod Produto", "Cód Produto", "PRODUTO", "Produto", "Codigo Produto"],
-  nomeProduto: ["Nome do Produto", "Produto", "Descrição", "Descricao", "Nome Produto", "PRODUTO", "Produto"],
-  qtdeSacos: ["Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Pedido Val", "QTD", "Qtde", "Quant.", "Quant", "Volume", "VOL", "Qtde Pedido"],
-  precoSaco: ["Preço por Saco", "Preço", "Valor Unitário", "Unitário", "Pedido Vc", "PREÇO", "Preco", "Valor", "Vl. Unit", "Unit"],
-  representante: ["Representante", "ERC", "Vendedor", "RC", "Rep", "REPRESENTANTE", "VENDEDOR", "RCA", "Representante"],
-  municipio: ["Município", "Cidade", "Mun", "MUNICIPIO", "CIDADE", "Cidade"],
-  uf: ["UF", "Estado", "ESTADO", "U.F.", "Uf"],
-  pedidoNumber: ["Pedido", "Número Pedido", "No Pedido", "Cod Pedido", "Código Pedido", "PEDIDO", "Ordem", "OC", "Ordem de Compra"],
-  notaFiscal: ["Nota Fiscal", "NF", "N.F.", "NFe", "Nota", "NF-e"],
-  segmentacao: ["Segmentação", "Seg.", "Segmento", "SEGMENTAÇÃO", "SEG", "Seg"],
-  categoria: ["Categoria", "CAT", "Categ", "CATEGORIA"],
-  linha: ["Linha", "LINE", "LINHA", "Linha Produto"],
+  dataPedido: ["Inclusão do Pedido", "Data do Pedido", "Dt Pedido", "Inclusão", "Data Inclusão"],
+  dataPrevFaturamento: ["Prev. Fat. Solicitada", "Prev. Fat. Real", "dt Prev. Fat.", "Prev. Fat.", "Previsão Faturamento"],
+  codCliente: ["Cód Cliente", "Cód. Cliente", "Cod Cliente", "Código Cliente", "Cód.Cli"],
+  nomeCliente: ["Cliente", "Nome do Cliente", "Razão Social", "Nome Cliente"],
+  codProduto: ["Cód. Produto", "Cód Produto", "Cod. Produto", "Código Produto"],
+  nomeProduto: ["Produto", "Nome do Produto", "Descrição", "Descricao"],
+  qtdeSacos: ["Pedido Volume", "Qtde. Sacos", "Quantidade", "Qtd", "Qtde", "Volume"],
+  // pedidoValor é lido separadamente para calcular precoSaco = pedidoValor / pedidoVolume
+  pedidoValor: ["Pedido Valor"],
+  representante: ["GRV", "ERC", "Representante", "Vendedor", "RCA"],
+  municipio: ["Município", "Municipio", "Cidade"],
+  uf: ["UF", "Estado"],
+  pedidoNumber: ["Pedido", "Número Pedido", "No Pedido", "Cod Pedido", "Código Pedido", "OC"],
+  notaFiscal: ["OC", "Nota Fiscal", "NF", "N.F.", "NFe"],
+  segmentacao: ["Seg.", "Segmentação", "Segmentacao", "Segmento"],
+  categoria: ["Categoria"],
+  linha: ["Linha"],
 };
 
 // Função para encontrar o nome da coluna no arquivo
@@ -149,9 +175,9 @@ function ImportSection({
       setDetectedColumns(detected);
       
       // Validar colunas obrigatórias mínimas
-      // Para pedidos, nomeCliente/nomeProduto são opcionais — código pode ser usado como fallback
+      // nomeCliente/nomeProduto são opcionais — código pode ser usado como fallback
       const requiredKeys = tipo === 'vendas' 
-        ? ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos']
+        ? ['dataNF', 'codCliente', 'codProduto', 'qtdeSacos']
         : ['dataPedido', 'codCliente', 'codProduto', 'qtdeSacos'];
       
       const missingColumns = requiredKeys.filter(key => !detected[key]);
@@ -175,18 +201,23 @@ function ImportSection({
 
         // Validações básicas
         if (!mappedData.codCliente) errors.push("Código do cliente ausente");
-        if (tipo === 'vendas' && !mappedData.nomeCliente) errors.push("Nome do cliente ausente");
         if (!mappedData.codProduto) errors.push("Código do produto ausente");
-        if (tipo === 'vendas' && !mappedData.nomeProduto) errors.push("Nome do produto ausente");
         if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
-        // Para pedidos, usar código como nome se nome não disponível
-        if (tipo === 'pedidos' && !mappedData.nomeCliente && mappedData.codCliente) {
+        // Fallbacks de nome para ambos os tipos
+        if (!mappedData.nomeCliente && mappedData.codCliente) {
           mappedData.nomeCliente = String(mappedData.codCliente);
           warnings.push("Nome do cliente não encontrado, usando código como nome");
         }
-        if (tipo === 'pedidos' && !mappedData.nomeProduto && mappedData.codProduto) {
+        if (!mappedData.nomeProduto && mappedData.codProduto) {
           mappedData.nomeProduto = String(mappedData.codProduto);
           warnings.push("Nome do produto não encontrado, usando código como nome");
+        }
+        // Para pedidos, calcular precoSaco = pedidoValor / qtdeSacos
+        if (tipo === 'pedidos' && !mappedData.precoSaco && mappedData.pedidoValor && mappedData.qtdeSacos) {
+          const valor = parseFloat(String(mappedData.pedidoValor).replace(',', '.')) || 0;
+          const vol = parseFloat(String(mappedData.qtdeSacos).replace(',', '.')) || 0;
+          mappedData.precoSaco = vol > 0 ? valor / vol : 0;
+          delete mappedData.pedidoValor;
         }
         // precoSaco é opcional — bonificações têm preço 0 ou vazio
         if (mappedData.precoSaco === undefined || mappedData.precoSaco === null || mappedData.precoSaco === '') {
@@ -249,10 +280,17 @@ function ImportSection({
           rowData[header] = row[i];
         });
         const mapped = mapRowData(rowData, headers, columnMapping);
-        // Para pedidos, usar código como nome fallback se nome não disponível
+        // Fallbacks de nome para ambos os tipos
+        if (!mapped.nomeCliente && mapped.codCliente) mapped.nomeCliente = String(mapped.codCliente);
+        if (!mapped.nomeProduto && mapped.codProduto) mapped.nomeProduto = String(mapped.codProduto);
+        // Para pedidos, calcular precoSaco = pedidoValor / qtdeSacos e remover helper
         if (tipo === 'pedidos') {
-          if (!mapped.nomeCliente && mapped.codCliente) mapped.nomeCliente = String(mapped.codCliente);
-          if (!mapped.nomeProduto && mapped.codProduto) mapped.nomeProduto = String(mapped.codProduto);
+          if (!mapped.precoSaco && mapped.pedidoValor && mapped.qtdeSacos) {
+            const valor = parseFloat(String(mapped.pedidoValor).replace(',', '.')) || 0;
+            const vol = parseFloat(String(mapped.qtdeSacos).replace(',', '.')) || 0;
+            mapped.precoSaco = vol > 0 ? valor / vol : 0;
+          }
+          delete mapped.pedidoValor;
         }
         return mapped;
       });
