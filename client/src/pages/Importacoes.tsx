@@ -150,8 +150,8 @@ function ImportSection({
       
       // Validar colunas obrigatórias mínimas
       const requiredKeys = tipo === 'vendas' 
-        ? ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos', 'precoSaco']
-        : ['dataPedido', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos', 'precoSaco', 'pedidoNumber'];
+        ? ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos']
+        : ['dataPedido', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos'];
       
       const missingColumns = requiredKeys.filter(key => !detected[key]);
       
@@ -177,8 +177,11 @@ function ImportSection({
         if (!mappedData.nomeCliente) errors.push("Nome do cliente ausente");
         if (!mappedData.codProduto) errors.push("Código do produto ausente");
         if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
-        if (!mappedData.precoSaco) errors.push("Preço ausente");
-        if (tipo === 'pedidos' && !mappedData.pedidoNumber) errors.push("Número do pedido ausente");
+        // precoSaco é opcional — bonificações têm preço 0 ou vazio
+        if (mappedData.precoSaco === undefined || mappedData.precoSaco === null || mappedData.precoSaco === '') {
+          warnings.push("Preço ausente (será tratado como bonificação com preço 0)");
+        }
+        if (tipo === 'pedidos' && !mappedData.pedidoNumber) warnings.push("Número do pedido ausente (será gerado automaticamente)");
 
         return { data: mappedData, errors, warnings };
       });
@@ -385,6 +388,11 @@ function ImportSection({
                           <span className="text-red-600 text-sm flex items-center gap-1">
                             <AlertCircle className="w-4 h-4" />
                             {row.errors.length} erro(s)
+                          </span>
+                        ) : row.warnings.length > 0 ? (
+                          <span className="text-yellow-600 text-sm flex items-center gap-1" title={row.warnings.join("; ")}>
+                            <AlertCircle className="w-4 h-4" />
+                            {row.warnings.length} aviso(s)
                           </span>
                         ) : (
                           <span className="text-green-600 text-sm flex items-center gap-1">

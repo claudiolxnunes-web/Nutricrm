@@ -905,16 +905,17 @@ export const appRouter = router({
             }
             return new Date(v);
           }),
-          codCliente: z.union([z.string(), z.number()]).transform(v => String(v)),
-          nomeCliente: z.string(),
-          codProduto: z.union([z.string(), z.number()]).transform(v => String(v)),
-          nomeProduto: z.string(),
-          qtdeSacos: z.union([z.number(), z.string()]).transform(v => {
+          codCliente: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform(v => v != null ? String(v) : ''),
+          nomeCliente: z.union([z.string(), z.null(), z.undefined()]).optional().transform(v => v ?? ''),
+          codProduto: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform(v => v != null ? String(v) : ''),
+          nomeProduto: z.union([z.string(), z.null(), z.undefined()]).optional().transform(v => v ?? ''),
+          qtdeSacos: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
+            if (!v) return 0;
             if (typeof v === 'number') return v;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
             return parseFloat(cleaned) || 0;
           }),
-          precoSaco: z.union([z.number(), z.string(), z.null(), z.undefined()]).transform(v => {
+          precoSaco: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional().transform(v => {
             if (typeof v === 'number') return v;
             if (!v) return 0;
             const cleaned = String(v).replace(/\./g, '').replace(',', '.');
@@ -923,7 +924,7 @@ export const appRouter = router({
           representante: z.string().optional().default('Sem Representante'),
           municipio: z.string().optional().default(''),
           uf: z.string().optional().default(''),
-          pedidoNumber: z.union([z.string(), z.number()]).transform(v => String(v)),
+          pedidoNumber: z.union([z.string(), z.number(), z.null(), z.undefined()]).optional().transform(v => v != null ? String(v) : ''),
           notaFiscal: z.union([z.string(), z.number()]).optional().transform(v => v ? String(v) : undefined),
           segmentacao: z.string().optional(),
           categoria: z.string().optional(),
