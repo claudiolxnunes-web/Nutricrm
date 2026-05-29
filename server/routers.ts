@@ -73,6 +73,7 @@ import {
   importClientesAvulso,
   importProdutosAvulso,
   importRepresentantesAvulso,
+  getPedidosCarteira,
 } from "./db";
 import {
   getMetricasPorPeriodo,
@@ -675,6 +676,23 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
         return deleteSale(input.id, ctx.user.companyId);
+      }),
+  }),
+
+  // ========== PEDIDOS EM ABERTO ==========
+  pedidos: router({
+    list: protectedProcedure
+      .input(z.object({
+        status: z.string().optional().default('pendente'),
+        search: z.string().optional(),
+        limit: z.number().optional().default(100),
+        offset: z.number().optional().default(0),
+      }))
+      .query(async ({ input, ctx }) => {
+        return getPedidosCarteira(
+          ctx.user.role === "superadmin" ? ctx.user.companyId : ctx.user.companyId,
+          { status: input.status, search: input.search, limit: input.limit, offset: input.offset }
+        );
       }),
   }),
 

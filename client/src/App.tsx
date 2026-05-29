@@ -26,6 +26,7 @@ import Representantes from "./pages/Representantes";
 import VendedorApp from "./pages/VendedorApp";
 import NotificationSettings from "./pages/NotificationSettings";
 import Importacoes from "./pages/Importacoes";
+import PedidosEmAberto from "./pages/PedidosEmAberto";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function Router() {
@@ -163,6 +164,13 @@ function Router() {
               <Importacoes />
             </DashboardLayout>
           </ProtectedRoute>
+        )}
+      </Route>
+      <Route path={"/pedidos-em-aberto"}>
+        {() => (
+          <DashboardLayout>
+            <PedidosEmAberto />
+          </DashboardLayout>
         )}
       </Route>
       <Route path={"/app"} component={VendedorApp} />

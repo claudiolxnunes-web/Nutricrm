@@ -149,9 +149,10 @@ function ImportSection({
       setDetectedColumns(detected);
       
       // Validar colunas obrigatórias mínimas
+      // Para pedidos, nomeCliente/nomeProduto são opcionais — código pode ser usado como fallback
       const requiredKeys = tipo === 'vendas' 
         ? ['dataNF', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos']
-        : ['dataPedido', 'codCliente', 'nomeCliente', 'codProduto', 'nomeProduto', 'qtdeSacos'];
+        : ['dataPedido', 'codCliente', 'codProduto', 'qtdeSacos'];
       
       const missingColumns = requiredKeys.filter(key => !detected[key]);
       
@@ -174,9 +175,19 @@ function ImportSection({
 
         // Validações básicas
         if (!mappedData.codCliente) errors.push("Código do cliente ausente");
-        if (!mappedData.nomeCliente) errors.push("Nome do cliente ausente");
+        if (tipo === 'vendas' && !mappedData.nomeCliente) errors.push("Nome do cliente ausente");
         if (!mappedData.codProduto) errors.push("Código do produto ausente");
+        if (tipo === 'vendas' && !mappedData.nomeProduto) errors.push("Nome do produto ausente");
         if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
+        // Para pedidos, usar código como nome se nome não disponível
+        if (tipo === 'pedidos' && !mappedData.nomeCliente && mappedData.codCliente) {
+          mappedData.nomeCliente = String(mappedData.codCliente);
+          warnings.push("Nome do cliente não encontrado, usando código como nome");
+        }
+        if (tipo === 'pedidos' && !mappedData.nomeProduto && mappedData.codProduto) {
+          mappedData.nomeProduto = String(mappedData.codProduto);
+          warnings.push("Nome do produto não encontrado, usando código como nome");
+        }
         // precoSaco é opcional — bonificações têm preço 0 ou vazio
         if (mappedData.precoSaco === undefined || mappedData.precoSaco === null || mappedData.precoSaco === '') {
           warnings.push("Preço ausente (será tratado como bonificação com preço 0)");
@@ -237,7 +248,13 @@ function ImportSection({
         headers.forEach((header, i) => {
           rowData[header] = row[i];
         });
-        return mapRowData(rowData, headers, columnMapping);
+        const mapped = mapRowData(rowData, headers, columnMapping);
+        // Para pedidos, usar código como nome fallback se nome não disponível
+        if (tipo === 'pedidos') {
+          if (!mapped.nomeCliente && mapped.codCliente) mapped.nomeCliente = String(mapped.codCliente);
+          if (!mapped.nomeProduto && mapped.codProduto) mapped.nomeProduto = String(mapped.codProduto);
+        }
+        return mapped;
       });
 
       setProgress(50);

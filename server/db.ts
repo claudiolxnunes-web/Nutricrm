@@ -2199,12 +2199,74 @@ export async function importPedidosData(
       result.imported++;
     } catch (err: any) {
       result.errors++;
-      result.errorDetails.push(`Linha ${i + 1}: ${err.message || String(err)}`);
+      const errMsg = err.message || String(err);
+      console.error(`[importPedidosData] Row ${i + 1} error:`, errMsg, 'row:', JSON.stringify({ codCliente: row.codCliente, codProduto: row.codProduto }));
+      result.errorDetails.push(`Linha ${i + 1} (${row.codCliente || '?'} / ${row.codProduto || '?'}): ${errMsg}`);
     }
   }
 
   result.success = result.errors === 0;
   return result;
+}
+
+// ========== PEDIDOS EM ABERTO (CARTEIRA) ==========
+
+export interface PedidoCarteiraFiltros {
+  status?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function getPedidosCarteira(
+  companyId: number,
+  filtros: PedidoCarteiraFiltros = {}
+): Promise<{ data: any[]; total: number }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const { status, limit = 50, offset = 0 } = filtros;
+
+  const conditions: any[] = [eq(pedidosCarteira.companyId, companyId)];
+
+  if (status && status !== 'todos') {
+    conditions.push(eq(pedidosCarteira.status, status));
+  } else {
+    conditions.push(eq(pedidosCarteira.status, 'pendente'));
+  }
+
+  const [data, countResult] = await Promise.all([
+    db
+      .select({
+        id: pedidosCarteira.id,
+        companyId: pedidosCarteira.companyId,
+        clientId: pedidosCarteira.clientId,
+        pedidoNumber: pedidosCarteira.pedidoNumber,
+        status: pedidosCarteira.status,
+        totalValue: pedidosCarteira.totalValue,
+        qtdeSacos: pedidosCarteira.qtdeSacos,
+        precoSaco: pedidosCarteira.precoSaco,
+        dataPedido: pedidosCarteira.dataPedido,
+        dataPrevFaturamento: pedidosCarteira.dataPrevFaturamento,
+        representante: pedidosCarteira.representante,
+        notaFiscal: pedidosCarteira.notaFiscal,
+        observacoes: pedidosCarteira.observacoes,
+        createdAt: pedidosCarteira.createdAt,
+        clienteNome: clients.farmName,
+      })
+      .from(pedidosCarteira)
+      .leftJoin(clients, eq(pedidosCarteira.clientId, clients.id))
+      .where(and(...conditions))
+      .orderBy(desc(pedidosCarteira.dataPedido))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(pedidosCarteira)
+      .where(and(...conditions)),
+  ]);
+
+  return { data, total: countResult[0]?.count ?? 0 };
 }
 
 // ========== IMPORTAÇÃO AVULSA DE ENTIDADES ==========

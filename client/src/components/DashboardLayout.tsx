@@ -50,6 +50,7 @@ import {
   Menu,
   X,
   Upload,
+  ClipboardList,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -145,6 +146,7 @@ const menuItems = [
   { icon: Package, label: "Produtos", path: "/products" },
   { icon: FileText, label: "Orcamentos", path: "/quotes" },
   { icon: ShoppingCart, label: "Vendas", path: "/sales" },
+  { icon: ClipboardList, label: "Pedidos em Aberto", path: "/pedidos-em-aberto" },
   { icon: BarChart3, label: "Relatorios", path: "/reports" },
   { icon: BrainCircuit, label: "Previsao IA", path: "/ai-forecast" },
   { icon: BookOpen, label: "Tutorial", path: "/tutorial" },
