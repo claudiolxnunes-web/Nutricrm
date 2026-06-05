@@ -18,6 +18,15 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
+  if (ctx.user.role === "superadmin") {
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    });
+  }
+
   const status = getUserAccessStatus(ctx.user);
   if (!status.active) {
     throw new TRPCError({ code: "FORBIDDEN", message: "TRIAL_EXPIRED" });
