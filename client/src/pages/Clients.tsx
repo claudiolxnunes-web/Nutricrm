@@ -111,6 +111,9 @@ const emptyForm = {
 export default function Clients() {
   const [search, setSearch] = useState("");
   const [filterClientType, setFilterClientType] = useState<ClientType | "">("");
+  const [filterAnimalType, setFilterAnimalType] = useState<"" | "bovinos" | "suinos" | "aves" | "equinos" | "outros">("");
+  const [filterStatus, setFilterStatus] = useState<"" | "ativo" | "inativo" | "prospect">("");
+  const [filterAssignedTo, setFilterAssignedTo] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -125,13 +128,16 @@ export default function Clients() {
   const PAGE_SIZE = 100;
   const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({
     search,
-    status: undefined,
+    animalType: filterAnimalType || undefined,
+    status: filterStatus || undefined,
+    clientType: filterClientType || undefined,
+    assignedTo: filterAssignedTo ? Number(filterAssignedTo) : undefined,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
-  const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: me?.role === "admin" });
+  const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: me?.role === "admin" || me?.role === "superadmin" });
 
-  useEffect(() => { setPage(1); }, [search, filterClientType]);
+  useEffect(() => { setPage(1); }, [search, filterClientType, filterAnimalType, filterStatus, filterAssignedTo]);
 
   const createMutation = trpc.clients.create.useMutation({
     onSuccess: () => { toast.success("Cliente criado!"); setShowForm(false); setFormData({ ...emptyForm }); refetch(); },
@@ -561,7 +567,7 @@ export default function Clients() {
 
       {showForm && ClientForm}
 
-      {me?.role === "admin" && selectedIds.length > 0 && (
+      {(me?.role === "admin" || me?.role === "superadmin") && selectedIds.length > 0 && (
         <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <span className="text-sm font-medium text-blue-800">{selectedIds.length} cliente(s) selecionado(s)</span>
           <select
@@ -582,7 +588,8 @@ export default function Clients() {
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
           <Input placeholder="Buscar clientes por nome ou fazenda..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
@@ -593,15 +600,54 @@ export default function Clients() {
             <option key={value} value={value}>{label}</option>
           ))}
         </select>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <select value={filterAnimalType} onChange={(e) => setFilterAnimalType(e.target.value as any)} className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[180px]">
+            <option value="">Todas as espécies</option>
+            <option value="bovinos">Bovinos</option>
+            <option value="suinos">Suínos</option>
+            <option value="aves">Aves</option>
+            <option value="equinos">Equinos</option>
+            <option value="outros">Outros</option>
+          </select>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[160px]">
+            <option value="">Todos os status</option>
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+            <option value="prospect">Prospect</option>
+          </select>
+          {(me?.role === "admin" || me?.role === "superadmin") && (
+            <select value={filterAssignedTo} onChange={(e) => setFilterAssignedTo(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[220px]">
+              <option value="">Todos os responsáveis</option>
+              {(allUsers ?? []).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.name || u.email}</option>
+              ))}
+            </select>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setSearch("");
+              setFilterClientType("");
+              setFilterAnimalType("");
+              setFilterStatus("");
+              setFilterAssignedTo("");
+              setPage(1);
+            }}
+          >
+            Limpar filtros
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      ) : filteredClients && filteredClients.length > 0 ? (
+      ) : clientData && clientData.length > 0 ? (
         <div className="grid gap-4">
-          {filteredClients.map((client: any) => {
+          {clientData.map((client: any) => {
             const ct: ClientType = client.clientType || "fazenda";
             const responsavelCardLabel = ct === "fazenda" ? "Produtor" : "Responsavel";
             const activityLabel = getActivityLabel(client.activityType || "");
@@ -612,7 +658,7 @@ export default function Clients() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      {me?.role === "admin" && (
+                      {(me?.role === "admin" || me?.role === "superadmin") && (
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -664,7 +710,7 @@ export default function Clients() {
                             </span>
                           )}
                         </div>
-                        {me?.role === "admin" && allUsers && (
+                        {(me?.role === "admin" || me?.role === "superadmin") && allUsers && (
                           <div className="mt-3 flex items-center gap-2">
                             <label className="text-xs text-slate-500">Atribuir a:</label>
                             <select

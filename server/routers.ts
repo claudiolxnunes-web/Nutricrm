@@ -142,6 +142,8 @@ export const appRouter = router({
           search: z.string().optional(),
           animalType: z.string().optional(),
           status: z.string().optional(),
+          clientType: z.string().optional(),
+          assignedTo: z.number().optional(),
           limit: z.number().optional().default(100),
           offset: z.number().optional().default(0),
         }))
@@ -211,7 +213,7 @@ export const appRouter = router({
         userId: z.number(),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem atribuir clientes" });
+        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem atribuir clientes" });
         return assignClientsToUser(input.clientIds, input.userId);
       }),
 
