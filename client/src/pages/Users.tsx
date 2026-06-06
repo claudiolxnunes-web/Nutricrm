@@ -30,7 +30,7 @@ const statusBadgeClass: Record<string, string> = {
 export default function Users() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "vendedor" as "admin" | "vendedor" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "vendedor" as "admin" | "gerente" | "vendedor" });
   const [resetId, setResetId] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const { data: users, isLoading, refetch } = trpc.users.list.useQuery();
@@ -137,10 +137,11 @@ export default function Users() {
                       <select
                         value={user.role}
                         disabled={user.id === me?.id}
-                        onChange={(e) => updateRoleMutation.mutate({ id: user.id, role: e.target.value as "admin" | "vendedor" })}
+                        onChange={(e) => updateRoleMutation.mutate({ id: user.id, role: e.target.value as "admin" | "gerente" | "vendedor" })}
                         className="px-3 py-1.5 border border-slate-300 rounded-md text-sm disabled:opacity-50"
                       >
                         <option value="admin">Administrador</option>
+                        <option value="gerente">Gerente</option>
                         <option value="vendedor">Representante</option>
                       </select>
                       <button
@@ -211,10 +212,11 @@ export default function Users() {
               <label className="block text-sm font-medium mb-1">Perfil</label>
               <select
                 value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "vendedor" })}
+                onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "gerente" | "vendedor" })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="vendedor">Representante (ve so seus clientes)</option>
+                <option value="gerente">Gerente (acompanha equipe e indicadores)</option>
                 <option value="admin">Administrador (ve tudo)</option>
               </select>
             </div>

@@ -135,7 +135,8 @@ export default function Clients() {
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
-  const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: me?.role === "admin" || me?.role === "superadmin" });
+  const canManageAssignments = me?.role === "admin" || me?.role === "superadmin";
+  const { data: allUsers } = trpc.users.list.useQuery(undefined, { enabled: canManageAssignments });
 
   useEffect(() => { setPage(1); }, [search, filterClientType, filterAnimalType, filterStatus, filterAssignedTo]);
 
@@ -349,10 +350,6 @@ export default function Clients() {
   const clientData: any[] = (clients as any)?.data ?? [];
   const clientTotal: number = (clients as any)?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(clientTotal / PAGE_SIZE));
-  const filteredClients = filterClientType
-    ? clientData.filter((c: any) => (c.clientType || "fazenda") === filterClientType)
-    : clientData;
-
   const currentSubtypes = formData.activityCategory
     ? ACTIVITY_CATEGORIES[formData.activityCategory]?.subtypes ?? {}
     : {};
@@ -567,7 +564,7 @@ export default function Clients() {
 
       {showForm && ClientForm}
 
-      {(me?.role === "admin" || me?.role === "superadmin") && selectedIds.length > 0 && (
+      {canManageAssignments && selectedIds.length > 0 && (
         <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <span className="text-sm font-medium text-blue-800">{selectedIds.length} cliente(s) selecionado(s)</span>
           <select
@@ -616,7 +613,7 @@ export default function Clients() {
             <option value="inativo">Inativo</option>
             <option value="prospect">Prospect</option>
           </select>
-          {(me?.role === "admin" || me?.role === "superadmin") && (
+          {canManageAssignments && (
             <select value={filterAssignedTo} onChange={(e) => setFilterAssignedTo(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-md text-sm min-w-[220px]">
               <option value="">Todos os responsáveis</option>
               {(allUsers ?? []).map((u: any) => (
@@ -658,7 +655,7 @@ export default function Clients() {
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      {(me?.role === "admin" || me?.role === "superadmin") && (
+                      {canManageAssignments && (
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -710,7 +707,7 @@ export default function Clients() {
                             </span>
                           )}
                         </div>
-                        {(me?.role === "admin" || me?.role === "superadmin") && allUsers && (
+                        {canManageAssignments && allUsers && (
                           <div className="mt-3 flex items-center gap-2">
                             <label className="text-xs text-slate-500">Atribuir a:</label>
                             <select

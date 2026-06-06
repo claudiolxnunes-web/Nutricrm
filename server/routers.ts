@@ -213,7 +213,7 @@ export const appRouter = router({
         userId: z.number(),
       }))
       .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores podem atribuir clientes" });
+        if (ctx.user.role !== "admin" && ctx.user.role !== "superadmin") throw new TRPCError({ code: "FORBIDDEN", message: "Apenas administradores e superadmins podem atribuir clientes" });
         return assignClientsToUser(input.clientIds, input.userId);
       }),
 
@@ -791,7 +791,7 @@ export const appRouter = router({
         return updateUser(input.id, { name: input.name, email: input.email, role: input.role });
       }),
     updateRole: adminOrSuperadminProcedure
-      .input(z.object({ id: z.number(), role: z.enum(["admin", "vendedor"]) }))
+      .input(z.object({ id: z.number(), role: z.enum(["admin", "gerente", "vendedor"]) }))
       .mutation(async ({ input, ctx }) => {
         if (input.id === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Nao pode alterar seu proprio role" });
         await updateUserRole(input.id, input.role);
@@ -833,7 +833,7 @@ export const appRouter = router({
         name: z.string().min(1),
         email: z.string().email(),
         password: z.string().min(6),
-        role: z.enum(["admin", "vendedor"]).default("vendedor"),
+        role: z.enum(["admin", "gerente", "vendedor"]).default("vendedor"),
       }))
       .mutation(async ({ input, ctx }) => {
         if (ctx.user.role !== "superadmin") {
