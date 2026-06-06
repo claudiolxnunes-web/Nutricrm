@@ -28,6 +28,23 @@ function scoreBadge(s: number) {
   return "Baixo Potencial";
 }
 
+function formatCurrencyBR(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatNumber(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return value.toLocaleString("pt-BR");
+}
+
+function repurchaseBadge(status: string | null | undefined) {
+  if (status === "atrasado") return "bg-red-100 text-red-700";
+  if (status === "proximo") return "bg-yellow-100 text-yellow-700";
+  if (status === "em_dia") return "bg-green-100 text-green-700";
+  return "bg-slate-100 text-slate-700";
+}
+
 function calcAutoScore(client: any, interactions: any[]) {
   let s = 0;
   if (client.status === "ativo") s += 30;
@@ -43,7 +60,7 @@ function calcAutoScore(client: any, interactions: any[]) {
   return Math.min(s, 100);
 }
 
-type Tab = "timeline" | "visitas" | "mapa" | "score";
+type Tab = "timeline" | "visitas" | "mapa" | "score" | "nutricao";
 
 const CICLO_ETAPAS = [
   { id: "planejamento", label: "Planejamento", color: "bg-slate-100 text-slate-700", icon: "📋" },
@@ -78,6 +95,10 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
 
   const { data: visits = [], refetch: refetchVisits } = trpc.interactions.visits.useQuery(
     { clientId: client?.id },
+    { enabled: !!client?.id }
+  );
+  const { data: nutritionSummary } = trpc.clients.nutritionSummary.useQuery(
+    { id: client?.id },
     { enabled: !!client?.id }
   );
 
@@ -124,6 +145,7 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
     { id: "visitas", label: "Visitas", icon: Calendar },
     { id: "mapa", label: "Mapa", icon: MapPin },
     { id: "score", label: "Score", icon: Star },
+    { id: "nutricao", label: "Nutrição", icon: CheckCircle2 },
   ];
 
   return (
@@ -371,6 +393,97 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
                       Salvar
                     </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {tab === "nutricao" && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Resumo técnico-comercial ruminantes</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Perfil do rebanho</p>
+                    <p className="font-semibold capitalize">{nutritionSummary?.herdProfile || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Sistema produtivo</p>
+                    <p className="font-semibold capitalize">{nutritionSummary?.productionSystem?.replace("_", " ") || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Produção diária de leite</p>
+                    <p className="font-semibold">{formatNumber(nutritionSummary?.dailyMilkProduction)} L</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Consumo mensal estimado</p>
+                    <p className="font-semibold">{formatNumber(nutritionSummary?.monthlyFeedConsumptionKg)} kg</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Área de pasto</p>
+                    <p className="font-semibold">{nutritionSummary?.pastureAreaHa || "—"} ha</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Capacidade de confinamento</p>
+                    <p className="font-semibold">{formatNumber(nutritionSummary?.confinementCapacity)} animais</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Status de recompra</p>
+                      <p className="text-xs text-slate-500">Baseado no histórico de vendas e frequência esperada.</p>
+                    </div>
+                    <Badge className={repurchaseBadge(nutritionSummary?.repurchaseStatus)}>
+                      {nutritionSummary?.repurchaseStatus === "atrasado" ? "Atrasado" :
+                       nutritionSummary?.repurchaseStatus === "proximo" ? "Próximo da recompra" :
+                       nutritionSummary?.repurchaseStatus === "em_dia" ? "Em dia" : "Sem histórico"}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                    <div>
+                      <p className="text-xs text-slate-500">Dias desde última compra</p>
+                      <p className="font-semibold">{formatNumber(nutritionSummary?.daysSinceLastPurchase)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Frequência esperada</p>
+                      <p className="font-semibold">{formatNumber(nutritionSummary?.expectedRepurchaseInDays)} dias</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Próxima visita</p>
+                      <p className="font-semibold">{nutritionSummary?.nextVisitDate ? new Date(nutritionSummary.nextVisitDate).toLocaleDateString("pt-BR") : "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Ticket médio</p>
+                    <p className="font-semibold">{formatCurrencyBR(nutritionSummary?.averageTicket)}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Volume médio mensal</p>
+                    <p className="font-semibold">{formatNumber(nutritionSummary?.averageMonthlyVolumeKg)} kg</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-slate-500">Potencial mensal estimado</p>
+                    <p className="font-semibold">{formatCurrencyBR(nutritionSummary?.estimatedMonthlyPotentialValue)}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-slate-500 mb-1">Desafios nutricionais</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{nutritionSummary?.nutritionChallenges || "Nenhum desafio registrado."}</p>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-slate-500">Visitas técnicas nos últimos 90 dias</p>
+                  <p className="font-semibold">{formatNumber(nutritionSummary?.technicalVisitsLast90Days)}</p>
                 </div>
               </CardContent>
             </Card>

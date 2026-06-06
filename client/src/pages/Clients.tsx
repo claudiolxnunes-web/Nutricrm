@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import ClientDetail from "./ClientDetail";
 
 type ClientType = "fazenda" | "revendedor" | "distribuidor" | "agroindustria" | "fabrica_racoes";
+type HerdProfile = "leite" | "corte" | "misto";
+type ProductionSystem = "confinamento" | "semi_confinamento" | "pasto" | "compost_barn" | "free_stall";
 
 const CLIENT_TYPE_LABELS: Record<ClientType, string> = {
   fazenda: "Fazenda / Produtor Rural",
@@ -89,6 +91,15 @@ const emptyForm = {
   whatsapp: "",
   animalType: "bovinos" as const,
   animalQuantity: 0,
+  herdProfile: "",
+  productionSystem: "",
+  dailyMilkProduction: 0,
+  monthlyFeedConsumptionKg: 0,
+  pastureAreaHa: "",
+  confinementCapacity: 0,
+  nutritionChallenges: "",
+  lastPurchaseDate: "",
+  purchaseFrequencyDays: 30,
   address: "",
   city: "",
   state: "",
@@ -151,10 +162,22 @@ export default function Clients() {
     e.preventDefault();
     if (!formData.farmName || !formData.producerName) { toast.error("Preencha os campos obrigatorios"); return; }
     const { activityCategory, ...rest } = formData;
+    const payload = {
+      ...rest,
+      herdProfile: (rest.herdProfile || undefined) as HerdProfile | undefined,
+      productionSystem: (rest.productionSystem || undefined) as ProductionSystem | undefined,
+      dailyMilkProduction: rest.dailyMilkProduction || undefined,
+      monthlyFeedConsumptionKg: rest.monthlyFeedConsumptionKg || undefined,
+      pastureAreaHa: rest.pastureAreaHa || undefined,
+      confinementCapacity: rest.confinementCapacity || undefined,
+      nutritionChallenges: rest.nutritionChallenges || undefined,
+      lastPurchaseDate: rest.lastPurchaseDate ? new Date(rest.lastPurchaseDate) : undefined,
+      purchaseFrequencyDays: rest.purchaseFrequencyDays || undefined,
+    };
     if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, ...rest, activityType: rest.activityType as any });
+      updateMutation.mutate({ id: editingId, ...payload, activityType: rest.activityType as any });
     } else {
-      createMutation.mutate({ ...rest, activityType: rest.activityType as any });
+      createMutation.mutate({ ...payload, activityType: rest.activityType as any });
     }
   };
 
@@ -171,6 +194,15 @@ export default function Clients() {
       whatsapp: client.whatsapp || "",
       animalType: client.animalType || "bovinos",
       animalQuantity: client.animalQuantity || 0,
+      herdProfile: client.herdProfile || "",
+      productionSystem: client.productionSystem || "",
+      dailyMilkProduction: client.dailyMilkProduction || 0,
+      monthlyFeedConsumptionKg: client.monthlyFeedConsumptionKg || 0,
+      pastureAreaHa: client.pastureAreaHa || "",
+      confinementCapacity: client.confinementCapacity || 0,
+      nutritionChallenges: client.nutritionChallenges || "",
+      lastPurchaseDate: client.lastPurchaseDate ? new Date(client.lastPurchaseDate).toISOString().slice(0, 10) : "",
+      purchaseFrequencyDays: client.purchaseFrequencyDays || 30,
       address: client.address || "",
       city: client.city || "",
       state: client.state || "",
@@ -392,6 +424,64 @@ export default function Clients() {
               <Input type="number" value={formData.animalQuantity} onChange={(e) => setFormData({ ...formData, animalQuantity: parseInt(e.target.value) || 0 })} placeholder="0" />
             </div>
           </div>
+          {formData.animalType === "bovinos" && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
+              <div>
+                <p className="font-medium text-emerald-900">Ficha técnica de ruminantes</p>
+                <p className="text-sm text-emerald-700">Campos para leite, corte e recompra nutricional.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Perfil do rebanho</label>
+                  <select value={formData.herdProfile} onChange={(e) => setFormData({ ...formData, herdProfile: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md">
+                    <option value="">Selecione</option>
+                    <option value="leite">Leite</option>
+                    <option value="corte">Corte</option>
+                    <option value="misto">Misto</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Sistema produtivo</label>
+                  <select value={formData.productionSystem} onChange={(e) => setFormData({ ...formData, productionSystem: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md">
+                    <option value="">Selecione</option>
+                    <option value="pasto">Pasto</option>
+                    <option value="semi_confinamento">Semi-confinamento</option>
+                    <option value="confinamento">Confinamento</option>
+                    <option value="compost_barn">Compost barn</option>
+                    <option value="free_stall">Free stall</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Produção diária de leite (L)</label>
+                  <Input type="number" value={formData.dailyMilkProduction} onChange={(e) => setFormData({ ...formData, dailyMilkProduction: parseInt(e.target.value) || 0 })} placeholder="0" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Consumo mensal de ração (kg)</label>
+                  <Input type="number" value={formData.monthlyFeedConsumptionKg} onChange={(e) => setFormData({ ...formData, monthlyFeedConsumptionKg: parseInt(e.target.value) || 0 })} placeholder="0" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Área de pasto (ha)</label>
+                  <Input value={formData.pastureAreaHa} onChange={(e) => setFormData({ ...formData, pastureAreaHa: e.target.value })} placeholder="0,00" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Capacidade de confinamento</label>
+                  <Input type="number" value={formData.confinementCapacity} onChange={(e) => setFormData({ ...formData, confinementCapacity: parseInt(e.target.value) || 0 })} placeholder="0" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Última compra</label>
+                  <Input type="date" value={formData.lastPurchaseDate} onChange={(e) => setFormData({ ...formData, lastPurchaseDate: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Frequência de recompra (dias)</label>
+                  <Input type="number" value={formData.purchaseFrequencyDays} onChange={(e) => setFormData({ ...formData, purchaseFrequencyDays: parseInt(e.target.value) || 0 })} placeholder="30" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Desafios nutricionais</label>
+                <textarea value={formData.nutritionChallenges} onChange={(e) => setFormData({ ...formData, nutritionChallenges: e.target.value })} placeholder="Ex: queda de consumo, transição, ganho de peso, CCS, lotação..." className="w-full px-3 py-2 border border-slate-300 rounded-md" rows={3} />
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">E-mail</label>

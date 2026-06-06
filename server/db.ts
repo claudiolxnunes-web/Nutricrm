@@ -295,6 +295,15 @@ export async function createClient(data: {
   whatsapp?: string;
   animalType: "bovinos" | "suinos" | "aves" | "equinos" | "outros";
   animalQuantity?: number;
+  herdProfile?: "leite" | "corte" | "misto";
+  productionSystem?: "confinamento" | "semi_confinamento" | "pasto" | "compost_barn" | "free_stall";
+  dailyMilkProduction?: number;
+  monthlyFeedConsumptionKg?: number;
+  pastureAreaHa?: string;
+  confinementCapacity?: number;
+  nutritionChallenges?: string;
+  lastPurchaseDate?: Date;
+  purchaseFrequencyDays?: number;
   address?: string;
   city?: string;
   state?: string;
@@ -385,6 +394,90 @@ export async function updateClient(id: number, data: Partial<Client>) {
   if (!db) throw new Error("Database not available");
 
   return db.update(clients).set(data).where(eq(clients.id, id));
+}
+
+export async function getClientNutritionSummary(clientId: number, companyId?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const clientConditions = [eq(clients.id, clientId)];
+  if (companyId) clientConditions.push(eq(clients.companyId, companyId));
+
+  const clientRows = await db.select().from(clients).where(and(...clientConditions)).limit(1);
+  const client = clientRows[0];
+  if (!client) return null;
+
+  const salesConditions = [eq(sales.clientId, clientId)];
+  const interactionsConditions = [eq(interactions.clientId, clientId)];
+  if (companyId) {
+    salesConditions.push(eq(sales.companyId, companyId));
+    interactionsConditions.push(eq(interactions.companyId, companyId));
+  }
+
+  const [salesRows, interactionsRows] = await Promise.all([
+    db.select({
+      finalValue: sales.finalValue,
+      volumeKg: sales.volumeKg,
+      createdAt: sales.createdAt,
+    }).from(sales).where(and(...salesConditions)).orderBy(desc(sales.createdAt)).limit(12),
+    db.select({
+      type: interactions.type,
+      date: interactions.date,
+      nextVisitDate: interactions.nextVisitDate,
+    }).from(interactions).where(and(...interactionsConditions)).orderBy(desc(interactions.date)).limit(20),
+  ]);
+
+  const totalRevenue = salesRows.reduce((sum, row) => sum + Number(row.finalValue ?? 0), 0);
+  const totalVolumeKg = salesRows.reduce((sum, row) => sum + Number(row.volumeKg ?? 0), 0);
+  const averageTicket = salesRows.length ? totalRevenue / salesRows.length : 0;
+  const averageMonthlyVolumeKg = salesRows.length ? totalVolumeKg / Math.min(salesRows.length, 12) : 0;
+  const lastSaleDate = salesRows[0]?.createdAt ?? client.lastPurchaseDate ?? null;
+  const daysSinceLastPurchase = lastSaleDate
+    ? Math.max(0, Math.floor((Date.now() - new Date(lastSaleDate).getTime()) / 86400000))
+    : null;
+  const expectedRepurchaseInDays = client.purchaseFrequencyDays ?? null;
+  const repurchaseStatus =
+    daysSinceLastPurchase === null || expectedRepurchaseInDays === null
+      ? "sem_historico"
+      : daysSinceLastPurchase > expectedRepurchaseInDays
+        ? "atrasado"
+        : daysSinceLastPurchase >= Math.max(expectedRepurchaseInDays - 7, 0)
+          ? "proximo"
+          : "em_dia";
+  const technicalVisitsLast90Days = interactionsRows.filter((row) => {
+    if (row.type !== "visita") return false;
+    return Date.now() - new Date(row.date).getTime() <= 90 * 86400000;
+  }).length;
+  const nextVisitDate = interactionsRows.find((row) => row.nextVisitDate && new Date(row.nextVisitDate) >= new Date())?.nextVisitDate ?? null;
+
+  const estimatedMonthlyPotentialValue = (() => {
+    const monthlyFeedConsumptionKg = client.monthlyFeedConsumptionKg ?? 0;
+    if (!monthlyFeedConsumptionKg || !averageMonthlyVolumeKg || !totalRevenue) return null;
+    const averagePricePerKg = totalVolumeKg > 0 ? totalRevenue / totalVolumeKg : 0;
+    if (!averagePricePerKg) return null;
+    return monthlyFeedConsumptionKg * averagePricePerKg;
+  })();
+
+  return {
+    herdProfile: client.herdProfile,
+    productionSystem: client.productionSystem,
+    dailyMilkProduction: client.dailyMilkProduction,
+    monthlyFeedConsumptionKg: client.monthlyFeedConsumptionKg,
+    pastureAreaHa: client.pastureAreaHa,
+    confinementCapacity: client.confinementCapacity,
+    nutritionChallenges: client.nutritionChallenges,
+    averageTicket,
+    averageMonthlyVolumeKg,
+    totalRevenue,
+    totalVolumeKg,
+    lastSaleDate,
+    daysSinceLastPurchase,
+    expectedRepurchaseInDays,
+    repurchaseStatus,
+    technicalVisitsLast90Days,
+    nextVisitDate,
+    estimatedMonthlyPotentialValue,
+  };
 }
 
 // ========== PRODUCTS ==========

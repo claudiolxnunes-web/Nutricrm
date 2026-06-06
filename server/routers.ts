@@ -10,6 +10,7 @@ import {
   createClient,
   getClients, getClientsCount,
   getClientById,
+  getClientNutritionSummary,
   updateClient,
   deleteClient,
   createProduct,
@@ -111,6 +112,15 @@ export const appRouter = router({
           whatsapp: z.string().optional(),
           animalType: z.enum(["bovinos", "suinos", "aves", "equinos", "outros"]),
           animalQuantity: z.number().optional(),
+          herdProfile: z.enum(["leite", "corte", "misto"]).optional(),
+          productionSystem: z.enum(["confinamento", "semi_confinamento", "pasto", "compost_barn", "free_stall"]).optional(),
+          dailyMilkProduction: z.number().optional(),
+          monthlyFeedConsumptionKg: z.number().optional(),
+          pastureAreaHa: z.string().optional(),
+          confinementCapacity: z.number().optional(),
+          nutritionChallenges: z.string().optional(),
+          lastPurchaseDate: z.coerce.date().optional(),
+          purchaseFrequencyDays: z.number().optional(),
           address: z.string().optional(),
           city: z.string().optional(),
           state: z.string().optional(),
@@ -148,6 +158,12 @@ export const appRouter = router({
         return getClientById(input.id);
       }),
 
+    nutritionSummary: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input, ctx }) => {
+        return getClientNutritionSummary(input.id, ctx.user.role === "superadmin" ? undefined : ctx.user.companyId);
+      }),
+
     update: protectedProcedure
       .input(
         z.object({
@@ -161,6 +177,15 @@ export const appRouter = router({
           whatsapp: z.string().optional(),
           animalType: z.enum(["bovinos", "suinos", "aves", "equinos", "outros"]).optional(),
           animalQuantity: z.number().optional(),
+          herdProfile: z.enum(["leite", "corte", "misto"]).optional(),
+          productionSystem: z.enum(["confinamento", "semi_confinamento", "pasto", "compost_barn", "free_stall"]).optional(),
+          dailyMilkProduction: z.number().optional(),
+          monthlyFeedConsumptionKg: z.number().optional(),
+          pastureAreaHa: z.string().optional(),
+          confinementCapacity: z.number().optional(),
+          nutritionChallenges: z.string().optional(),
+          lastPurchaseDate: z.coerce.date().optional(),
+          purchaseFrequencyDays: z.number().optional(),
           address: z.string().optional(),
           city: z.string().optional(),
           state: z.string().optional(),
