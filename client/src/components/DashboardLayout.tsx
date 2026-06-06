@@ -51,6 +51,7 @@ import {
   X,
   Upload,
   ClipboardList,
+  ChartColumnIncreasing,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -148,6 +149,7 @@ const menuItems = [
   { icon: ShoppingCart, label: "Vendas", path: "/sales" },
   { icon: ClipboardList, label: "Pedidos em Aberto", path: "/pedidos-em-aberto" },
   { icon: BarChart3, label: "Relatorios", path: "/reports" },
+  { icon: ChartColumnIncreasing, label: "Analytics", path: "/analytics" },
   { icon: BrainCircuit, label: "Previsao IA", path: "/ai-forecast" },
   { icon: BookOpen, label: "Tutorial", path: "/tutorial" },
   { icon: MessageSquare, label: "Interacoes", path: "/interactions" },

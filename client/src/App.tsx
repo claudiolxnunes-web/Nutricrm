@@ -11,6 +11,7 @@ import Opportunities from "./pages/Opportunities";
 import Products from "./pages/Products";
 import Quotes from "./pages/Quotes";
 import Dashboard from "./pages/Dashboard";
+import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Sales from "./pages/Sales";
 import Login from "@/pages/Login";
@@ -76,6 +77,13 @@ function Router() {
         {() => (
           <DashboardLayout>
             <Reports />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/analytics"}>
+        {() => (
+          <DashboardLayout>
+            <Analytics />
           </DashboardLayout>
         )}
       </Route>
