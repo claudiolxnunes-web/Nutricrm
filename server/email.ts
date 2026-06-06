@@ -135,7 +135,7 @@ export async function enviarOrcamentoPorEmail(params: {
 
   const { data, error } = await resend.emails.send({
     from: `${fromName} <${domainFrom}>`,
-    reply_to: [from],
+    replyTo: [from],
     to: [to],
     subject,
     html,

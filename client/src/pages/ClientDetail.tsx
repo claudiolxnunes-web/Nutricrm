@@ -115,7 +115,7 @@ export default function ClientDetail({ client, open, onClose, onRefresh }: {
       result: form.result || undefined,
       nextAction: form.nextAction || undefined,
       visitResult: form.visitResult || undefined,
-      nextVisitDate: form.nextVisitDate ? new Date(form.nextVisitDate) : undefined,
+      nextVisitDate: form.nextVisitDate || undefined,
     });
   };
 

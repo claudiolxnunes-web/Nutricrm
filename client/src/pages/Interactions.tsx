@@ -46,7 +46,7 @@ function getCicloEtapa(description: string | null | undefined) {
 
 function getDescription(description: string | null | undefined) {
   if (!description) return "";
-  return description.replace(/\[CICLO:\w+\]\s?/, "").replace(/\[PLANO\].*/s, "");
+  return description.replace(/\[CICLO:\w+\]\s?/, "").replace(/\[PLANO\][\s\S]*/, "");
 }
 
 function formatDateBR(dateStr: string | null | undefined) {

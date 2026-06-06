@@ -610,7 +610,7 @@ function DashboardLayoutContent({
       </SidebarInset>
 
       {/* Bottom Navigation — so mobile */}
-      <BottomNav userEmail={user?.email} userRole={user?.role} />
+      <BottomNav userEmail={user?.email ?? undefined} userRole={user?.role ?? undefined} />
     </>
   );
 }

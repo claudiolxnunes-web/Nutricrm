@@ -114,7 +114,7 @@ export default function Clients() {
   const PAGE_SIZE = 100;
   const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery({
     search,
-    clientType: filterClientType || undefined,
+    status: undefined,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
@@ -152,9 +152,9 @@ export default function Clients() {
     if (!formData.farmName || !formData.producerName) { toast.error("Preencha os campos obrigatorios"); return; }
     const { activityCategory, ...rest } = formData;
     if (editingId !== null) {
-      updateMutation.mutate({ id: editingId, ...rest, activityType: rest.activityType as any, score: rest.score });
+      updateMutation.mutate({ id: editingId, ...rest, activityType: rest.activityType as any });
     } else {
-      createMutation.mutate({ ...rest, activityType: rest.activityType as any, score: rest.score });
+      createMutation.mutate({ ...rest, activityType: rest.activityType as any });
     }
   };
 

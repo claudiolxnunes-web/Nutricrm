@@ -87,7 +87,10 @@ export default function Representantes() {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-    createUserMutation.mutate(newUserData);
+    createUserMutation.mutate({
+      ...newUserData,
+      role: newUserData.role as "admin" | "vendedor",
+    });
   }
 
   function openDeleteDialog(user: any) {

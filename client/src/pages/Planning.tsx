@@ -608,7 +608,7 @@ export default function Planning() {
                 type: "visita",
                 title: newVisit.title,
                 visitResult: "neutro",
-                nextVisitDate: new Date(newVisit.nextVisitDate),
+                nextVisitDate: newVisit.nextVisitDate,
                 description: hasPlano ? `[PLANO]${JSON.stringify(plano)}` : undefined,
               });
             }} disabled={createVisitMutation.isPending}>

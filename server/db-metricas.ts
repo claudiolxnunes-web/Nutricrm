@@ -1,3 +1,7 @@
+import { and, eq, sql } from "drizzle-orm";
+import { getDb } from "./db";
+import { sales } from "../drizzle/schema";
+
 // ========== FUNÇÕES DE AGREGAÇÃO DE MÉTRICAS ==========
 
 export interface MetricasVendas {
@@ -60,7 +64,22 @@ export async function getVendasPorFiltro(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  let query = db
+  const conditions = [eq(sales.companyId, companyId)];
+
+  if (filtros.mesAno) {
+    conditions.push(eq(sales.mesAno, filtros.mesAno));
+  }
+  if (filtros.ano) {
+    conditions.push(eq(sales.ano, filtros.ano));
+  }
+  if (filtros.clienteId) {
+    conditions.push(eq(sales.clientId, filtros.clienteId));
+  }
+  if (filtros.representante) {
+    conditions.push(sql`${sales.notes} ILIKE ${`%${filtros.representante}%`}`);
+  }
+
+  return await db
     .select({
       id: sales.id,
       notaFiscal: sales.notaFiscal,
@@ -79,22 +98,7 @@ export async function getVendasPorFiltro(
       notes: sales.notes,
     })
     .from(sales)
-    .where(eq(sales.companyId, companyId))
+    .where(and(...conditions))
     .limit(limit)
     .offset(offset);
-
-  if (filtros.mesAno) {
-    query = query.where(eq(sales.mesAno, filtros.mesAno)) as any;
-  }
-  if (filtros.ano) {
-    query = query.where(eq(sales.ano, filtros.ano)) as any;
-  }
-  if (filtros.clienteId) {
-    query = query.where(eq(sales.clientId, filtros.clienteId)) as any;
-  }
-  if (filtros.representante) {
-    query = query.where(sql`${sales.notes} ILIKE ${`%${filtros.representante}%`}`) as any;
-  }
-
-  return await query;
 }
