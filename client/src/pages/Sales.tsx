@@ -40,7 +40,7 @@ export default function Sales() {
 
   const [dateRange, setDateRange] = useState({ startDate: firstDay, endDate: lastDay });
 
-  const { data: sales = [], isLoading, refetch } = trpc.sales.list.useQuery({
+  const { data: salesResponse, isLoading, refetch } = trpc.sales.list.useQuery({
     startDate: new Date(dateRange.startDate),
     endDate: new Date(dateRange.endDate),
     limit: 200,
@@ -81,11 +81,11 @@ export default function Sales() {
     onError: (e) => toast.error(e.message || "Erro ao excluir"),
   });
 
-  const totalSales = Array.isArray(sales)
-    ? sales.reduce((s: number, sale: any) => s + parseFloat(sale.totalValue || "0"), 0)
-    : 0;
-  const paidCount = Array.isArray(sales) ? sales.filter((s: any) => s.paymentStatus === "pago").length : 0;
-  const pendingCount = Array.isArray(sales) ? sales.filter((s: any) => s.paymentStatus === "pendente").length : 0;
+  const sales = (salesResponse as any)?.data ?? [];
+  const summary = (salesResponse as any)?.summary;
+  const totalSales = summary?.totalSales ?? 0;
+  const paidCount = summary?.paidCount ?? 0;
+  const pendingCount = summary?.pendingCount ?? 0;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

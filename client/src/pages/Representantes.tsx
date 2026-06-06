@@ -105,11 +105,12 @@ export default function Representantes() {
 
   // Calcular estatísticas por vendedor
   const { data: opportunities } = trpc.opportunities.list.useQuery({ limit: 500 });
-  const { data: interactions } = trpc.interactions.all.useQuery({});
+  const { data: interactionsResponse } = trpc.interactions.all.useQuery({ limit: 200, offset: 0 });
+  const interactions = (interactionsResponse as any)?.data ?? [];
 
   const getUserStats = (userId: number) => {
     const userOpps = (opportunities as any[])?.filter((o: any) => o.createdBy === userId) || [];
-    const userInteractions = (interactions as any[])?.filter((i: any) => i.createdBy === userId) || [];
+    const userInteractions = (interactions as any[]).filter((i: any) => i.createdBy === userId) || [];
     const vendasConcluidas = userOpps.filter((o: any) => o.stage === "venda_concluida");
     const totalVendas = vendasConcluidas.reduce((sum: number, o: any) => sum + parseFloat(o.value || 0), 0);
 
@@ -440,3 +441,5 @@ export default function Representantes() {
     </div>
   );
 }
+
+

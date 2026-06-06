@@ -19,13 +19,14 @@ export default function Dashboard() {
   const { data: quotes } = trpc.quotes.list.useQuery({ limit: 200 });
   const { data: oppsData } = trpc.opportunities.list.useQuery({ limit: 200 });
 
-  const { data: salesInPeriod } = trpc.sales.list.useQuery({
+  const { data: salesInPeriodResponse } = trpc.sales.list.useQuery({
     startDate: new Date(dateRange.startDate),
     endDate: new Date(dateRange.endDate),
     limit: 5000,
   });
-  const totalSalesPeriod = (salesInPeriod as any[])?.reduce((s: number, v: any) => s + parseFloat(v.totalValue || "0"), 0) ?? 0;
-  const salesCountPeriod = (salesInPeriod as any[])?.length ?? 0;
+  const salesInPeriod = (salesInPeriodResponse as any)?.data ?? [];
+  const totalSalesPeriod = (salesInPeriod as any[]).reduce((s: number, v: any) => s + parseFloat(v.totalValue || "0"), 0) ?? 0;
+  const salesCountPeriod = (salesInPeriod as any[]).length ?? 0;
   const ticketMedioPeriod = salesCountPeriod > 0 ? totalSalesPeriod / salesCountPeriod : 0;
 
   // Orçamentos enviados há mais de 5 dias sem resposta
@@ -270,3 +271,7 @@ export default function Dashboard() {
     </div>
   );
 }
+
+
+
+

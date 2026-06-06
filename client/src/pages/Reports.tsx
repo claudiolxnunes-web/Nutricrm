@@ -18,11 +18,13 @@ export default function Reports() {
     endDate: new Date().toISOString().split("T")[0],
   });
 
-  const { data: sales, isLoading } = trpc.sales.list.useQuery({
+  const { data: salesResponse, isLoading } = trpc.sales.list.useQuery({
     startDate: new Date(dateRange.startDate),
     endDate: new Date(dateRange.endDate),
     limit: 100,
   });
+  const sales = (salesResponse as any)?.data ?? [];
+  const summary = (salesResponse as any)?.summary;
 
   const { data: allClients } = trpc.clients.list.useQuery({ limit: 2000 });
   const clientList = (allClients as any)?.data ?? (allClients as any) ?? [];
@@ -46,22 +48,22 @@ export default function Reports() {
     return acc;
   }, []) || [];
 
-  const totalSales = sales?.reduce((sum: number, sale: any) => sum + parseFloat(sale.totalValue), 0) || 0;
-  const totalTransactions = sales?.length || 0;
-  const averageSale = totalTransactions > 0 ? totalSales / totalTransactions : 0;
+  const totalSales = summary?.totalSales ?? 0;
+  const totalTransactions = summary?.totalTransactions ?? 0;
+  const averageSale = summary?.averageSale ?? 0;
 
   const paymentStatusData = [
     {
       name: "Pago",
-      value: sales?.filter((s: any) => s.paymentStatus === "pago").length || 0,
+      value: summary?.paidCount || 0,
     },
     {
       name: "Parcial",
-      value: sales?.filter((s: any) => s.paymentStatus === "parcial").length || 0,
+      value: summary?.partialCount || 0,
     },
     {
       name: "Pendente",
-      value: sales?.filter((s: any) => s.paymentStatus === "pendente").length || 0,
+      value: summary?.pendingCount || 0,
     },
   ];
 

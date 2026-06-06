@@ -969,6 +969,92 @@ export async function getSales(filters?: {
   return query;
 }
 
+export async function getSalesCount(filters?: {
+  clientId?: number;
+  paymentStatus?: string;
+  startDate?: Date;
+  endDate?: Date;
+  companyId?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const conditions = [];
+
+  if (filters?.clientId) {
+    conditions.push(eq(sales.clientId, filters.clientId));
+  }
+
+  if (filters?.paymentStatus) {
+    conditions.push(eq(sales.paymentStatus, filters.paymentStatus as any));
+  }
+
+  if (filters?.startDate) {
+    conditions.push(gte(sales.saleDate, filters.startDate));
+  }
+
+  if (filters?.endDate) {
+    conditions.push(lte(sales.saleDate, filters.endDate));
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(sales.companyId, filters.companyId));
+  }
+
+  const result = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(sales)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  return result[0]?.count ?? 0;
+}
+
+export async function getSalesSummary(filters?: {
+  startDate?: Date;
+  endDate?: Date;
+  companyId?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const conditions = [];
+
+  if (filters?.startDate) {
+    conditions.push(gte(sales.saleDate, filters.startDate));
+  }
+
+  if (filters?.endDate) {
+    conditions.push(lte(sales.saleDate, filters.endDate));
+  }
+
+  if (filters?.companyId) {
+    conditions.push(eq(sales.companyId, filters.companyId));
+  }
+
+  const [summary] = await db
+    .select({
+      totalSales: sql<string>`COALESCE(SUM(${sales.totalValue}), 0)::text`,
+      totalTransactions: sql<number>`COUNT(*)::int`,
+      paidCount: sql<number>`COUNT(*) FILTER (WHERE ${sales.paymentStatus} = 'pago')::int`,
+      pendingCount: sql<number>`COUNT(*) FILTER (WHERE ${sales.paymentStatus} = 'pendente')::int`,
+      partialCount: sql<number>`COUNT(*) FILTER (WHERE ${sales.paymentStatus} = 'parcial')::int`,
+    })
+    .from(sales)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  const totalSales = parseFloat(summary?.totalSales ?? "0");
+  const totalTransactions = summary?.totalTransactions ?? 0;
+
+  return {
+    totalSales,
+    totalTransactions,
+    averageSale: totalTransactions > 0 ? totalSales / totalTransactions : 0,
+    paidCount: summary?.paidCount ?? 0,
+    pendingCount: summary?.pendingCount ?? 0,
+    partialCount: summary?.partialCount ?? 0,
+  };
+}
+
 // ========== DASHBOARD METRICS ==========
 
 export async function getDashboardMetrics(userId: number, companyId?: number) {
@@ -1017,6 +1103,79 @@ export async function getDashboardMetrics(userId: number, companyId?: number) {
     totalOpportunities: totalOpportunitiesResult[0]?.count || 0,
     totalClients: totalClientsResult[0]?.count || 0,
     opportunitiesByStage,
+  };
+}
+
+export async function getDashboardPeriodMetrics(filters?: {
+  startDate?: Date;
+  endDate?: Date;
+  companyId?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const salesConditions = [];
+  if (filters?.companyId) salesConditions.push(eq(sales.companyId, filters.companyId));
+  if (filters?.startDate) salesConditions.push(gte(sales.saleDate, filters.startDate));
+  if (filters?.endDate) salesConditions.push(lte(sales.saleDate, filters.endDate));
+
+  const quoteConditions = [];
+  if (filters?.companyId) quoteConditions.push(eq(quotes.companyId, filters.companyId));
+
+  const opportunityConditions = [];
+  if (filters?.companyId) opportunityConditions.push(eq(opportunities.companyId, filters.companyId));
+
+  const [salesSummary] = await db
+    .select({
+      totalSales: sql<string>`COALESCE(SUM(${sales.totalValue}), 0)::text`,
+      salesCount: sql<number>`COUNT(*)::int`,
+    })
+    .from(sales)
+    .where(salesConditions.length > 0 ? and(...salesConditions) : undefined);
+
+  const staleQuotes = await db
+    .select({
+      id: quotes.id,
+      quoteNumber: quotes.quoteNumber,
+      createdAt: quotes.createdAt,
+    })
+    .from(quotes)
+    .where(and(
+      quoteConditions.length > 0 ? and(...quoteConditions) : undefined,
+      eq(quotes.status, "enviado"),
+      sql`${quotes.createdAt} <= NOW() - INTERVAL '5 days'`,
+    ));
+
+  const stalledOpportunities = await db
+    .select({
+      id: opportunities.id,
+      title: opportunities.title,
+      updatedAt: opportunities.updatedAt,
+    })
+    .from(opportunities)
+    .where(and(
+      opportunityConditions.length > 0 ? and(...opportunityConditions) : undefined,
+      eq(opportunities.stage, "negociacao"),
+      sql`${opportunities.updatedAt} <= NOW() - INTERVAL '15 days'`,
+    ));
+
+  const totalSales = parseFloat(salesSummary?.totalSales ?? "0");
+  const salesCount = salesSummary?.salesCount ?? 0;
+
+  return {
+    totalSales,
+    salesCount,
+    averageTicket: salesCount > 0 ? totalSales / salesCount : 0,
+    alerts: {
+      staleQuotes: staleQuotes.map((quote) => ({
+        ...quote,
+        daysWithoutResponse: Math.floor((Date.now() - new Date(quote.createdAt).getTime()) / 86400000),
+      })),
+      stalledOpportunities: stalledOpportunities.map((opportunity) => ({
+        ...opportunity,
+        stalledDays: Math.floor((Date.now() - new Date(opportunity.updatedAt).getTime()) / 86400000),
+      })),
+    },
   };
 }
 // ========== AI FORECAST DATA ==========
@@ -1175,6 +1334,23 @@ export async function getAllInteractions(companyId: number, filters?: { type?: s
     .orderBy(sql`CASE WHEN ${interactions.nextVisitDate} IS NULL THEN 1 ELSE 0 END`, interactions.nextVisitDate)
     .limit(filters?.limit ?? 200);
   return rows;
+}
+
+export async function getAllInteractionsCount(companyId: number, filters?: { type?: string; visitResult?: string; fromDate?: Date; toDate?: Date; }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const conditions: any[] = [eq(interactions.companyId, companyId)];
+  if (filters?.type) conditions.push(eq(interactions.type, filters.type));
+  if (filters?.visitResult) conditions.push(eq(interactions.visitResult as any, filters.visitResult));
+  if (filters?.fromDate) conditions.push(gte(interactions.date, filters.fromDate));
+  if (filters?.toDate) conditions.push(lte(interactions.date, filters.toDate));
+
+  const [result] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(interactions)
+    .where(and(...conditions));
+
+  return result?.count ?? 0;
 }
 
 export async function getUpcomingVisits(companyId: number, fromDate: Date, toDate: Date) {
@@ -1755,6 +1931,80 @@ export interface ImportResult {
 
 function normalizeImportText(value?: string | number | null): string {
   return String(value ?? "").trim();
+}
+
+export async function getManagerDashboardSummary(companyId: number, fromDate?: Date, toDate?: Date) {
+  const stats = await getManagerStats(companyId, fromDate, toDate);
+
+  const userMap = new Map<number, {
+    id: number;
+    name: string;
+    email: string | null;
+    totalInteractions: number;
+    visitas: number;
+    ligacoes: number;
+    reunioes: number;
+    visitasConcluidas: number;
+    visitasPerdidas: number;
+    oportunidades: number;
+    orcamentos: number;
+    valorOrcamentos: number;
+    tempoTotal: number;
+  }>();
+
+  stats.users.forEach((user: any) => {
+    userMap.set(user.id, {
+      id: user.id,
+      name: user.name || user.email || `Vendedor ${user.id}`,
+      email: user.email ?? null,
+      totalInteractions: 0,
+      visitas: 0,
+      ligacoes: 0,
+      reunioes: 0,
+      visitasConcluidas: 0,
+      visitasPerdidas: 0,
+      oportunidades: 0,
+      orcamentos: 0,
+      valorOrcamentos: 0,
+      tempoTotal: 0,
+    });
+  });
+
+  stats.interactions.forEach((interaction: any) => {
+    const user = userMap.get(interaction.createdBy);
+    if (!user) return;
+    user.totalInteractions++;
+    user.tempoTotal += interaction.duration || 0;
+    if (interaction.type === "visita") user.visitas++;
+    if (interaction.type === "ligacao") user.ligacoes++;
+    if (interaction.type === "reuniao") user.reunioes++;
+    if (interaction.visitResult === "sucesso") user.visitasConcluidas++;
+    if (interaction.visitResult === "perdido") user.visitasPerdidas++;
+  });
+
+  stats.opportunities.forEach((opportunity: any) => {
+    const user = userMap.get(opportunity.createdBy);
+    if (user) user.oportunidades++;
+  });
+
+  stats.orcamentos.forEach((quote: any) => {
+    const user = userMap.get(quote.userId);
+    if (!user) return;
+    user.orcamentos++;
+    user.valorOrcamentos += parseFloat(quote.total || 0);
+  });
+
+  const vendedorStats = Array.from(userMap.values()).sort((a, b) => b.totalInteractions - a.totalInteractions);
+
+  return {
+    totals: {
+      totalInteractions: stats.interactions.length,
+      totalVisits: stats.interactions.filter((interaction: any) => interaction.type === "visita").length,
+      totalQuotes: stats.orcamentos.length,
+      totalQuoteValue: stats.orcamentos.reduce((sum: number, quote: any) => sum + parseFloat(quote.total || 0), 0),
+    },
+    vendedorStats,
+  };
 }
 
 function buildImportKey(parts: Array<string | number | null | undefined>): string {

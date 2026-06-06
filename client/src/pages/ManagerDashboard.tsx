@@ -36,65 +36,12 @@ export default function ManagerDashboard() {
   const { data: allClients } = trpc.clients.list.useQuery({ limit: 2000 });
   const clientsList = (allClients as any)?.data ?? (allClients as any) ?? [];
 
-  const { data: allInteractions } = trpc.interactions?.all?.useQuery({}) || { data: [] };
+  const { data: allInteractionsResponse } = trpc.interactions?.all?.useQuery({ limit: 50, offset: 0 }) || { data: undefined };
+
+  const allInteractions = (allInteractionsResponse as any)?.data ?? [];
 
   // Calcular métricas por vendedor
-  const vendedorStats = useMemo(() => {
-    if (!stats) return [];
-    
-    const userMap = new Map();
-    
-    stats.users.forEach((user: any) => {
-      userMap.set(user.id, {
-        id: user.id,
-        name: user.name || user.email || `Vendedor ${user.id}`,
-        email: user.email,
-        totalInteractions: 0,
-        visitas: 0,
-        ligacoes: 0,
-        reunioes: 0,
-        visitasConcluidas: 0,
-        visitasPerdidas: 0,
-        oportunidades: 0,
-        orcamentos: 0,
-        valorOrcamentos: 0,
-        tempoTotal: 0,
-      });
-    });
-    
-    // Contar interações
-    stats.interactions.forEach((int: any) => {
-      const user = userMap.get(int.createdBy);
-      if (user) {
-        user.totalInteractions++;
-        user.tempoTotal += int.duration || 0;
-        
-        if (int.type === "visita") user.visitas++;
-        else if (int.type === "ligacao") user.ligacoes++;
-        else if (int.type === "reuniao") user.reunioes++;
-        
-        if (int.visitResult === "sucesso") user.visitasConcluidas++;
-        else if (int.visitResult === "perdido") user.visitasPerdidas++;
-      }
-    });
-    
-    // Contar oportunidades
-    stats.opportunities.forEach((opp: any) => {
-      const user = userMap.get(opp.createdBy);
-      if (user) user.oportunidades++;
-    });
-    
-    // Contar orçamentos
-    stats.orcamentos.forEach((orc: any) => {
-      const user = userMap.get(orc.userId);
-      if (user) {
-        user.orcamentos++;
-        user.valorOrcamentos += parseFloat(orc.total || 0);
-      }
-    });
-    
-    return Array.from(userMap.values()).sort((a, b) => b.totalInteractions - a.totalInteractions);
-  }, [stats]);
+  const vendedorStats = useMemo(() => stats?.summary?.vendedorStats ?? [], [stats]);
 
   // Timeline de atividades
   const timeline = useMemo(() => {
@@ -189,7 +136,7 @@ export default function ManagerDashboard() {
               <Calendar className="w-4 h-4 text-blue-500" />
               <p className="text-sm text-slate-500">Total Interações</p>
             </div>
-            <p className="text-2xl font-bold">{stats?.interactions?.length || 0}</p>
+            <p className="text-2xl font-bold">{stats?.summary?.totals?.totalInteractions || 0}</p>
           </CardContent>
         </Card>
         <Card>
@@ -199,7 +146,7 @@ export default function ManagerDashboard() {
               <p className="text-sm text-slate-500">Visitas Realizadas</p>
             </div>
             <p className="text-2xl font-bold">
-              {stats?.interactions?.filter((i: any) => i.type === "visita").length || 0}
+              {stats?.summary?.totals?.totalVisits || 0}
             </p>
           </CardContent>
         </Card>
@@ -209,7 +156,7 @@ export default function ManagerDashboard() {
               <FileText className="w-4 h-4 text-purple-500" />
               <p className="text-sm text-slate-500">Orçamentos</p>
             </div>
-            <p className="text-2xl font-bold">{stats?.orcamentos?.length || 0}</p>
+            <p className="text-2xl font-bold">{stats?.summary?.totals?.totalQuotes || 0}</p>
           </CardContent>
         </Card>
         <Card>
@@ -219,7 +166,7 @@ export default function ManagerDashboard() {
               <p className="text-sm text-slate-500">Valor Orçamentos</p>
             </div>
             <p className="text-2xl font-bold">
-              R$ {stats?.orcamentos?.reduce((s: number, o: any) => s + parseFloat(o.total || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              R$ {(stats?.summary?.totals?.totalQuoteValue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
             </p>
           </CardContent>
         </Card>
@@ -549,3 +496,5 @@ export default function ManagerDashboard() {
     </div>
   );
 }
+
+

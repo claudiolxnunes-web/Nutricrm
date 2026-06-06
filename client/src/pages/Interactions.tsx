@@ -143,9 +143,11 @@ export default function Interactions() {
     cicloEtapa: "conexao",
   });
 
-  const { data: interactions = [], isLoading, refetch } = trpc.interactions.all.useQuery({
+  const { data: interactionsResponse, isLoading, refetch } = trpc.interactions.all.useQuery({
     type: filtroTipo || undefined,
     visitResult: filtroResultado || undefined,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
   });
 
   useEffect(() => {
@@ -180,14 +182,15 @@ export default function Interactions() {
     onError: (e: any) => toast.error(e.message || "Erro ao criar interação"),
   });
 
+  const interactions = (interactionsResponse as any)?.data ?? [];
+  const totalInteractions = (interactionsResponse as any)?.total ?? 0;
   const filtered = (interactions as any[]).filter((i: any) => {
     if (!busca) return true;
     const clientName = i.clientName ?? i.client?.name ?? "";
     return clientName.toLowerCase().includes(busca.toLowerCase());
   });
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(totalInteractions / PAGE_SIZE));
+  const paginated = busca ? filtered : interactions;
 
   function openModal(interaction: any) {
     setSelectedInteraction(interaction);

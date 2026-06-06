@@ -31,14 +31,17 @@ import {
   getQuoteItems,
   deleteQuoteItem,
   createInteraction,
-  getInteractions, getAllInteractions, getUpcomingVisits, scheduleNextVisit,
+  getInteractions, getAllInteractions, getAllInteractionsCount, getUpcomingVisits, scheduleNextVisit,
   updateClientScore,
   updateClientGeo,
   getVisits,
   createSale,
   getSales,
+  getSalesCount,
+  getSalesSummary,
   deleteSale,
   getDashboardMetrics,
+  getDashboardPeriodMetrics,
   countUsersByCompany,
   getCompanyPlan,
   listUsers,
@@ -61,6 +64,7 @@ import {
   updateOrcamentoSimples,
   deleteOrcamentoSimples,
   getManagerStats,
+  getManagerDashboardSummary,
   getUsersByCompany,
   updateUser,
   savePushSubscription,
@@ -590,14 +594,28 @@ export const appRouter = router({
       }),
 
     all: protectedProcedure
-      .input(z.object({ type: z.string().optional(), visitResult: z.string().optional(), fromDate: z.string().optional(), toDate: z.string().optional() }))
+      .input(z.object({
+        type: z.string().optional(),
+        visitResult: z.string().optional(),
+        fromDate: z.string().optional(),
+        toDate: z.string().optional(),
+        limit: z.number().optional().default(20),
+        offset: z.number().optional().default(0),
+      }))
       .query(async ({ input, ctx }) => {
-        return getAllInteractions(ctx.user.companyId, {
+        const filters = {
           type: input.type,
           visitResult: input.visitResult,
           fromDate: input.fromDate ? new Date(input.fromDate) : undefined,
           toDate: input.toDate ? new Date(input.toDate) : undefined,
-        });
+          limit: input.limit,
+          offset: input.offset,
+        };
+        const [data, total] = await Promise.all([
+          getAllInteractions(ctx.user.companyId, filters),
+          getAllInteractionsCount(ctx.user.companyId, filters),
+        ]);
+        return { data, total };
       }),
 
     upcoming: protectedProcedure
@@ -616,10 +634,13 @@ export const appRouter = router({
     managerStats: protectedProcedure
       .input(z.object({ fromDate: z.string().optional(), toDate: z.string().optional() }))
       .query(async ({ input, ctx }) => {
-        return getManagerStats(ctx.user.companyId, 
-          input.fromDate ? new Date(input.fromDate) : undefined,
-          input.toDate ? new Date(input.toDate) : undefined
-        );
+        const fromDate = input.fromDate ? new Date(input.fromDate) : undefined;
+        const toDate = input.toDate ? new Date(input.toDate) : undefined;
+        const [stats, summary] = await Promise.all([
+          getManagerStats(ctx.user.companyId, fromDate, toDate),
+          getManagerDashboardSummary(ctx.user.companyId, fromDate, toDate),
+        ]);
+        return { ...stats, summary };
       }),
 
     followUpAlerts: protectedProcedure
@@ -666,10 +687,16 @@ export const appRouter = router({
         })
       )
       .query(async ({ input, ctx }) => {
-        return getSales({
+        const filters = {
           ...input,
           companyId: ctx.user.role === "superadmin" ? undefined : ctx.user.companyId,
-        });
+        };
+        const [data, total, summary] = await Promise.all([
+          getSales(filters),
+          getSalesCount(filters),
+          getSalesSummary(filters),
+        ]);
+        return { data, total, summary };
       }),
 
     delete: protectedProcedure
@@ -698,9 +725,20 @@ export const appRouter = router({
 
   // ========== DASHBOARD ==========
   dashboard: router({
-    metrics: protectedProcedure.query(async ({ ctx }) => {
-      return getDashboardMetrics(ctx.user.id, ctx.user.role === "superadmin" ? undefined : ctx.user.companyId);
-    }),
+    metrics: protectedProcedure
+      .input(z.object({ startDate: z.date().optional(), endDate: z.date().optional() }).optional())
+      .query(async ({ input, ctx }) => {
+        const companyId = ctx.user.role === "superadmin" ? undefined : ctx.user.companyId;
+        const [baseMetrics, periodMetrics] = await Promise.all([
+          getDashboardMetrics(ctx.user.id, companyId),
+          getDashboardPeriodMetrics({
+            startDate: input?.startDate,
+            endDate: input?.endDate,
+            companyId,
+          }),
+        ]);
+        return { ...baseMetrics, ...periodMetrics };
+      }),
   }),
 
   // ========== USERS ==========
