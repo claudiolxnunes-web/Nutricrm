@@ -57,6 +57,7 @@ export type InsertUser = typeof users.$inferInsert;
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   companyId: integer("companyId").notNull().default(1),
+  externalCode: varchar("externalCode", { length: 100 }),
   clientType: varchar("clientType", { length: 50 }).default("fazenda").notNull(),
   activityType: varchar("activityType", { length: 80 }),
   farmName: varchar("farmName", { length: 255 }).notNull(),
@@ -79,13 +80,18 @@ export const clients = pgTable("clients", {
   assignedTo: integer("assignedTo"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-}, (t) => ({ cliCreatedByIdx: index("cliCreatedByIdx").on(t.createdBy), cliStatusIdx: index("cliStatusIdx").on(t.status) }));
+}, (t) => ({
+  cliCreatedByIdx: index("cliCreatedByIdx").on(t.createdBy),
+  cliStatusIdx: index("cliStatusIdx").on(t.status),
+  cliCompanyExternalCodeIdx: index("cliCompanyExternalCodeIdx").on(t.companyId, t.externalCode),
+}));
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = typeof clients.$inferInsert;
 
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   companyId: integer("companyId").notNull().default(1),
+  externalCode: varchar("externalCode", { length: 100 }),
   name: varchar("name", { length: 255 }).notNull(),
   category: varchar("category", { length: 100 }).notNull(),
   description: text("description"),
@@ -102,7 +108,10 @@ export const products = pgTable("products", {
   active: boolean("active").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-}, (t) => ({ prodCategoryIdx: index("prodCategoryIdx").on(t.category) }));
+}, (t) => ({
+  prodCategoryIdx: index("prodCategoryIdx").on(t.category),
+  prodCompanyExternalCodeIdx: index("prodCompanyExternalCodeIdx").on(t.companyId, t.externalCode),
+}));
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = typeof products.$inferInsert;
 
@@ -180,6 +189,7 @@ export type InsertInteraction = typeof interactions.$inferInsert;
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
   companyId: integer("companyId").notNull().default(1),
+  importKey: varchar("importKey", { length: 160 }),
   opportunityId: integer("opportunityId"),
   clientId: integer("clientId").notNull(),
   quoteId: integer("quoteId"),
@@ -237,6 +247,7 @@ export const sales = pgTable("sales", {
   salPedidoIdx: index("salPedidoIdx").on(t.pedidoNumber),
   salMesAnoIdx: index("salMesAnoIdx").on(t.mesAno),
   salAnoIdx: index("salAnoIdx").on(t.ano),
+  salCompanyImportKeyIdx: index("salCompanyImportKeyIdx").on(t.companyId, t.importKey),
 }));
 export type Sale = typeof sales.$inferSelect;
 export type InsertSale = typeof sales.$inferInsert;
@@ -268,6 +279,7 @@ export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
 export const pedidosCarteira = pgTable("pedidos_carteira", {
   id: serial("id").primaryKey(),
   companyId: integer("companyId").notNull().default(1),
+  importKey: varchar("importKey", { length: 160 }),
   clientId: integer("clientId").notNull(),
   pedidoNumber: varchar("pedidoNumber", { length: 50 }).notNull(),
   status: text("status").default("pendente").notNull(), // pendente, faturado, cancelado
@@ -286,6 +298,7 @@ export const pedidosCarteira = pgTable("pedidos_carteira", {
   index("pedcart_client_idx").on(t.clientId),
   index("pedcart_status_idx").on(t.status),
   index("pedcart_pedido_idx").on(t.pedidoNumber),
+  index("pedcart_company_import_key_idx").on(t.companyId, t.importKey),
 ]);
 
 export type PedidoCarteira = typeof pedidosCarteira.$inferSelect;
