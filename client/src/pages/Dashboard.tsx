@@ -2,7 +2,7 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Users, TrendingUp, DollarSign, Target } from "lucide-react";
 
 const COLORS = ["#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899"];
@@ -29,19 +29,26 @@ export default function Dashboard() {
   const salesCountPeriod = (salesInPeriod as any[]).length ?? 0;
   const ticketMedioPeriod = salesCountPeriod > 0 ? totalSalesPeriod / salesCountPeriod : 0;
 
-  // Orçamentos enviados há mais de 5 dias sem resposta
   const orcamentosSemResposta = (quotes as any)?.filter((q: any) => {
     if (q.status !== "enviado") return false;
     const dias = Math.floor((hoje.getTime() - new Date(q.createdAt).getTime()) / 86400000);
     return dias >= 5;
   }) || [];
 
-  // Oportunidades em negociação há mais de 15 dias
   const oppsParadas = ((oppsData as any) || []).filter((o: any) => {
     if (o.stage !== "negociacao") return false;
     const dias = Math.floor((hoje.getTime() - new Date(o.updatedAt).getTime()) / 86400000);
     return dias >= 15;
   });
+
+  const repurchaseAlerts = ((metrics as any)?.alerts?.repurchase ?? []).map((client: any) => ({
+    tipo: "recompra",
+    cor: client.status === "atrasado" ? "red" : "yellow",
+    msg:
+      client.status === "atrasado"
+        ? `${client.clientName} está com recompra atrasada há ${Math.abs(client.daysUntilRepurchase)} dia${Math.abs(client.daysUntilRepurchase) !== 1 ? "s" : ""}`
+        : `${client.clientName} entra em janela de recompra em ${client.daysUntilRepurchase} dia${client.daysUntilRepurchase !== 1 ? "s" : ""}`,
+  }));
 
   const alertas = [
     ...orcamentosSemResposta.map((q: any) => ({
@@ -54,6 +61,7 @@ export default function Dashboard() {
       cor: "red",
       msg: `Oportunidade "${o.title}" está em negociação há mais de 15 dias`,
     })),
+    ...repurchaseAlerts,
   ];
 
   if (isLoading) {
@@ -71,15 +79,6 @@ export default function Dashboard() {
     name: item.stage.replace(/_/g, " ").toUpperCase(),
     value: item.count,
   })) || [];
-
-  const stageLabels: Record<string, string> = {
-    prospeccao: "Prospecção",
-    visita_tecnica: "Visita Técnica",
-    orcamento_enviado: "Orçamento Enviado",
-    negociacao: "Negociação",
-    venda_concluida: "Venda Concluída",
-    perdida: "Perdida",
-  };
 
   return (
     <div className="space-y-6">
@@ -106,7 +105,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Alertas e Lembretes */}
       {alertas.length > 0 && (
         <div className="mb-6 space-y-2">
           <h3 className="text-sm font-semibold text-slate-600 flex items-center gap-2">
@@ -125,7 +123,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -178,9 +175,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Opportunities by Stage */}
         <Card>
           <CardHeader>
             <CardTitle>Oportunidades por Etapa</CardTitle>
@@ -205,7 +200,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Distribuição do Funil</CardTitle>
@@ -241,7 +235,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Quick Stats */}
       <Card>
         <CardHeader>
           <CardTitle>Resumo do Funil</CardTitle>
@@ -259,7 +252,7 @@ export default function Dashboard() {
                     ></div>
                     <span className="text-sm font-medium">{item.name}</span>
                   </div>
-                  <span className="text-sm font-semibold">{item.value}</span>
+                  <span className="text-sm font-bold">{item.value}</span>
                 </div>
               ))
             ) : (
@@ -271,7 +264,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-
-
-

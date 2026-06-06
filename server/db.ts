@@ -1218,6 +1218,9 @@ export async function getDashboardPeriodMetrics(filters?: {
   const opportunityConditions = [];
   if (filters?.companyId) opportunityConditions.push(eq(opportunities.companyId, filters.companyId));
 
+  const clientConditions = [];
+  if (filters?.companyId) clientConditions.push(eq(clients.companyId, filters.companyId));
+
   const [salesSummary] = await db
     .select({
       totalSales: sql<string>`COALESCE(SUM(${sales.totalValue}), 0)::text`,
@@ -1252,8 +1255,57 @@ export async function getDashboardPeriodMetrics(filters?: {
       sql`${opportunities.updatedAt} <= NOW() - INTERVAL '15 days'`,
     ));
 
+  const repurchaseCandidates = await db
+    .select({
+      id: clients.id,
+      farmName: clients.farmName,
+      producerName: clients.producerName,
+      city: clients.city,
+      lastPurchaseDate: clients.lastPurchaseDate,
+      purchaseFrequencyDays: clients.purchaseFrequencyDays,
+    })
+    .from(clients)
+    .where(and(
+      clientConditions.length > 0 ? and(...clientConditions) : undefined,
+      sql`${clients.lastPurchaseDate} IS NOT NULL`,
+      sql`${clients.purchaseFrequencyDays} IS NOT NULL`,
+    ));
+
   const totalSales = parseFloat(salesSummary?.totalSales ?? "0");
   const salesCount = salesSummary?.salesCount ?? 0;
+  const repurchaseAlerts = repurchaseCandidates
+    .map((client) => {
+      const lastPurchaseDate = client.lastPurchaseDate ? new Date(client.lastPurchaseDate) : null;
+      const purchaseFrequencyDays = Number(client.purchaseFrequencyDays ?? 0);
+      if (!lastPurchaseDate || !purchaseFrequencyDays) return null;
+
+      const daysSinceLastPurchase = Math.max(0, Math.floor((Date.now() - lastPurchaseDate.getTime()) / 86400000));
+      const daysUntilRepurchase = purchaseFrequencyDays - daysSinceLastPurchase;
+      const status =
+        daysSinceLastPurchase > purchaseFrequencyDays
+          ? "atrasado"
+          : daysSinceLastPurchase >= Math.max(purchaseFrequencyDays - 7, 0)
+            ? "proximo"
+            : "em_dia";
+
+      if (status === "em_dia") return null;
+
+      return {
+        id: client.id,
+        clientName: client.farmName || client.producerName || `Cliente #${client.id}`,
+        city: client.city,
+        lastPurchaseDate,
+        purchaseFrequencyDays,
+        daysSinceLastPurchase,
+        daysUntilRepurchase,
+        status,
+      };
+    })
+    .filter((client): client is NonNullable<typeof client> => Boolean(client))
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === "atrasado" ? -1 : 1;
+      return b.daysSinceLastPurchase - a.daysSinceLastPurchase;
+    });
 
   return {
     totalSales,
@@ -1268,6 +1320,7 @@ export async function getDashboardPeriodMetrics(filters?: {
         ...opportunity,
         stalledDays: Math.floor((Date.now() - new Date(opportunity.updatedAt).getTime()) / 86400000),
       })),
+      repurchase: repurchaseAlerts,
     },
   };
 }

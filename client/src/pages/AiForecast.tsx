@@ -59,12 +59,12 @@ const STAGES = [
   "perdida",
 ];
 const STAGE_LABELS: Record<string, string> = {
-  prospeccao: "Prospecção",
-  visita_tecnica: "Visita Técnica",
-  orcamento_enviado: "Orçamento Enviado",
-  negociacao: "Negociação",
-  venda_concluida: "Venda Concluída",
-  perdida: "Perdida",
+  prospeccao: "Diagnóstico Técnico",
+  visita_tecnica: "Teste de Produto",
+  orcamento_enviado: "Avaliação de Desempenho",
+  negociacao: "Negociação Comercial",
+  venda_concluida: "Implantação",
+  perdida: "Recompra/Expansão",
 };
 const STAGE_PROB: Record<string, number> = {
   prospeccao: 10,

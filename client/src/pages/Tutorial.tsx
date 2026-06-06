@@ -47,7 +47,7 @@ const MODULES = [
     badge: "Pipeline",
     badgeColor: "bg-purple-100 text-purple-700",
     steps: [
-      "O funil tem 6 etapas: Prospecção → Visita Técnica → Orçamento Enviado → Negociação → Venda Concluída → Perdida.",
+      "O funil tem 6 etapas: Diagnóstico Técnico → Teste de Produto → Avaliação de Desempenho → Negociação Comercial → Implantação → Recompra/Expansão.",
       "NOVO: Arraste os cards entre colunas usando drag-and-drop — o estágio atualiza automaticamente.",
       "Use os botões ←/→ em cada card para mover etapas pelo celular.",
       "Ao criar uma oportunidade, busque o cliente pelo nome no campo de autocomplete.",

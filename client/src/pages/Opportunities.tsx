@@ -22,12 +22,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const STAGES = [
-  { id: "prospeccao",       label: "Prospeccao",       color: "bg-blue-50 border-blue-200",    badge: "bg-blue-100 text-blue-700" },
-  { id: "visita_tecnica",   label: "Visita Tecnica",   color: "bg-purple-50 border-purple-200", badge: "bg-purple-100 text-purple-700" },
-  { id: "orcamento_enviado",label: "Orcamento Enviado",color: "bg-yellow-50 border-yellow-200", badge: "bg-yellow-100 text-yellow-700" },
-  { id: "negociacao",       label: "Negociacao",       color: "bg-orange-50 border-orange-200", badge: "bg-orange-100 text-orange-700" },
-  { id: "venda_concluida",  label: "Venda Concluida",  color: "bg-green-50 border-green-200",   badge: "bg-green-100 text-green-700" },
-  { id: "perdida",          label: "Perdida",          color: "bg-red-50 border-red-200",       badge: "bg-red-100 text-red-700" },
+  { id: "prospeccao",       label: "Diagnóstico Técnico",      color: "bg-blue-50 border-blue-200",    badge: "bg-blue-100 text-blue-700" },
+  { id: "visita_tecnica",   label: "Teste de Produto",         color: "bg-purple-50 border-purple-200", badge: "bg-purple-100 text-purple-700" },
+  { id: "orcamento_enviado",label: "Avaliação de Desempenho",  color: "bg-yellow-50 border-yellow-200", badge: "bg-yellow-100 text-yellow-700" },
+  { id: "negociacao",       label: "Negociação Comercial",     color: "bg-orange-50 border-orange-200", badge: "bg-orange-100 text-orange-700" },
+  { id: "venda_concluida",  label: "Implantação",              color: "bg-green-50 border-green-200",   badge: "bg-green-100 text-green-700" },
+  { id: "perdida",          label: "Recompra/Expansão",        color: "bg-red-50 border-red-200",       badge: "bg-red-100 text-red-700" },
 ];
 
 const emptyForm = {
