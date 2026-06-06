@@ -902,7 +902,11 @@ export async function createSale(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  return db.insert(sales).values({ ...data, companyId: data.companyId ?? 1 });
+  return db.insert(sales).values({
+    ...data,
+    companyId: data.companyId ?? 1,
+    finalValue: data.totalValue,
+  });
 }
 
 export async function deleteSale(id: number, companyId: number) {
@@ -1263,10 +1267,13 @@ export async function updateUser(id: number, data: { name?: string; email?: stri
 export async function getOrcamentosSimples(companyId?: number, userId?: number) {
   const db = await getDb();
   if (!db) return [];
-  let query = db.select().from(orcamentosSimples);
-  if (companyId) query = query.where(eq(orcamentosSimples.companyId, companyId));
-  if (userId) query = query.where(eq(orcamentosSimples.userId, userId));
-  return query.orderBy(desc(orcamentosSimples.criadoEm));
+  const conditions = [];
+  if (companyId) conditions.push(eq(orcamentosSimples.companyId, companyId));
+  if (userId) conditions.push(eq(orcamentosSimples.userId, userId));
+  if (conditions.length > 0) {
+    return db.select().from(orcamentosSimples).where(and(...conditions)).orderBy(desc(orcamentosSimples.criadoEm));
+  }
+  return db.select().from(orcamentosSimples).orderBy(desc(orcamentosSimples.criadoEm));
 }
 
 export async function createOrcamentoSimples(data: {
@@ -1356,7 +1363,7 @@ export async function getManagerStats(companyId: number, fromDate?: Date, toDate
     id: opportunities.id,
     stage: opportunities.stage,
     value: opportunities.value,
-    createdBy: opportunities.createdBy,
+    createdBy: opportunities.assignedTo,
     clientId: opportunities.clientId,
   })
   .from(opportunities)
@@ -1406,10 +1413,11 @@ export async function getFollowUpAlerts(companyId: number, userId?: number) {
   const clientesRecentesMap = new Map(clientesRecentes.map((c: any) => [c.clientId, new Date(c.ultimaData)]));
   
   // Buscar todos os clientes da empresa
-  let clientesQuery = db.select().from(clients).where(eq(clients.companyId, companyId));
+  const clientesConditions = [eq(clients.companyId, companyId)];
   if (userId) {
-    clientesQuery = clientesQuery.where(eq(clients.assignedTo, userId));
+    clientesConditions.push(eq(clients.assignedTo, userId));
   }
+  const clientesQuery = db.select().from(clients).where(and(...clientesConditions));
   const todosClientes = await clientesQuery;
   
   const alertas = [];
