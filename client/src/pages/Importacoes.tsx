@@ -101,15 +101,26 @@ const COLUMN_MAPPING_PEDIDOS: Record<string, string[]> = {
   linha: ["Linha", "LINE", "LINHA", "Linha Produto"],
 };
 
-// Função para encontrar o nome da coluna no arquivo
+// Função para encontrar o nome da coluna no arquivo.
+// Faz duas passagens: primeiro busca correspondência EXATA entre todos os aliases
+// (evita que, por ex., "Cliente" (nome) colida com "Cód Cliente" quando ambas as
+// colunas existem no arquivo); só recorre a correspondência por substring (fallback)
+// se nenhum alias tiver correspondência exata.
 function findColumnName(headers: string[], possibleNames: string[]): string | null {
+  const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
+
   for (const name of possibleNames) {
-    const found = headers.find(h => 
-      h.toLowerCase().trim() === name.toLowerCase().trim() ||
-      h.toLowerCase().trim().includes(name.toLowerCase().trim())
-    );
-    if (found) return found;
+    const normalizedName = name.toLowerCase().trim();
+    const idx = normalizedHeaders.findIndex(h => h === normalizedName);
+    if (idx !== -1) return headers[idx];
   }
+
+  for (const name of possibleNames) {
+    const normalizedName = name.toLowerCase().trim();
+    const idx = normalizedHeaders.findIndex(h => h.includes(normalizedName));
+    if (idx !== -1) return headers[idx];
+  }
+
   return null;
 }
 

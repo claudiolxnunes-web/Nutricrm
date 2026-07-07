@@ -879,8 +879,8 @@ export const appRouter = router({
             if (v instanceof Date) return v;
             // Converter número do Excel (dias desde 01/01/1900) para Date
             if (typeof v === 'number') {
-              const excelEpoch = new Date(1900, 0, 1);
-              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+              // Epoch correto do Excel: 1899-12-30 em UTC (evita bug do "leap year 1900" e desvio de fuso horário)
+              return new Date(Date.UTC(1899, 11, 30) + v * 24 * 60 * 60 * 1000);
             }
             return new Date(v);
           }),
@@ -889,8 +889,8 @@ export const appRouter = router({
             if (v instanceof Date) return v;
             // Converter número do Excel (dias desde 01/01/1900) para Date
             if (typeof v === 'number') {
-              const excelEpoch = new Date(1900, 0, 1);
-              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+              // Epoch correto do Excel: 1899-12-30 em UTC (evita bug do "leap year 1900" e desvio de fuso horário)
+              return new Date(Date.UTC(1899, 11, 30) + v * 24 * 60 * 60 * 1000);
             }
             return new Date(v);
           }),
@@ -973,8 +973,8 @@ export const appRouter = router({
             if (v instanceof Date) return v;
             // Converter número do Excel (dias desde 01/01/1900) para Date
             if (typeof v === 'number') {
-              const excelEpoch = new Date(1900, 0, 1);
-              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+              // Epoch correto do Excel: 1899-12-30 em UTC (evita bug do "leap year 1900" e desvio de fuso horário)
+              return new Date(Date.UTC(1899, 11, 30) + v * 24 * 60 * 60 * 1000);
             }
             return new Date(v);
           }),
@@ -983,8 +983,8 @@ export const appRouter = router({
             if (v instanceof Date) return v;
             // Converter número do Excel (dias desde 01/01/1900) para Date
             if (typeof v === 'number') {
-              const excelEpoch = new Date(1900, 0, 1);
-              return new Date(excelEpoch.getTime() + (v - 1) * 24 * 60 * 60 * 1000);
+              // Epoch correto do Excel: 1899-12-30 em UTC (evita bug do "leap year 1900" e desvio de fuso horário)
+              return new Date(Date.UTC(1899, 11, 30) + v * 24 * 60 * 60 * 1000);
             }
             return new Date(v);
           }),

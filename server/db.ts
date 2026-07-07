@@ -33,7 +33,7 @@ let _dbInitialized = false;
 export async function getDb() {
   if (_dbInitialized) return _db;
 
-  const dbUrl = process.env.DATABASE_URL;
+  const dbUrl = ENV.databaseUrl;
   if (!dbUrl) {
     console.error("[Database] DATABASE_URL is not defined in environment variables");
     _dbInitialized = true;
@@ -2226,14 +2226,14 @@ async function findProdutoId(companyId: number, codigo: string, nome: string): P
 export async function createRepresentante(
   nome: string,
   companyId: number
-): Promise<{ id: number }> {
+): Promise<{ id: number; created: boolean }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   const normalizedName = normalizeImportText(nome) || "Sem Representante";
   const existingId = await findRepresentanteIdByName(companyId, normalizedName);
   if (existingId) {
-    return { id: existingId };
+    return { id: existingId, created: false };
   }
 
   const bcrypt = await import("bcryptjs");
@@ -2256,7 +2256,7 @@ export async function createRepresentante(
     })
     .returning({ id: users.id });
 
-  return { id: result[0].id };
+  return { id: result[0].id, created: true };
 }
 
 export async function createCliente(
@@ -2271,7 +2271,7 @@ export async function createCliente(
   },
   companyId: number,
   createdBy: number
-): Promise<{ id: number }> {
+): Promise<{ id: number; created: boolean }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -2279,7 +2279,7 @@ export async function createCliente(
   const normalizedName = normalizeImportText(data.nome);
   const existingId = await findClienteId(companyId, normalizedCode, normalizedName);
   if (existingId) {
-    return { id: existingId };
+    return { id: existingId, created: false };
   }
 
   const result = await db
@@ -2304,7 +2304,7 @@ export async function createCliente(
     })
     .returning({ id: clients.id });
 
-  return { id: result[0].id };
+  return { id: result[0].id, created: true };
 }
 
 export async function createProduto(
@@ -2315,7 +2315,7 @@ export async function createProduto(
     linha?: string;
   },
   companyId: number
-): Promise<{ id: number }> {
+): Promise<{ id: number; created: boolean }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -2323,7 +2323,7 @@ export async function createProduto(
   const normalizedName = normalizeImportText(data.nome);
   const existingId = await findProdutoId(companyId, normalizedCode, normalizedName);
   if (existingId) {
-    return { id: existingId };
+    return { id: existingId, created: false };
   }
 
   const result = await db
@@ -2343,7 +2343,7 @@ export async function createProduto(
     })
     .returning({ id: products.id });
 
-  return { id: result[0].id };
+  return { id: result[0].id, created: true };
 }
 
 export async function findOrCreateProduto(
@@ -2532,14 +2532,13 @@ export async function importSalesData(
         representanteId = representantesCache.get(repCacheKey)!;
         result.details.representantes.existing++;
       } else {
-        const existingRepId = await findRepresentanteIdByName(companyId, row.representante || "Sem Representante");
         const rep = await createRepresentante(row.representante || 'Sem Representante', companyId);
         representanteId = rep.id;
         representantesCache.set(repCacheKey, rep.id);
-        if (existingRepId) {
-          result.details.representantes.existing++;
-        } else {
+        if (rep.created) {
           result.details.representantes.created++;
+        } else {
+          result.details.representantes.existing++;
         }
       }
 
@@ -2549,7 +2548,6 @@ export async function importSalesData(
         clienteId = clientesCache.get(cliCacheKey)!;
         result.details.clientes.existing++;
       } else {
-        const existingClientId = await findClienteId(companyId, row.codCliente, row.nomeCliente);
         const cli = await createCliente(
           {
             codigo: row.codCliente,
@@ -2563,10 +2561,10 @@ export async function importSalesData(
         );
         clienteId = cli.id;
         clientesCache.set(cliCacheKey, cli.id);
-        if (existingClientId) {
-          result.details.clientes.existing++;
-        } else {
+        if (cli.created) {
           result.details.clientes.created++;
+        } else {
+          result.details.clientes.existing++;
         }
       }
 
@@ -2576,7 +2574,6 @@ export async function importSalesData(
         produtoId = produtosCache.get(prodCacheKey)!;
         result.details.produtos.existing++;
       } else {
-        const existingProductId = await findProdutoId(companyId, row.codProduto, row.nomeProduto);
         const prod = await createProduto(
           {
             codigo: row.codProduto,
@@ -2588,10 +2585,10 @@ export async function importSalesData(
         );
         produtoId = prod.id;
         produtosCache.set(prodCacheKey, prod.id);
-        if (existingProductId) {
-          result.details.produtos.existing++;
-        } else {
+        if (prod.created) {
           result.details.produtos.created++;
+        } else {
+          result.details.produtos.existing++;
         }
       }
 
@@ -2704,14 +2701,13 @@ export async function importPedidosData(
         representanteId = representantesCache.get(repCacheKey)!;
         result.details.representantes.existing++;
       } else {
-        const existingRepId = await findRepresentanteIdByName(companyId, row.representante || "Sem Representante");
         const rep = await createRepresentante(row.representante || 'Sem Representante', companyId);
         representanteId = rep.id;
         representantesCache.set(repCacheKey, rep.id);
-        if (existingRepId) {
-          result.details.representantes.existing++;
-        } else {
+        if (rep.created) {
           result.details.representantes.created++;
+        } else {
+          result.details.representantes.existing++;
         }
       }
 
@@ -2721,7 +2717,6 @@ export async function importPedidosData(
         clienteId = clientesCache.get(cliCacheKey)!;
         result.details.clientes.existing++;
       } else {
-        const existingClientId = await findClienteId(companyId, row.codCliente, row.nomeCliente);
         const cli = await createCliente(
           {
             codigo: row.codCliente,
@@ -2735,10 +2730,10 @@ export async function importPedidosData(
         );
         clienteId = cli.id;
         clientesCache.set(cliCacheKey, cli.id);
-        if (existingClientId) {
-          result.details.clientes.existing++;
-        } else {
+        if (cli.created) {
           result.details.clientes.created++;
+        } else {
+          result.details.clientes.existing++;
         }
       }
 
@@ -2748,7 +2743,6 @@ export async function importPedidosData(
         produtoId = produtosCache.get(prodCacheKey)!;
         result.details.produtos.existing++;
       } else {
-        const existingProductId = await findProdutoId(companyId, row.codProduto, row.nomeProduto);
         const prod = await createProduto(
           {
             codigo: row.codProduto,
@@ -2760,10 +2754,10 @@ export async function importPedidosData(
         );
         produtoId = prod.id;
         produtosCache.set(prodCacheKey, prod.id);
-        if (existingProductId) {
-          result.details.produtos.existing++;
-        } else {
+        if (prod.created) {
           result.details.produtos.created++;
+        } else {
+          result.details.produtos.existing++;
         }
       }
 
