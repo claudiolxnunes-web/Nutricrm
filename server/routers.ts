@@ -85,6 +85,7 @@ import {
   getVendasPorFiltro,
   type MetricasVendas,
 } from "./db-metricas";
+import { suggestColumnMapping } from "./_core/geminiMapping";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -870,6 +871,19 @@ export const appRouter = router({
         const companyId = ctx.user.companyId;
         const result = await clearCompanyData(companyId, input.entities, ctx.user.id);
         return { success: true, deleted: result.deleted };
+      }),
+    suggestColumnMapping: adminOrSuperadminProcedure
+      .input(z.object({
+        headers: z.array(z.string()),
+        tipo: z.enum(["vendas", "pedidos"]),
+        fields: z.array(z.object({
+          key: z.string(),
+          aliases: z.array(z.string()).optional(),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await suggestColumnMapping(input.headers, input.fields, input.tipo);
+        return result;
       }),
     importSales: adminOrSuperadminProcedure
       .input(z.object({

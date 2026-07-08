@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2, BarChart3, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -124,19 +126,53 @@ function findColumnName(headers: string[], possibleNames: string[]): string | nu
   return null;
 }
 
-// Função para mapear dados do arquivo para o formato esperado
-function mapRowData(rowData: Record<string, any>, headers: string[], columnMapping: Record<string, string[]>): Record<string, any> {
+// Função para mapear dados do arquivo para o formato esperado, usando um
+// mapeamento já resolvido (chave interna -> nome exato do header no arquivo).
+function mapRowData(rowData: Record<string, any>, resolvedMapping: Record<string, string>): Record<string, any> {
   const mapped: Record<string, any> = {};
-  
-  for (const [key, possibleNames] of Object.entries(columnMapping)) {
-    const columnName = findColumnName(headers, possibleNames);
+
+  for (const [key, columnName] of Object.entries(resolvedMapping)) {
     if (columnName && rowData[columnName] !== undefined) {
       mapped[key] = rowData[columnName];
     }
   }
-  
+
   return mapped;
 }
+
+// Constrói o mapeamento resolvido (chave -> header) combinando a sugestão da IA
+// (Gemini) com o fallback hardcoded por aliases. A IA tem prioridade quando
+// encontra uma correspondência válida; caso contrário usa o fallback.
+function buildResolvedMapping(
+  headers: string[],
+  columnMapping: Record<string, string[]>,
+  aiMapping: Record<string, string> | null
+): { resolved: Record<string, string>; fieldSource: Record<string, "ia" | "padrao"> } {
+  const resolved: Record<string, string> = {};
+  const fieldSource: Record<string, "ia" | "padrao"> = {};
+  const headerSet = new Set(headers);
+
+  for (const [key, possibleNames] of Object.entries(columnMapping)) {
+    const aiValue = aiMapping?.[key];
+    if (aiValue && headerSet.has(aiValue)) {
+      resolved[key] = aiValue;
+      fieldSource[key] = "ia";
+      continue;
+    }
+    const fallback = findColumnName(headers, possibleNames);
+    if (fallback) {
+      resolved[key] = fallback;
+      fieldSource[key] = "padrao";
+    }
+  }
+
+  return { resolved, fieldSource };
+}
+
+const REQUIRED_KEYS: Record<'vendas' | 'pedidos', string[]> = {
+  vendas: ['dataNF', 'codCliente', 'codProduto', 'qtdeSacos'],
+  pedidos: ['dataPedido', 'codCliente', 'codProduto', 'qtdeSacos'],
+};
 
 function ImportSection({ 
   title, 
@@ -151,18 +187,77 @@ function ImportSection({
   importMutation: any;
   tipo: 'vendas' | 'pedidos';
 }) {
+  const suggestMappingMutation = trpc.admin.suggestColumnMapping.useMutation();
+
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [detectedColumns, setDetectedColumns] = useState<Record<string, string>>({});
+
+  // Headers e linhas cruas do arquivo, guardados para permitir recalcular o
+  // preview quando o usuário ajustar o mapeamento manualmente.
+  const [parsedHeaders, setParsedHeaders] = useState<string[]>([]);
+  const [parsedRows, setParsedRows] = useState<any[][]>([]);
+
+  // Mapeamento resolvido (chave interna -> header do arquivo) exibido para
+  // confirmação do usuário, e a origem de cada campo (IA, padrão ou manual).
+  const [resolvedMapping, setResolvedMapping] = useState<Record<string, string>>({});
+  const [fieldSource, setFieldSource] = useState<Record<string, "ia" | "padrao" | "manual">>({});
+  const [mappingSource, setMappingSource] = useState<"gemini" | "fallback" | null>(null);
+  const [mappingConfirmed, setMappingConfirmed] = useState(false);
+
+  const buildPreview = useCallback((headers: string[], rows: any[][], mapping: Record<string, string>) => {
+    const previewRows: PreviewRow[] = rows.slice(0, 10).map((row) => {
+      const rowData: Record<string, any> = {};
+      headers.forEach((header, i) => {
+        rowData[header] = row[i];
+      });
+
+      const mappedData = mapRowData(rowData, mapping);
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Validações básicas
+      if (!mappedData.codCliente) errors.push("Código do cliente ausente");
+      if (!mappedData.codProduto) errors.push("Código do produto ausente");
+      if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
+      // Fallbacks de nome para ambos os tipos
+      if (!mappedData.nomeCliente && mappedData.codCliente) {
+        mappedData.nomeCliente = String(mappedData.codCliente);
+        warnings.push("Nome do cliente não encontrado, usando código como nome");
+      }
+      if (!mappedData.nomeProduto && mappedData.codProduto) {
+        mappedData.nomeProduto = String(mappedData.codProduto);
+        warnings.push("Nome do produto não encontrado, usando código como nome");
+      }
+      // Para pedidos, calcular precoSaco = pedidoValor / qtdeSacos
+      if (tipo === 'pedidos' && !mappedData.precoSaco && mappedData.pedidoValor && mappedData.qtdeSacos) {
+        const valor = parseFloat(String(mappedData.pedidoValor).replace(',', '.')) || 0;
+        const vol = parseFloat(String(mappedData.qtdeSacos).replace(',', '.')) || 0;
+        mappedData.precoSaco = vol > 0 ? valor / vol : 0;
+        delete mappedData.pedidoValor;
+      }
+      // precoSaco é opcional — bonificações têm preço 0 ou vazio
+      if (mappedData.precoSaco === undefined || mappedData.precoSaco === null || mappedData.precoSaco === '') {
+        warnings.push("Preço ausente (será tratado como bonificação com preço 0)");
+      }
+      if (tipo === 'pedidos' && !mappedData.pedidoNumber) warnings.push("Número do pedido ausente (será gerado automaticamente)");
+
+      return { data: mappedData, errors, warnings };
+    });
+
+    return previewRows;
+  }, [tipo]);
 
   const analyzeFile = useCallback(async (selectedFile: File) => {
     setIsAnalyzing(true);
     setResult(null);
-    
+    setPreview([]);
+    setMappingConfirmed(false);
+
     try {
       const buffer = await selectedFile.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
@@ -177,78 +272,70 @@ function ImportSection({
 
       const headers = jsonData[0].map((h: any) => String(h).trim());
       const rows = jsonData.slice(1);
-      
-      // Detectar colunas
-      const detected: Record<string, string> = {};
-      for (const [key, possibleNames] of Object.entries(columnMapping)) {
-        const found = findColumnName(headers, possibleNames);
-        if (found) detected[key] = found;
-      }
-      setDetectedColumns(detected);
-      
-      // Validar colunas obrigatórias mínimas
-      // nomeCliente/nomeProduto são opcionais — código pode ser usado como fallback
-      const requiredKeys = tipo === 'vendas' 
-        ? ['dataNF', 'codCliente', 'codProduto', 'qtdeSacos']
-        : ['dataPedido', 'codCliente', 'codProduto', 'qtdeSacos'];
-      
-      const missingColumns = requiredKeys.filter(key => !detected[key]);
-      
-      if (missingColumns.length > 0) {
-        toast.error(`Colunas obrigatórias não encontradas: ${missingColumns.join(", ")}. Verifique se o arquivo tem os cabeçalhos corretos.`);
-        setIsAnalyzing(false);
-        return;
-      }
 
-      // Criar preview das primeiras 10 linhas
-      const previewRows: PreviewRow[] = rows.slice(0, 10).map((row, idx) => {
-        const rowData: Record<string, any> = {};
-        headers.forEach((header, i) => {
-          rowData[header] = row[i];
-        });
-
-        const mappedData = mapRowData(rowData, headers, columnMapping);
-        const errors: string[] = [];
-        const warnings: string[] = [];
-
-        // Validações básicas
-        if (!mappedData.codCliente) errors.push("Código do cliente ausente");
-        if (!mappedData.codProduto) errors.push("Código do produto ausente");
-        if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
-        // Fallbacks de nome para ambos os tipos
-        if (!mappedData.nomeCliente && mappedData.codCliente) {
-          mappedData.nomeCliente = String(mappedData.codCliente);
-          warnings.push("Nome do cliente não encontrado, usando código como nome");
-        }
-        if (!mappedData.nomeProduto && mappedData.codProduto) {
-          mappedData.nomeProduto = String(mappedData.codProduto);
-          warnings.push("Nome do produto não encontrado, usando código como nome");
-        }
-        // Para pedidos, calcular precoSaco = pedidoValor / qtdeSacos
-        if (tipo === 'pedidos' && !mappedData.precoSaco && mappedData.pedidoValor && mappedData.qtdeSacos) {
-          const valor = parseFloat(String(mappedData.pedidoValor).replace(',', '.')) || 0;
-          const vol = parseFloat(String(mappedData.qtdeSacos).replace(',', '.')) || 0;
-          mappedData.precoSaco = vol > 0 ? valor / vol : 0;
-          delete mappedData.pedidoValor;
-        }
-        // precoSaco é opcional — bonificações têm preço 0 ou vazio
-        if (mappedData.precoSaco === undefined || mappedData.precoSaco === null || mappedData.precoSaco === '') {
-          warnings.push("Preço ausente (será tratado como bonificação com preço 0)");
-        }
-        if (tipo === 'pedidos' && !mappedData.pedidoNumber) warnings.push("Número do pedido ausente (será gerado automaticamente)");
-
-        return { data: mappedData, errors, warnings };
-      });
-
-      setPreview(previewRows);
+      setParsedHeaders(headers);
+      setParsedRows(rows);
       setFile(selectedFile);
-      toast.success(`Arquivo analisado: ${rows.length} linhas encontradas. Colunas detectadas: ${Object.keys(detected).length}`);
+
+      // Tenta obter o mapeamento sugerido pela IA (Gemini). Se a key não
+      // estiver configurada ou a chamada falhar, usamos apenas o fallback
+      // hardcoded (aliases) — buildResolvedMapping já cuida disso.
+      setIsSuggesting(true);
+      let aiMapping: Record<string, string> | null = null;
+      let source: "gemini" | "fallback" = "fallback";
+      try {
+        const fields = Object.entries(columnMapping).map(([key, aliases]) => ({ key, aliases }));
+        const suggestion = await suggestMappingMutation.mutateAsync({ headers, tipo, fields });
+        if (suggestion.source === "gemini" && suggestion.mapping && Object.keys(suggestion.mapping).length > 0) {
+          aiMapping = suggestion.mapping;
+          source = "gemini";
+        }
+      } catch (_) {
+        // Silencioso: cai para o fallback hardcoded
+      }
+      setIsSuggesting(false);
+      setMappingSource(source);
+
+      const { resolved, fieldSource: sources } = buildResolvedMapping(headers, columnMapping, aiMapping);
+      setResolvedMapping(resolved);
+      setFieldSource(sources);
+
+      const missingColumns = REQUIRED_KEYS[tipo].filter(key => !resolved[key]);
+      if (missingColumns.length > 0) {
+        toast.error(`Colunas obrigatórias não encontradas: ${missingColumns.join(", ")}. Ajuste o mapeamento manualmente ou verifique o arquivo.`);
+      } else {
+        toast.success(`Arquivo analisado: ${rows.length} linhas encontradas. Revise o mapeamento sugerido${source === 'gemini' ? ' pela IA' : ''} abaixo.`);
+      }
     } catch (err) {
       toast.error("Erro ao analisar arquivo: " + (err as Error).message);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [columnMapping, tipo]);
+  }, [columnMapping, tipo, suggestMappingMutation]);
+
+  const handleMappingChange = useCallback((key: string, header: string) => {
+    setResolvedMapping(prev => {
+      const next = { ...prev };
+      if (header === "__none__") {
+        delete next[key];
+      } else {
+        next[key] = header;
+      }
+      return next;
+    });
+    setFieldSource(prev => ({ ...prev, [key]: "manual" }));
+  }, []);
+
+  const handleConfirmMapping = useCallback(() => {
+    const missingColumns = REQUIRED_KEYS[tipo].filter(key => !resolvedMapping[key]);
+    if (missingColumns.length > 0) {
+      toast.error(`Colunas obrigatórias não mapeadas: ${missingColumns.join(", ")}.`);
+      return;
+    }
+    const previewRows = buildPreview(parsedHeaders, parsedRows, resolvedMapping);
+    setPreview(previewRows);
+    setMappingConfirmed(true);
+  }, [tipo, resolvedMapping, parsedHeaders, parsedRows, buildPreview]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -269,30 +356,25 @@ function ImportSection({
   };
 
   const handleImport = async () => {
-    if (!file) return;
+    if (!file || !mappingConfirmed) return;
 
     setIsImporting(true);
     setProgress(10);
 
     try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
-      
-      const headers = jsonData[0].map((h: any) => String(h).trim());
-      const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== null && cell !== ""));
+      const rows = parsedRows.filter(row => row.some(cell => cell !== undefined && cell !== null && cell !== ""));
 
       setProgress(30);
 
-      // Converter para array de objetos mapeados
+      // Converter para array de objetos mapeados, usando o mapeamento confirmado
+      // pelo usuário (sugerido pela IA e/ou ajustado manualmente).
       const data = rows
         .map(row => {
           const rowData: Record<string, any> = {};
-          headers.forEach((header, i) => {
+          parsedHeaders.forEach((header, i) => {
             rowData[header] = row[i];
           });
-          const mapped = mapRowData(rowData, headers, columnMapping);
+          const mapped = mapRowData(rowData, resolvedMapping);
           // Fallbacks de nome para ambos os tipos
           if (!mapped.nomeCliente && mapped.codCliente) mapped.nomeCliente = String(mapped.codCliente);
           if (!mapped.nomeProduto && mapped.codProduto) mapped.nomeProduto = String(mapped.codProduto);
@@ -398,6 +480,13 @@ function ImportSection({
             </div>
           )}
 
+          {isSuggesting && (
+            <div className="flex items-center gap-2 text-slate-600">
+              <Sparkles className="w-4 h-4 animate-pulse text-blue-500" />
+              Consultando IA (Gemini) para sugerir o mapeamento de colunas...
+            </div>
+          )}
+
           {isImporting && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -410,26 +499,80 @@ function ImportSection({
         </CardContent>
       </Card>
 
-      {Object.keys(detectedColumns).length > 0 && (
+      {parsedHeaders.length > 0 && !isSuggesting && (
         <Card>
           <CardHeader>
-            <CardTitle>Colunas Detectadas</CardTitle>
-            <CardDescription>Mapeamento automático das colunas do arquivo</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              Mapeamento de Colunas
+              {mappingSource === "gemini" ? (
+                <Badge variant="secondary" className="gap-1">
+                  <Sparkles className="w-3 h-3" /> Sugerido por IA
+                </Badge>
+              ) : (
+                <Badge variant="outline">Mapeamento padrão</Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Confira a coluna do arquivo associada a cada campo do sistema e ajuste se necessário antes de importar.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-              {Object.entries(detectedColumns).map(([key, value]) => (
-                <div key={key} className="flex justify-between bg-slate-50 p-2 rounded">
-                  <span className="font-medium">{key}:</span>
-                  <span className="text-slate-600">{value}</span>
-                </div>
-              ))}
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              {Object.keys(columnMapping).map((key) => {
+                const value = resolvedMapping[key] || "__none__";
+                const source = fieldSource[key];
+                const isRequired = REQUIRED_KEYS[tipo].includes(key);
+                return (
+                  <div key={key} className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded">
+                    <span className="font-medium whitespace-nowrap">
+                      {key}
+                      {isRequired && <span className="text-red-500">*</span>}
+                    </span>
+                    <div className="flex items-center gap-2 flex-1 justify-end">
+                      {source && (
+                        <Badge
+                          variant={source === "ia" ? "secondary" : source === "manual" ? "default" : "outline"}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {source === "ia" ? "IA" : source === "manual" ? "Manual" : "Padrão"}
+                        </Badge>
+                      )}
+                      <Select value={value} onValueChange={(v) => handleMappingChange(key, v)} disabled={mappingConfirmed}>
+                        <SelectTrigger className="w-full max-w-[220px]">
+                          <SelectValue placeholder="Selecione a coluna" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Nenhuma —</SelectItem>
+                          {parsedHeaders.map((h) => (
+                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {!mappingConfirmed ? (
+              <div className="flex justify-end">
+                <Button onClick={handleConfirmMapping} className="gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Confirmar Mapeamento e Gerar Preview
+                </Button>
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setMappingConfirmed(false)}>
+                  Editar Mapeamento
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {preview.length > 0 && (
+      {mappingConfirmed && preview.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Preview dos Dados</CardTitle>
