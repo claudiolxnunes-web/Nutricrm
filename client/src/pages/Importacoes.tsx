@@ -286,26 +286,37 @@ function ImportSection({
       setProgress(30);
 
       // Converter para array de objetos mapeados
-      const data = rows.map(row => {
-        const rowData: Record<string, any> = {};
-        headers.forEach((header, i) => {
-          rowData[header] = row[i];
-        });
-        const mapped = mapRowData(rowData, headers, columnMapping);
-        // Fallbacks de nome para ambos os tipos
-        if (!mapped.nomeCliente && mapped.codCliente) mapped.nomeCliente = String(mapped.codCliente);
-        if (!mapped.nomeProduto && mapped.codProduto) mapped.nomeProduto = String(mapped.codProduto);
-        // Para pedidos, calcular precoSaco = pedidoValor / qtdeSacos e remover helper
-        if (tipo === 'pedidos') {
-          if (!mapped.precoSaco && mapped.pedidoValor && mapped.qtdeSacos) {
-            const valor = parseFloat(String(mapped.pedidoValor).replace(',', '.')) || 0;
-            const vol = parseFloat(String(mapped.qtdeSacos).replace(',', '.')) || 0;
-            mapped.precoSaco = vol > 0 ? valor / vol : 0;
+      const data = rows
+        .map(row => {
+          const rowData: Record<string, any> = {};
+          headers.forEach((header, i) => {
+            rowData[header] = row[i];
+          });
+          const mapped = mapRowData(rowData, headers, columnMapping);
+          // Fallbacks de nome para ambos os tipos
+          if (!mapped.nomeCliente && mapped.codCliente) mapped.nomeCliente = String(mapped.codCliente);
+          if (!mapped.nomeProduto && mapped.codProduto) mapped.nomeProduto = String(mapped.codProduto);
+          // Para pedidos, calcular precoSaco = pedidoValor / qtdeSacos e remover helper
+          if (tipo === 'pedidos') {
+            if (!mapped.precoSaco && mapped.pedidoValor && mapped.qtdeSacos) {
+              const valor = parseFloat(String(mapped.pedidoValor).replace(',', '.')) || 0;
+              const vol = parseFloat(String(mapped.qtdeSacos).replace(',', '.')) || 0;
+              mapped.precoSaco = vol > 0 ? valor / vol : 0;
+            }
+            delete mapped.pedidoValor;
           }
-          delete mapped.pedidoValor;
-        }
-        return mapped;
-      });
+          return mapped;
+        })
+        // Descarta linhas de rodapé/resumo (ex: "Total", "Filtros aplicados: ...") que
+        // relatórios exportados costumam anexar ao final. Essas linhas têm algum valor
+        // em colunas numéricas (totais) ou texto (descrição de filtros), mas não têm
+        // identificação válida de cliente/produto, o que quebrava a validação do backend
+        // com "expected string/number, received undefined".
+        .filter(mapped => {
+          const hasCodCliente = mapped.codCliente !== undefined && mapped.codCliente !== null && String(mapped.codCliente).trim() !== '';
+          const hasCodProduto = mapped.codProduto !== undefined && mapped.codProduto !== null && String(mapped.codProduto).trim() !== '';
+          return hasCodCliente && hasCodProduto;
+        });
 
       setProgress(50);
 
