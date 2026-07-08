@@ -53,9 +53,12 @@ const COLUMN_MAPPING_VENDAS: Record<string, string[]> = {
   linha: ["Linha", "LINE", "LINHA", "Linha Produto", "Linha de Produto"],
   descontoPct: ["Desconto %", "Desc %", "Desc. %", "Desconto", "DESC", "% Desc", "Percentual Desconto"],
   descontoValor: ["Desconto R$", "Valor Desconto", "Desc. R$", "Desc Valor", "Desconto Valor"],
-  // "Bonificação" é coluna de volume numérico no arquivo real
-  bonificacaoQtde: ["Bonificação", "Bonificacao", "Bonif Qtd", "Qtd Bonificação", "Quantidade Bonificada"],
-  bonificacaoValor: ["Bonificação Valor", "Bonif Valor", "Valor Bonificação", "Boni Valor", "Vl Bonif"],
+  // "Bonificação" é a coluna com o VALOR (R$) da bonificação no arquivo real
+  // (não é quantidade). Antes estava mapeada para bonificacaoQtde e passava por
+  // parseInt(), truncando o valor exato (ex: 2999.31 virava 2999). Corrigido para
+  // mapear para bonificacaoValor, que usa parseFloat e preserva o valor exato.
+  bonificacaoQtde: ["Bonif Qtd", "Qtd Bonificação", "Quantidade Bonificada"],
+  bonificacaoValor: ["Bonificação", "Bonificacao", "Bonificação Valor", "Bonif Valor", "Valor Bonificação", "Boni Valor", "Vl Bonif"],
   faturamento: ["Faturamento Realizado", "Faturamento", "Faturamento S/ Encargos"],
   valorFinal: ["Valor Final", "Total Líquido", "Faturamento Líquido"],
   volumeSacos: ["Volume (Vendas)", "Volume (Vendas + Bon.)", "Volume Vendas"],

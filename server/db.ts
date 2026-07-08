@@ -2407,9 +2407,13 @@ export async function createSaleFromImport(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const totalValue = data.faturamento || data.qtdeSacos * data.precoSaco;
   const bonusValue = data.bonificacaoValor || 0;
   const bonusQuantity = data.bonificacaoQtde || 0;
+  // Linhas de bonificação chegam do Excel sem "Faturamento Realizado" nem "Preço
+  // por Saco" (ficam vazios/zerados). Nesses casos o valor real da linha é o que
+  // já está na coluna "Bonificação" da planilha (bonusValue) — usamos esse valor
+  // exatamente como está, sem nenhum cálculo, em vez de deixar o total zerado.
+  const totalValue = data.faturamento || (data.qtdeSacos * data.precoSaco) || bonusValue;
   const discountPercent = data.descontoPct || 0;
   const discountValue = data.descontoValor || (totalValue * discountPercent / 100);
   const finalValue = data.valorFinal || (totalValue - discountValue);
