@@ -223,10 +223,12 @@ function ImportSection({
       const errors: string[] = [];
       const warnings: string[] = [];
 
-      // Validações básicas
-      if (!mappedData.codCliente) errors.push("Código do cliente ausente");
-      if (!mappedData.codProduto) errors.push("Código do produto ausente");
-      if (!mappedData.qtdeSacos) errors.push("Quantidade ausente");
+      // Validações básicas (verificação estrita de ausência, não "falsy" —
+      // evita bloquear linhas legítimas com quantidade 0, ex: bonificações)
+      const isEmpty = (v: any) => v === undefined || v === null || String(v).trim() === "";
+      if (isEmpty(mappedData.codCliente)) errors.push("Código do cliente ausente");
+      if (isEmpty(mappedData.codProduto)) errors.push("Código do produto ausente");
+      if (isEmpty(mappedData.qtdeSacos)) errors.push("Quantidade ausente");
       // Fallbacks de nome para ambos os tipos
       if (!mappedData.nomeCliente && mappedData.codCliente) {
         mappedData.nomeCliente = String(mappedData.codCliente);

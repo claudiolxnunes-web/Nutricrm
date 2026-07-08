@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
+  update: vi.fn(),
 };
 
 vi.mock("../server/_core/env", () => ({
@@ -113,7 +114,7 @@ describe("importSalesData / importPedidosData", () => {
     });
   });
 
-  it("importa pedido novo calculando totalValue e ignora duplicado", async () => {
+  it("importa pedido novo e ATUALIZA (upsert) quando já existe pelo importKey", async () => {
     const selectChain = {
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
@@ -122,8 +123,8 @@ describe("importSalesData / importPedidosData", () => {
         .mockResolvedValueOnce([]) // findRepresentanteIdByName -> não encontrado
         .mockResolvedValueOnce([]) // findClienteId -> não encontrado
         .mockResolvedValueOnce([]) // findProdutoId -> não encontrado
-        .mockResolvedValueOnce([]) // dedupe do pedido (row1) -> não existe
-        .mockResolvedValueOnce([{ id: 123 }]), // dedupe do pedido (row2) -> já existe
+        .mockResolvedValueOnce([]) // upsert do pedido (row1) -> não existe -> insert
+        .mockResolvedValueOnce([{ id: 123 }]), // upsert do pedido (row2) -> já existe -> update
     };
 
     const insertValues = vi
@@ -131,10 +132,14 @@ describe("importSalesData / importPedidosData", () => {
       .mockImplementationOnce(() => ({ returning: vi.fn().mockResolvedValue([{ id: 77 }]) })) // insert users (representante)
       .mockImplementationOnce(() => ({ returning: vi.fn().mockResolvedValue([{ id: 10 }]) })) // insert clients
       .mockImplementationOnce(() => ({ returning: vi.fn().mockResolvedValue([{ id: 30 }]) })) // insert products
-      .mockImplementationOnce(() => Promise.resolve(undefined)); // insert pedidosCarteira
+      .mockImplementationOnce(() => Promise.resolve(undefined)); // insert pedidosCarteira (row1)
+
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
 
     mockDb.select.mockReturnValue(selectChain);
     mockDb.insert.mockReturnValue({ values: insertValues });
+    mockDb.update.mockReturnValue({ set: updateSet });
 
     const { importPedidosData } = await import("../server/db");
 
@@ -157,7 +162,9 @@ describe("importSalesData / importPedidosData", () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.imported).toBe(1);
+    // Ambas as linhas contam como "importadas" (upsert): a primeira cria, a
+    // segunda atualiza o registro existente em vez de ser ignorada.
+    expect(result.imported).toBe(2);
     expect(result.errors).toBe(0);
     expect(result.details.vendas.created).toBe(1);
     expect(result.details.vendas.existing).toBe(1);
@@ -178,5 +185,21 @@ describe("importSalesData / importPedidosData", () => {
       representante: "Maria",
       status: "pendente",
     });
+
+    // Segunda linha (duplicada pelo importKey) deve disparar UPDATE, não um
+    // segundo insert — é isso que garante o comportamento de upsert.
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(updateSet).toHaveBeenCalledTimes(1);
+    const pedidoUpdateCall = updateSet.mock.calls[0][0];
+    expect(pedidoUpdateCall).toMatchObject({
+      companyId: 1,
+      clientId: 10,
+      pedidoNumber: "PED-77",
+      totalValue: "2000",
+      qtdeSacos: 40,
+      precoSaco: "50",
+      representante: "Maria",
+    });
   });
+
 });

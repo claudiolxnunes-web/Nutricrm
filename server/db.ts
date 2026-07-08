@@ -2639,7 +2639,7 @@ export async function createPedidoFromImport(
   companyId: number,
   userId: number,
   clientId: number
-): Promise<void> {
+): Promise<{ created: boolean }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -2654,12 +2654,21 @@ export async function createPedidoFromImport(
     data.dataPedido instanceof Date ? data.dataPedido.toISOString().slice(0, 10) : data.dataPedido,
   ]);
 
-  await db.insert(pedidosCarteira).values({
+  // Upsert: se já existe um pedido com o mesmo importKey (mesma combinação de
+  // pedido/NF/cliente/produto/data), ATUALIZA o registro existente em vez de
+  // criar uma duplicata. Isso permite reimportar o mesmo arquivo (ex: pedido
+  // atualizado no ERP) sem gerar linhas repetidas na carteira.
+  const existing = await db
+    .select({ id: pedidosCarteira.id })
+    .from(pedidosCarteira)
+    .where(and(eq(pedidosCarteira.companyId, companyId), eq(pedidosCarteira.importKey, importKey)))
+    .limit(1);
+
+  const sharedValues = {
     companyId,
     importKey,
     clientId,
     pedidoNumber: data.pedidoNumber,
-    status: "pendente",
     totalValue: totalValue.toString(),
     qtdeSacos: data.qtdeSacos,
     precoSaco: data.precoSaco.toString(),
@@ -2668,10 +2677,24 @@ export async function createPedidoFromImport(
     representante: data.representante,
     notaFiscal: data.notaFiscal,
     observacoes: `Produto: ${data.nomeProduto} | Cód: ${data.codProduto} | Segmentação: ${data.segmentacao || "N/A"}`,
+    updatedAt: new Date(),
+  };
+
+  if (existing.length > 0) {
+    await db
+      .update(pedidosCarteira)
+      .set(sharedValues)
+      .where(eq(pedidosCarteira.id, existing[0].id));
+    return { created: false };
+  }
+
+  await db.insert(pedidosCarteira).values({
+    ...sharedValues,
+    status: "pendente",
     createdBy: userId,
     createdAt: new Date(),
-    updatedAt: new Date(),
   });
+  return { created: true };
 }
 
 export async function importPedidosData(
@@ -2765,27 +2788,14 @@ export async function importPedidosData(
         }
       }
 
-      // Criar pedido em carteira
-      const importKey = buildImportKey([
-        "pedido",
-        companyId,
-        row.pedidoNumber || "",
-        row.notaFiscal || "",
-        row.codCliente,
-        row.codProduto,
-        row.dataPedido instanceof Date ? row.dataPedido.toISOString().slice(0, 10) : row.dataPedido,
-      ]);
-      const db = await getDb();
-      const existingPedido = db
-        ? await db.select({ id: pedidosCarteira.id }).from(pedidosCarteira).where(and(eq(pedidosCarteira.companyId, companyId), eq(pedidosCarteira.importKey, importKey))).limit(1)
-        : [];
-      if (existingPedido.length > 0) {
+      // Criar ou atualizar (upsert) o pedido em carteira. createPedidoFromImport
+      // já resolve o importKey e decide internamente entre INSERT e UPDATE.
+      const { created } = await createPedidoFromImport(row, companyId, userId, clienteId);
+      if (created) {
+        result.details.vendas.created++;
+      } else {
         result.details.vendas.existing++;
-        continue;
       }
-
-      await createPedidoFromImport(row, companyId, userId, clienteId);
-      result.details.vendas.created++;
       result.imported++;
     } catch (err: any) {
       result.errors++;
