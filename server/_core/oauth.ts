@@ -3,9 +3,13 @@ import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { sendPasswordResetEmail } from "../email";
+import { ENV } from "./env";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const BCRYPT_ROUNDS = 12;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 export function registerOAuthRoutes(app: Express) {
   app.post("/api/auth/login", async (req: Request, res: Response) => {
@@ -103,6 +107,65 @@ export function registerOAuthRoutes(app: Express) {
     } catch (error: any) {
       console.error("[Auth] Register failed:", error?.message ?? error, error?.stack ?? "");
       res.status(500).json({ error: "Erro interno", detail: error?.message });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: "Email e obrigatorio" });
+      return;
+    }
+    try {
+      const user = await db.getUserByEmail(email);
+      // Sempre responder com sucesso para nao vazar quais emails existem
+      if (!user) {
+        res.json({ success: true });
+        return;
+      }
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+      await db.setPasswordResetToken(user.id, token, expiresAt);
+      const resetUrl = `${ENV.appUrl}/reset-password?token=${token}`;
+      try {
+        await sendPasswordResetEmail({
+          toEmail: user.email!,
+          toName: user.name || "",
+          resetUrl,
+        });
+      } catch (emailError) {
+        console.error("[Auth] Failed to send password reset email:", emailError);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[Auth] Forgot password failed:", error?.message ?? error, error?.stack ?? "");
+      res.status(500).json({ error: "Erro interno" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      res.status(400).json({ error: "Token e nova senha sao obrigatorios" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: "A senha deve ter no minimo 6 caracteres" });
+      return;
+    }
+    try {
+      const user = await db.getUserByResetToken(token);
+      if (!user || !user.resetPasswordExpiresAt || user.resetPasswordExpiresAt.getTime() < Date.now()) {
+        res.status(400).json({ error: "Token invalido ou expirado" });
+        return;
+      }
+      const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+      await db.updateUserPasswordHash(user.id, passwordHash);
+      await db.clearPasswordResetToken(user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[Auth] Reset password failed:", error?.message ?? error, error?.stack ?? "");
+      res.status(500).json({ error: "Erro interno" });
     }
   });
 }

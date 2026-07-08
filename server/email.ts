@@ -45,6 +45,45 @@ export async function sendInviteEmail(opts: {
   return { sent: true, id: data?.id };
 }
 
+export async function sendPasswordResetEmail(opts: {
+  toEmail: string;
+  toName: string;
+  resetUrl: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[Email] RESEND_API_KEY not set, skipping password reset email");
+    return { skipped: true };
+  }
+
+  const { toEmail, toName, resetUrl } = opts;
+
+  const { data, error } = await resend.emails.send({
+    from: "NutriCRM <onboarding@resend.dev>",
+    to: [toEmail],
+    subject: "Redefinição de senha - NutriCRM",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8fafc;border-radius:12px;">
+        <h2 style="color:#1e293b;margin-bottom:8px;">Redefinição de senha</h2>
+        <p style="color:#475569;margin-bottom:24px;">Olá ${toName}, recebemos uma solicitação para redefinir a senha da sua conta no NutriCRM.</p>
+
+        <div style="text-align:center;margin-bottom:24px;">
+          <a href="${resetUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;">Redefinir Senha</a>
+        </div>
+
+        <p style="color:#64748b;font-size:13px;">Este link expira em 1 hora. Se você não solicitou a redefinição, ignore este email.</p>
+        <p style="color:#94a3b8;font-size:12px;margin-top:16px;">Ou copie e cole este link no navegador: <br/>${resetUrl}</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("[Email] Failed to send password reset email:", error);
+    throw new Error("Falha ao enviar email de redefinição de senha");
+  }
+
+  return { sent: true, id: data?.id };
+}
+
 export async function enviarOrcamentoPorEmail(params: {
   to: string;
   from: string;

@@ -47,6 +47,8 @@ export const users = pgTable("users", {
   role: text("role").default("vendedor").notNull(),
   trialEndsAt: timestamp("trialEndsAt"),
   paidUntil: timestamp("paidUntil"),
+  resetPasswordToken: text("resetPasswordToken"),
+  resetPasswordExpiresAt: timestamp("resetPasswordExpiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

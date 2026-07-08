@@ -229,6 +229,33 @@ export async function updateUserPasswordHash(id: number, passwordHash: string) {
   await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));
 }
 
+export async function setPasswordResetToken(userId: number, token: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({
+    resetPasswordToken: token,
+    resetPasswordExpiresAt: expiresAt,
+    updatedAt: new Date(),
+  }).where(eq(users.id, userId));
+}
+
+export async function getUserByResetToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.resetPasswordToken, token)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function clearPasswordResetToken(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({
+    resetPasswordToken: null,
+    resetPasswordExpiresAt: null,
+    updatedAt: new Date(),
+  }).where(eq(users.id, userId));
+}
+
 export async function updateUserOpenId(id: number, openId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

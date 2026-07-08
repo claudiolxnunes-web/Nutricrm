@@ -4,12 +4,90 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
+
+function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSent(true);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao solicitar redefinicao de senha");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) {
+      setEmail("");
+      setSent(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Recuperar senha</DialogTitle>
+          <DialogDescription>
+            {sent
+              ? "Se o email informado existir, enviamos um link de redefinicao de senha."
+              : "Informe seu email para receber um link de redefinicao de senha."}
+          </DialogDescription>
+        </DialogHeader>
+        {!sent ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
+              {loading ? "Enviando..." : "Enviar link de redefinicao"}
+            </Button>
+          </form>
+        ) : (
+          <Button className="w-full" variant="outline" onClick={() => handleOpenChange(false)}>
+            Fechar
+          </Button>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", password: "", companyName: "" });
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +161,13 @@ export default function Login() {
                   <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
                     {loading ? "Entrando..." : "Entrar"}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    className="w-full text-center text-sm text-green-700 hover:text-green-800 hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
                 </form>
               </TabsContent>
               <TabsContent value="register">
@@ -112,6 +197,7 @@ export default function Login() {
           </Tabs>
         </Card>
       </div>
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
     </div>
   );
 }

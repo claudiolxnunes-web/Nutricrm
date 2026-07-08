@@ -15,6 +15,7 @@ import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Sales from "./pages/Sales";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 import Users from "@/pages/Users";
 import TrialExpired from "@/pages/TrialExpired";
 import AiForecast from "@/pages/AiForecast";
@@ -34,6 +35,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/login"} component={Login} />
+      <Route path={"/reset-password"} component={ResetPassword} />
       <Route path={"/trial-expired"} component={TrialExpired} />
       <Route path={"/"} component={Home} />
       <Route path={"/dashboard"}>

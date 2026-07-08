@@ -4,8 +4,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Sidebar,
   SidebarContent,
@@ -52,6 +62,7 @@ import {
   Upload,
   ClipboardList,
   ChartColumnIncreasing,
+  KeyRound,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -137,6 +148,91 @@ function AlertasFollowUp() {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const changePasswordMutation = trpc.auth.changePassword.useMutation({
+    onSuccess: () => {
+      toast.success("Senha alterada com sucesso!");
+      handleOpenChange(false);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao alterar senha");
+    },
+  });
+
+  const handleOpenChange = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) {
+      setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.newPassword !== form.confirmPassword) {
+      toast.error("As senhas nao coincidem");
+      return;
+    }
+    if (form.newPassword.length < 6) {
+      toast.error("A nova senha deve ter no minimo 6 caracteres");
+      return;
+    }
+    changePasswordMutation.mutate({
+      currentPassword: form.currentPassword,
+      newPassword: form.newPassword,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Alterar senha</DialogTitle>
+          <DialogDescription>Informe sua senha atual e a nova senha desejada.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="current-password">Senha atual</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={form.currentPassword}
+              onChange={e => setForm(f => ({ ...f, currentPassword: e.target.value }))}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="new-password-profile">Nova senha</Label>
+            <Input
+              id="new-password-profile"
+              type="password"
+              placeholder="Minimo 6 caracteres"
+              value={form.newPassword}
+              onChange={e => setForm(f => ({ ...f, newPassword: e.target.value }))}
+              minLength={6}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="confirm-password-profile">Confirmar nova senha</Label>
+            <Input
+              id="confirm-password-profile"
+              type="password"
+              value={form.confirmPassword}
+              onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+              minLength={6}
+              required
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={changePasswordMutation.isPending}>
+            {changePasswordMutation.isPending ? "Alterando..." : "Alterar senha"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -340,6 +436,7 @@ function DashboardLayoutContent({
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
@@ -469,6 +566,14 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => setChangePasswordOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  <span>Alterar Senha</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"
@@ -613,6 +718,7 @@ function DashboardLayoutContent({
 
       {/* Bottom Navigation — so mobile */}
       <BottomNav userEmail={user?.email ?? undefined} userRole={user?.role ?? undefined} />
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </>
   );
 }

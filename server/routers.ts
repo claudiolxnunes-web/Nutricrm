@@ -97,6 +97,26 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    changePassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(6),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const bcrypt = await import("bcryptjs");
+        const user = await getUserByEmail(ctx.user.email ?? "");
+        if (!user || !user.passwordHash) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Usuario nao possui senha configurada" });
+        }
+        const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha atual incorreta" });
+        }
+        const newHash = await bcrypt.hash(input.newPassword, 12);
+        const { updateUserPasswordHash } = await import("./db");
+        await updateUserPasswordHash(ctx.user.id, newHash);
+        return { success: true };
+      }),
   }),
 
   // ========== CLIENTS ==========
