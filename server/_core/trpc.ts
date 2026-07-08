@@ -18,7 +18,8 @@ const requireUser = t.middleware(async opts => {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }
 
-  if (ctx.user.role === "superadmin" || ctx.user.email === "claudiolx.nunes@gmail.com") {
+  const LIFETIME_ACCESS_EMAILS = ["claudiolx.nunes@gmail.com", "clxn2000@hotmail.com"];
+  if (ctx.user.role === "superadmin" || LIFETIME_ACCESS_EMAILS.includes(ctx.user.email ?? "")) {
     return next({
       ctx: {
         ...ctx,

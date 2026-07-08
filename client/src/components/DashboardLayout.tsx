@@ -224,7 +224,7 @@ function BottomNav({ userEmail, userRole }: { userEmail?: string; userRole?: str
           <div className="grid grid-cols-4 gap-3">
             {bottomNavMore.filter(item => {
               if (item.path === "/superadmin") {
-                return userRole === "superadmin" || userEmail === "claudiolx.nunes@gmail.com";
+                return userRole === "superadmin" || userEmail === "claudiolx.nunes@gmail.com" || userEmail === "clxn2000@hotmail.com";
               }
               return true;
             }).map((item) => {
@@ -417,7 +417,7 @@ function DashboardLayoutContent({
             <SidebarMenu className="gap-0.5">
               {menuItems.filter((item) => {
                 if (item.path === "/superadmin") {
-                  return user?.role === "superadmin" || user?.email === "claudiolx.nunes@gmail.com";
+                  return user?.role === "superadmin" || user?.email === "claudiolx.nunes@gmail.com" || user?.email === "clxn2000@hotmail.com";
                 }
                 return true;
               }).map((item) => {
@@ -517,7 +517,7 @@ function DashboardLayoutContent({
           <ul className="space-y-2">
             {menuItems.filter((item) => {
               if (item.path === "/superadmin") {
-                return user?.role === "superadmin" || user?.email === "claudiolx.nunes@gmail.com";
+                return user?.role === "superadmin" || user?.email === "claudiolx.nunes@gmail.com" || user?.email === "clxn2000@hotmail.com";
               }
               return true;
             }).map((item) => {
