@@ -210,8 +210,35 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
+  server.listen(port, async () => {
     console.log(`Server running on http://localhost:${port}/`);
+
+    // One-time admin password reset via env var (remove ADMIN_RESET_PASSWORD after use)
+    const resetPw = process.env.ADMIN_RESET_PASSWORD;
+    if (resetPw) {
+      try {
+        const bcrypt = await import("bcryptjs");
+        const { Pool } = await import("pg");
+        const pool = new Pool({
+          connectionString: process.env.DATABASE_URL,
+          ssl: process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false },
+          max: 1,
+        });
+        const hash = await bcrypt.hash(resetPw, 12);
+        const emails = ["claudiolx.nunes@gmail.com", "clxn2000@hotmail.com"];
+        for (const email of emails) {
+          const result = await pool.query(
+            `UPDATE users SET "passwordHash" = $1, "updatedAt" = NOW() WHERE email = $2 RETURNING id, email`,
+            [hash, email]
+          );
+          console.log(`[AdminReset] ${email}: ${result.rowCount ? "OK" : "NOT FOUND"}`);
+        }
+        await pool.end();
+        console.log("[AdminReset] Done. Remove ADMIN_RESET_PASSWORD env var now.");
+      } catch (err: any) {
+        console.error("[AdminReset] Error:", err.message);
+      }
+    }
   });
 }
 
